@@ -27,7 +27,6 @@ export default function Journal() {
   return (
     <div className="max-w-xl mx-auto p-6">
       <h1 className="text-4xl font-bold mb-8 text-center">My Journal</h1>
-
       <form onSubmit={handleSubmit} className="mb-8">
         <textarea
           className="textarea textarea-bordered w-full h-32 resize-none"

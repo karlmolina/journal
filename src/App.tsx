@@ -1,4 +1,4 @@
-import Journal from "./Journal";
+import Journal from "./pages/Journal";
 
 function App() {
   return (
