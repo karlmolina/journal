@@ -12,6 +12,7 @@ import {
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { db, auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
+import TopBar from "../components/TopBar";
 
 interface Entry {
   id: string;
@@ -69,22 +70,18 @@ export default function Journal() {
   };
 
   return (
-    <div className="max-w-xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold">Journal8</h1>
-        <button onClick={handleLogout} className="btn btn-outline">
-          Sign out
-        </button>
-      </div>
+    <div className="max-w-xl mx-auto p-2 sm:p-6">
+      <TopBar userPhoto={user?.photoURL} onSignOut={handleLogout} />
 
-      <form onSubmit={handleSubmit} className="mb-8">
+      <form onSubmit={handleSubmit} className="mb-4 sm:mb-8">
         <textarea
-          className="textarea textarea-bordered w-full h-32 resize-none"
-          placeholder="Write your journal entry here..."
+          id="journal-entry"
+          className="textarea w-full h-32 resize-none focus:outline-none transition-shadow text-base p-2 sm:p-4"
+          placeholder="Write a journal entry..."
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
-        <button type="submit" className="btn btn-primary mt-4 w-full">
+        <button type="submit" className="btn btn-primary mt-2 sm:mt-4 w-full">
           Add Entry
         </button>
       </form>
@@ -92,11 +89,14 @@ export default function Journal() {
       {entries.length === 0 ? (
         <p className="text-center text-gray-500">No entries yet.</p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-2">
           {entries.map(({ id, text, createdAt }) => (
-            <div key={id} className="card bg-base-100 shadow-md">
-              <div className="card-body">
-                <div className="text-sm text-gray-400 mb-2">
+            <div
+              key={id}
+              className="card bg-base-100 border-base-content/20 border"
+            >
+              <div className="card-body text-base p-2 sm:p-4">
+                <div className="text-sm text-gray-400">
                   {createdAt.toLocaleString()}
                 </div>
                 <p className="whitespace-pre-wrap">{text}</p>

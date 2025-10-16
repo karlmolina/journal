@@ -1,2 +1,7 @@
 @import "tailwindcss";
 @plugin "daisyui";
+
+body {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
