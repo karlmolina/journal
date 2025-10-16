@@ -71,7 +71,7 @@ export default function Journal() {
   return (
     <div className="max-w-xl mx-auto p-6">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold">My Journal</h1>
+        <h1 className="text-4xl font-bold">Journal8</h1>
         <button onClick={handleLogout} className="btn btn-outline">
           Sign out
         </button>
