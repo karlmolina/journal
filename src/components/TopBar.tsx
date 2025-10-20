@@ -60,8 +60,8 @@ function ThemeSwatch({ theme }: { theme: string }) {
 
 export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
   return (
-    <div className="flex justify-between items-center mb-8">
-      <h1 className="text-2xl">Journal8</h1>
+    <div className="flex justify-between items-center mb-4 sm:mb-8">
+      <h1 className="text-2xl ml-2 sm:ml-0">Journal8</h1>
 
       <div className="flex items-center gap-2">
         {/* Theme dropdown */}

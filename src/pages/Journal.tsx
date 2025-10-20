@@ -127,7 +127,7 @@ export default function Journal() {
     <div className="max-w-xl mx-auto p-2 sm:p-6">
       <TopBar userPhoto={user?.photoURL} onSignOut={handleLogout} />
 
-      <form onSubmit={handleSubmit} className="mb-4 sm:mb-8">
+      <form onSubmit={handleSubmit} className="">
         <textarea
           id="journal-entry"
           className="textarea w-full h-32 resize-none focus:outline-none transition-shadow text-base p-2 sm:p-4"
@@ -135,13 +135,13 @@ export default function Journal() {
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
-        <button type="submit" className="btn btn-primary mt-2 sm:mt-4 w-full">
+        <button type="submit" className="btn btn-primary my-2 sm:my-4 w-full">
           Add Entry
         </button>
       </form>
 
       {entries.length === 0 && !loading ? (
-        <p className="text-center text-gray-500">No entries yet.</p>
+        <p className="text-center text-gray-400">No entries yet.</p>
       ) : (
         <div className="space-y-2">
           {entries.map(({ id, text, createdAt }, i) => (
@@ -155,7 +155,11 @@ export default function Journal() {
         </div>
       )}
 
-      {loading && <p className="text-center text-gray-400 mt-4">Loading...</p>}
+      {loading && (
+        <div className="text-center text-gray-400 mt-4">
+          <span className="loading loading-spinner loading-lg"></span>
+        </div>
+      )}
     </div>
   );
 }
