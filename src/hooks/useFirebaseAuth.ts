@@ -30,6 +30,7 @@ export default function useFirebaseAuth() {
           }),
         );
       } else {
+        localStorage.removeItem("journal_entries_" + (user?.uid || ""));
         setUser(null);
         localStorage.removeItem(USER_CACHE_KEY);
         navigate("/signin");

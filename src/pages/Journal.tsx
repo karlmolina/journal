@@ -27,7 +27,7 @@ interface Entry {
 }
 
 export default function Journal() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [entries, setEntries] = useState<Entry[]>(() => {
     if (!user) return []; // no user yet
 
@@ -50,12 +50,6 @@ export default function Journal() {
   const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
   const observer = useRef<IntersectionObserver | null>(null);
-
-  // Redirect if user is not logged in
-  if (!authLoading && !user) {
-    navigate("/signin");
-    return null; // prevent rendering until redirect
-  }
 
   useEffect(() => {
     if (!user) return;
