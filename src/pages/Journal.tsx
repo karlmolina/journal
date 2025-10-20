@@ -100,16 +100,26 @@ export default function Journal() {
   );
 
   // --- Add new entry ---
+  // Add new entry
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || !user) return;
-    await addDoc(collection(db, "entries"), {
+
+    // Create new entry in Firestore
+    const docRef = await addDoc(collection(db, "entries"), {
       text: text.trim(),
       createdAt: serverTimestamp(),
       userId: user.uid,
     });
+
+    // Immediately add it to local state for instant UI update
+    const newEntry: Entry = {
+      id: docRef.id,
+      text: text.trim(),
+      createdAt: new Date(), // Use now, will be replaced on next fetch if needed
+    };
+    setEntries((prev) => [newEntry, ...prev]);
     setText("");
-    await loadEntries();
   };
 
   const handleLogout = async () => {
