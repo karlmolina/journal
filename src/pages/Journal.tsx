@@ -17,6 +17,8 @@ import { useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar";
 import JournalEntry from "../components/JournalEntry";
 import { useAuth } from "../context/AuthContext";
+// At the top of your component
+const LOCAL_STORAGE_KEY = "journal_entries";
 
 interface Entry {
   id: string;
@@ -25,8 +27,23 @@ interface Entry {
 }
 
 export default function Journal() {
-  const [entries, setEntries] = useState<Entry[]>([]);
   const { user, loading: authLoading } = useAuth();
+  const [entries, setEntries] = useState<Entry[]>(() => {
+    if (!user) return []; // no user yet
+
+    const cached = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${user.uid}`);
+    if (!cached) return [];
+
+    try {
+      const parsed: Entry[] = JSON.parse(cached).map((entry: any) => ({
+        ...entry,
+        createdAt: new Date(entry.createdAt), // restore Date objects
+      }));
+      return parsed;
+    } catch {
+      return [];
+    }
+  });
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
@@ -42,6 +59,8 @@ export default function Journal() {
 
   useEffect(() => {
     if (!user) return;
+
+    // Then fetch latest entries from Firestore
     loadEntries();
   }, [user]);
 
@@ -73,7 +92,14 @@ export default function Journal() {
         createdAt: doc.data().createdAt?.toDate() || new Date(),
       }));
 
-      setEntries((prev) => (more ? [...prev, ...newEntries] : newEntries));
+      setEntries((prev) => {
+        const updated = more ? [...prev, ...newEntries] : newEntries;
+        localStorage.setItem(
+          `${LOCAL_STORAGE_KEY}_${user.uid}`,
+          JSON.stringify(updated),
+        );
+        return updated;
+      });
       setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
       if (snapshot.docs.length < entryLimit) setHasMore(false);
       setLoading(false);
@@ -114,7 +140,14 @@ export default function Journal() {
       text: text.trim(),
       createdAt: new Date(), // Use now, will be replaced on next fetch if needed
     };
-    setEntries((prev) => [newEntry, ...prev]);
+    setEntries((prev) => {
+      const updated = [newEntry, ...prev];
+      localStorage.setItem(
+        `${LOCAL_STORAGE_KEY}_${user.uid}`,
+        JSON.stringify(updated),
+      );
+      return updated;
+    });
     setText("");
   };
 
