@@ -59,11 +59,6 @@ function ThemeSwatch({ theme }: { theme: string }) {
 }
 
 export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
-  useEffect(() => {
-    themeChange(false);
-    // 👆 false parameter is required for react project
-  }, []);
-
   return (
     <div className="flex justify-between items-center mb-8">
       <h1 className="text-2xl">Journal8</h1>
