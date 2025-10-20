@@ -12,10 +12,9 @@ jobs:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: bun ci && bun run build
-      - uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JOURNAL_78C63 }}
-          projectId: journal-78c63
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      - name: 🛠️ Install Bun
+        uses: oven-sh/setup-bun@v2
+      - name: 📦 Install dependencies
+        run: bun install && bun run build

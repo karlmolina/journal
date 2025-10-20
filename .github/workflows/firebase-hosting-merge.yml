@@ -10,8 +10,12 @@ jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: bun ci && bun run build
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      - name: 🛠️ Install Bun
+        uses: oven-sh/setup-bun@v2
+      - name: 📦 Install dependencies
+        run: bun install && bun run build
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
