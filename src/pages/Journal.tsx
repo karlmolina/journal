@@ -1,18 +1,22 @@
-// src/pages/Journal.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   collection,
   addDoc,
-  onSnapshot,
+  getDocs,
   orderBy,
   query,
   where,
   serverTimestamp,
+  limit,
+  startAfter,
+  DocumentSnapshot,
 } from "firebase/firestore";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { db, auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar";
+import formatDate from "../functions/formatDate";
+import JournalEntry from "../components/JournalEntry";
 
 interface Entry {
   id: string;
@@ -24,8 +28,13 @@ export default function Journal() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [text, setText] = useState("");
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
+  const observer = useRef<IntersectionObserver | null>(null);
 
+  // --- Watch auth ---
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       if (!u) navigate("/signin");
@@ -36,23 +45,61 @@ export default function Journal() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(
-      collection(db, "entries"),
-      where("userId", "==", user.uid),
-      orderBy("createdAt", "desc"),
-    );
-    const unsub = onSnapshot(q, (snapshot) => {
-      setEntries(
-        snapshot.docs.map((doc) => ({
-          id: doc.id,
-          text: doc.data().text,
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-        })),
-      );
-    });
-    return unsub;
+    loadEntries();
   }, [user]);
 
+  const loadEntries = useCallback(
+    async (more = false) => {
+      const entryLimit = 10;
+      if (!user || loading || (!hasMore && more)) return;
+      setLoading(true);
+
+      const q = query(
+        collection(db, "entries"),
+        where("userId", "==", user.uid),
+        orderBy("createdAt", "desc"),
+        ...(lastDoc && more ? [startAfter(lastDoc)] : []),
+        limit(entryLimit),
+      );
+
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        setHasMore(false);
+        setLoading(false);
+        return;
+      }
+
+      const newEntries = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        text: doc.data().text,
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+      }));
+
+      setEntries((prev) => (more ? [...prev, ...newEntries] : newEntries));
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      if (snapshot.docs.length < entryLimit) setHasMore(false);
+      setLoading(false);
+    },
+    [user, lastDoc, loading, hasMore],
+  );
+
+  // --- Infinite scroll observer ---
+  const lastEntryRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (loading) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          loadEntries(true);
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [loading, hasMore, loadEntries],
+  );
+
+  // --- Add new entry ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || !user) return;
@@ -62,6 +109,7 @@ export default function Journal() {
       userId: user.uid,
     });
     setText("");
+    await loadEntries();
   };
 
   const handleLogout = async () => {
@@ -86,25 +134,22 @@ export default function Journal() {
         </button>
       </form>
 
-      {entries.length === 0 ? (
+      {entries.length === 0 && !loading ? (
         <p className="text-center text-gray-500">No entries yet.</p>
       ) : (
         <div className="space-y-2">
-          {entries.map(({ id, text, createdAt }) => (
-            <div
+          {entries.map(({ id, text, createdAt }, i) => (
+            <JournalEntry
               key={id}
-              className="card bg-base-100 border-base-content/20 border"
-            >
-              <div className="card-body text-base p-2 sm:p-4">
-                <div className="text-sm text-gray-400">
-                  {createdAt.toLocaleString()}
-                </div>
-                <p className="whitespace-pre-wrap">{text}</p>
-              </div>
-            </div>
+              text={text}
+              createdAt={createdAt}
+              refProp={i === entries.length - 1 ? lastEntryRef : undefined}
+            />
           ))}
         </div>
       )}
+
+      {loading && <p className="text-center text-gray-400 mt-4">Loading...</p>}
     </div>
   );
 }
