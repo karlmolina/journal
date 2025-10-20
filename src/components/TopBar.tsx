@@ -1,6 +1,3 @@
-import { useEffect } from "react";
-import { themeChange } from "theme-change";
-
 interface TopBarProps {
   userPhoto?: string | null;
   onSignOut: () => void;
