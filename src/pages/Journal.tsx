@@ -11,12 +11,12 @@ import {
   startAfter,
   DocumentSnapshot,
 } from "firebase/firestore";
-import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { signOut } from "firebase/auth";
 import { db, auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar";
-import formatDate from "../functions/formatDate";
 import JournalEntry from "../components/JournalEntry";
+import { useAuth } from "../context/AuthContext";
 
 interface Entry {
   id: string;
@@ -26,22 +26,19 @@ interface Entry {
 
 export default function Journal() {
   const [entries, setEntries] = useState<Entry[]>([]);
+  const { user, loading: authLoading } = useAuth();
   const [text, setText] = useState("");
-  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
   const observer = useRef<IntersectionObserver | null>(null);
 
-  // --- Watch auth ---
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      if (!u) navigate("/signin");
-      setUser(u);
-    });
-    return unsub;
-  }, [navigate]);
+  // Redirect if user is not logged in
+  if (!authLoading && !user) {
+    navigate("/signin");
+    return null; // prevent rendering until redirect
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -99,7 +96,6 @@ export default function Journal() {
     [loading, hasMore, loadEntries],
   );
 
-  // --- Add new entry ---
   // Add new entry
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
