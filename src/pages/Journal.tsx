@@ -6,6 +6,12 @@ import { useAuth } from "../context/AuthContext";
 
 const LOCAL_STORAGE_KEY = "journal_entries";
 const ENTRY_LIMIT = 10;
+const SEARCH_DEBOUNCE_MS = 500;
+const SEARCH_LIMIT = 20;
+// Minimum cosine similarity for a search result. gte-small scores unrelated
+// text fairly high, so this sits well above zero; tune it if results are too
+// strict or too loose.
+const SEARCH_THRESHOLD = 0.8;
 
 interface Entry {
   id: string;
@@ -26,6 +32,14 @@ const toEntry = (row: EntryRow): Entry => ({
   text: row.text,
   createdAt: row.created_at,
 });
+
+async function embed(input: string): Promise<number[]> {
+  const { data, error } = await supabase.functions.invoke<{
+    embedding: number[];
+  }>("embed", { body: { input } });
+  if (error || !data) throw error ?? new Error("No embedding returned");
+  return data.embedding;
+}
 
 function readCache(userId: string): Entry[] {
   try {
@@ -53,45 +67,78 @@ export default function Journal() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
   const observer = useRef<IntersectionObserver | null>(null);
+  // Bumped on every fresh load so responses for an outdated query are dropped.
+  const requestId = useRef(0);
+
+  // Debounce the search box so we don't query on every keystroke.
+  useEffect(() => {
+    const timeout = setTimeout(
+      () => setQuery(search.trim()),
+      SEARCH_DEBOUNCE_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [search]);
 
   const loadEntries = useCallback(
     async (cursor?: string) => {
       if (!user) return;
+      if (!cursor) requestId.current++;
+      const id = requestId.current;
       setLoading(true);
 
-      let q = supabase
-        .from("entries")
-        .select("id, text, created_at")
-        .order("created_at", { ascending: false })
-        .limit(ENTRY_LIMIT);
-      if (cursor) q = q.lt("created_at", cursor);
-
-      const { data, error } = await q;
-      setLoading(false);
-      if (error) {
+      let rows: EntryRow[];
+      try {
+        if (query) {
+          // Semantic search returns one page of the closest matches, ranked
+          // by similarity, so there is nothing more to load after it.
+          const { data, error } = await supabase.rpc("match_entries", {
+            query_embedding: await embed(query),
+            match_threshold: SEARCH_THRESHOLD,
+            match_count: SEARCH_LIMIT,
+          });
+          if (error) throw error;
+          rows = data;
+        } else {
+          let q = supabase
+            .from("entries")
+            .select("id, text, created_at")
+            .order("created_at", { ascending: false })
+            .limit(ENTRY_LIMIT);
+          if (cursor) q = q.lt("created_at", cursor);
+          const { data, error } = await q;
+          if (error) throw error;
+          rows = data;
+        }
+      } catch (error) {
+        if (id === requestId.current) setLoading(false);
         console.error(error);
         return;
       }
+      if (id !== requestId.current) return;
+      setLoading(false);
 
-      const newEntries = data.map(toEntry);
+      const newEntries = rows.map(toEntry);
       setEntries((prev) => {
         const updated = cursor ? [...prev, ...newEntries] : newEntries;
-        writeCache(user.id, updated);
+        if (!query) writeCache(user.id, updated);
         return updated;
       });
-      setHasMore(newEntries.length === ENTRY_LIMIT);
+      setHasMore(!query && newEntries.length === ENTRY_LIMIT);
     },
-    [user],
+    [user, query],
   );
 
-  // Show cached entries instantly, then refresh from Supabase.
+  // Show cached entries instantly, then refresh from Supabase. While
+  // searching, start from an empty list instead of the cache.
   useEffect(() => {
     if (!user) return;
-    setEntries(readCache(user.id));
+    setEntries(query ? [] : readCache(user.id));
     setHasMore(true);
     loadEntries();
-  }, [user, loadEntries]);
+  }, [user, query, loadEntries]);
 
   // --- Infinite scroll observer ---
   const lastEntryRef = useCallback(
@@ -114,9 +161,18 @@ export default function Journal() {
     const trimmed = text.trim();
     if (!trimmed || !user) return;
 
+    // Save the entry even if embedding fails; the backfill script can fill
+    // in missing embeddings later.
+    let embedding: number[] | null = null;
+    try {
+      embedding = await embed(trimmed);
+    } catch (error) {
+      console.error(error);
+    }
+
     const { data, error } = await supabase
       .from("entries")
-      .insert({ text: trimmed })
+      .insert({ text: trimmed, embedding })
       .select("id, text, created_at")
       .single();
     if (error) {
@@ -124,12 +180,17 @@ export default function Journal() {
       return;
     }
 
+    setText("");
+    // A new entry may not match the current search, so clear it to show it.
+    if (query) {
+      setSearch("");
+      return;
+    }
     setEntries((prev) => {
       const updated = [toEntry(data), ...prev];
       writeCache(user.id, updated);
       return updated;
     });
-    setText("");
   };
 
   const handleLogout = async () => {
@@ -157,8 +218,19 @@ export default function Journal() {
         </button>
       </form>
 
+      <input
+        type="search"
+        className="input w-full mb-2 sm:mb-4 focus:outline-none"
+        placeholder="Search entries..."
+        aria-label="Search entries"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
       {entries.length === 0 && !loading ? (
-        <p className="text-center text-gray-400">No entries yet.</p>
+        <p className="text-center text-gray-400">
+          {query ? "No matching entries." : "No entries yet."}
+        </p>
       ) : (
         <div className="space-y-2">
           {entries.map(({ id, text, createdAt }, i) => (
