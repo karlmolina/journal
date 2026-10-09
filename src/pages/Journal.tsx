@@ -1,158 +1,148 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  orderBy,
-  query,
-  where,
-  serverTimestamp,
-  limit,
-  startAfter,
-  DocumentSnapshot,
-} from "firebase/firestore";
-import { signOut } from "firebase/auth";
-import { db, auth } from "../firebase";
-import { useNavigate } from "react-router-dom";
+import { supabase } from "../supabase";
 import TopBar from "../components/TopBar";
 import JournalEntry from "../components/JournalEntry";
 import { useAuth } from "../context/AuthContext";
-// At the top of your component
+
 const LOCAL_STORAGE_KEY = "journal_entries";
+const ENTRY_LIMIT = 10;
 
 interface Entry {
   id: string;
   text: string;
-  createdAt: Date;
+  // Raw timestamptz string from Postgres; kept as-is so it can be used as a
+  // pagination cursor without losing microsecond precision.
+  createdAt: string;
+}
+
+interface EntryRow {
+  id: string;
+  text: string;
+  created_at: string;
+}
+
+const toEntry = (row: EntryRow): Entry => ({
+  id: row.id,
+  text: row.text,
+  createdAt: row.created_at,
+});
+
+function readCache(userId: string): Entry[] {
+  try {
+    const cached = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${userId}`);
+    return cached ? JSON.parse(cached) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCache(userId: string, entries: Entry[]) {
+  try {
+    localStorage.setItem(
+      `${LOCAL_STORAGE_KEY}_${userId}`,
+      JSON.stringify(entries),
+    );
+  } catch {
+    // Ignore quota / private mode errors; the cache is only a convenience.
+  }
 }
 
 export default function Journal() {
   const { user } = useAuth();
-  const [entries, setEntries] = useState<Entry[]>(() => {
-    if (!user) return []; // no user yet
-
-    const cached = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${user.uid}`);
-    if (!cached) return [];
-
-    try {
-      const parsed: Entry[] = JSON.parse(cached).map((entry: any) => ({
-        ...entry,
-        createdAt: new Date(entry.createdAt), // restore Date objects
-      }));
-      return parsed;
-    } catch {
-      return [];
-    }
-  });
+  const [entries, setEntries] = useState<Entry[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const navigate = useNavigate();
   const observer = useRef<IntersectionObserver | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
-
-    // Then fetch latest entries from Firestore
-    loadEntries();
-  }, [user]);
-
   const loadEntries = useCallback(
-    async (more = false) => {
-      const entryLimit = 10;
-      if (!user || loading || (!hasMore && more)) return;
+    async (cursor?: string) => {
+      if (!user) return;
       setLoading(true);
 
-      const q = query(
-        collection(db, "entries"),
-        where("userId", "==", user.uid),
-        orderBy("createdAt", "desc"),
-        ...(lastDoc && more ? [startAfter(lastDoc)] : []),
-        limit(entryLimit),
-      );
+      let q = supabase
+        .from("entries")
+        .select("id, text, created_at")
+        .order("created_at", { ascending: false })
+        .limit(ENTRY_LIMIT);
+      if (cursor) q = q.lt("created_at", cursor);
 
-      const snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
-        setHasMore(false);
-        setLoading(false);
+      const { data, error } = await q;
+      setLoading(false);
+      if (error) {
+        console.error(error);
         return;
       }
 
-      const newEntries = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        text: doc.data().text,
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-      }));
-
+      const newEntries = data.map(toEntry);
       setEntries((prev) => {
-        const updated = more ? [...prev, ...newEntries] : newEntries;
-        localStorage.setItem(
-          `${LOCAL_STORAGE_KEY}_${user.uid}`,
-          JSON.stringify(updated),
-        );
+        const updated = cursor ? [...prev, ...newEntries] : newEntries;
+        writeCache(user.id, updated);
         return updated;
       });
-      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
-      if (snapshot.docs.length < entryLimit) setHasMore(false);
-      setLoading(false);
+      setHasMore(newEntries.length === ENTRY_LIMIT);
     },
-    [user, lastDoc, loading, hasMore],
+    [user],
   );
+
+  // Show cached entries instantly, then refresh from Supabase.
+  useEffect(() => {
+    if (!user) return;
+    setEntries(readCache(user.id));
+    setHasMore(true);
+    loadEntries();
+  }, [user, loadEntries]);
 
   // --- Infinite scroll observer ---
   const lastEntryRef = useCallback(
     (node: HTMLDivElement | null) => {
       if (loading) return;
       if (observer.current) observer.current.disconnect();
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMore) {
-          loadEntries(true);
+      observer.current = new IntersectionObserver((observed) => {
+        if (observed[0].isIntersecting && hasMore && entries.length > 0) {
+          loadEntries(entries[entries.length - 1].createdAt);
         }
       });
       if (node) observer.current.observe(node);
     },
-    [loading, hasMore, loadEntries],
+    [loading, hasMore, entries, loadEntries],
   );
 
   // Add new entry
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim() || !user) return;
+    const trimmed = text.trim();
+    if (!trimmed || !user) return;
 
-    // Create new entry in Firestore
-    const docRef = await addDoc(collection(db, "entries"), {
-      text: text.trim(),
-      createdAt: serverTimestamp(),
-      userId: user.uid,
-    });
+    const { data, error } = await supabase
+      .from("entries")
+      .insert({ text: trimmed })
+      .select("id, text, created_at")
+      .single();
+    if (error) {
+      console.error(error);
+      return;
+    }
 
-    // Immediately add it to local state for instant UI update
-    const newEntry: Entry = {
-      id: docRef.id,
-      text: text.trim(),
-      createdAt: new Date(), // Use now, will be replaced on next fetch if needed
-    };
     setEntries((prev) => {
-      const updated = [newEntry, ...prev];
-      localStorage.setItem(
-        `${LOCAL_STORAGE_KEY}_${user.uid}`,
-        JSON.stringify(updated),
-      );
+      const updated = [toEntry(data), ...prev];
+      writeCache(user.id, updated);
       return updated;
     });
     setText("");
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
-    navigate("/signin");
+    if (user) localStorage.removeItem(`${LOCAL_STORAGE_KEY}_${user.id}`);
+    await supabase.auth.signOut();
   };
 
   return (
     <div className="max-w-xl mx-auto p-2 sm:p-6">
-      <TopBar userPhoto={user?.photoURL} onSignOut={handleLogout} />
+      <TopBar
+        userPhoto={user?.user_metadata?.avatar_url}
+        onSignOut={handleLogout}
+      />
 
       <form onSubmit={handleSubmit} className="">
         <textarea
@@ -175,7 +165,7 @@ export default function Journal() {
             <JournalEntry
               key={id}
               text={text}
-              createdAt={createdAt}
+              createdAt={new Date(createdAt)}
               refProp={i === entries.length - 1 ? lastEntryRef : undefined}
             />
           ))}

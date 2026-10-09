@@ -1,19 +1,17 @@
 // src/pages/SignIn.tsx
-import { signInWithPopup } from "firebase/auth";
-import { auth, googleProvider } from "../firebase";
-import { useNavigate } from "react-router-dom";
+import { supabase } from "../supabase";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 
 export default function SignIn() {
-  const navigate = useNavigate();
-
   const handleSignIn = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-      navigate("/journal");
-    } catch (err) {
-      console.error(err);
-    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/journal`,
+        queryParams: { prompt: "select_account" },
+      },
+    });
+    if (error) console.error(error);
   };
 
   return (
