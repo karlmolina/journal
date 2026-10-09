@@ -6,7 +6,7 @@
 // Environment (Bun loads .env automatically):
 //   GOOGLE_APPLICATION_CREDENTIALS  Path to a Firebase service account JSON key
 //   VITE_SUPABASE_URL               Supabase project URL
-//   SUPABASE_SERVICE_ROLE_KEY       Supabase service role key (bypasses RLS)
+//   SUPABASE_SECRET_KEY             Supabase secret key, sb_secret_... (bypasses RLS)
 //
 // Users are matched by email. A Firebase user with no Supabase account yet gets
 // one created with a confirmed email; Supabase links it to their Google
@@ -45,7 +45,7 @@ const firestore = getFirestore();
 const firebaseAuth = getAuth();
 const supabase = createClient(
   requireEnv("VITE_SUPABASE_URL"),
-  requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  requireEnv("SUPABASE_SECRET_KEY"),
   { auth: { persistSession: false, autoRefreshToken: false } },
 );
 
