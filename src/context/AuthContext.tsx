@@ -1,7 +1,7 @@
 // src/context/AuthContext.tsx
 import React, { createContext, useContext } from "react";
-import type { User } from "firebase/auth";
-import useFirebaseAuth from "../hooks/useFirebaseAuth";
+import type { User } from "@supabase/supabase-js";
+import useSupabaseAuth from "../hooks/useSupabaseAuth";
 
 interface AuthContextValue {
   user: User | null;
@@ -16,7 +16,7 @@ const AuthContext = createContext<AuthContextValue>({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { user, loading } = useFirebaseAuth();
+  const { user, loading } = useSupabaseAuth();
   return (
     <AuthContext.Provider value={{ user, loading }}>
       {children}

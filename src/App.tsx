@@ -1,20 +1,15 @@
 // src/App.tsx
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { onAuthStateChanged, type User } from "firebase/auth";
-import { auth } from "./firebase";
+import { useAuth } from "./context/AuthContext";
 
 export default function App() {
-  const [_user, setUser] = useState<User | null>(null);
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      navigate(u ? "/journal" : "/signin");
-    });
-    return unsub;
-  }, [navigate]);
+    if (!loading) navigate(user ? "/journal" : "/signin");
+  }, [user, loading, navigate]);
 
   return (
     <div className="flex justify-center items-center h-screen">
