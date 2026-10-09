@@ -6,7 +6,12 @@ import { useAuth } from "../context/AuthContext";
 
 const LOCAL_STORAGE_KEY = "journal_entries";
 const ENTRY_LIMIT = 10;
-const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_DEBOUNCE_MS = 500;
+const SEARCH_LIMIT = 20;
+// Minimum cosine similarity for a search result. gte-small scores unrelated
+// text fairly high, so this sits well above zero; tune it if results are too
+// strict or too loose.
+const SEARCH_THRESHOLD = 0.8;
 
 interface Entry {
   id: string;
@@ -27,6 +32,14 @@ const toEntry = (row: EntryRow): Entry => ({
   text: row.text,
   createdAt: row.created_at,
 });
+
+async function embed(input: string): Promise<number[]> {
+  const { data, error } = await supabase.functions.invoke<{
+    embedding: number[];
+  }>("embed", { body: { input } });
+  if (error || !data) throw error ?? new Error("No embedding returned");
+  return data.embedding;
+}
 
 function readCache(userId: string): Entry[] {
   try {
@@ -76,31 +89,44 @@ export default function Journal() {
       const id = requestId.current;
       setLoading(true);
 
-      let q = supabase
-        .from("entries")
-        .select("id, text, created_at")
-        .order("created_at", { ascending: false })
-        .limit(ENTRY_LIMIT);
-      if (query) {
-        q = q.textSearch("fts", query, { type: "websearch", config: "english" });
-      }
-      if (cursor) q = q.lt("created_at", cursor);
-
-      const { data, error } = await q;
-      if (id !== requestId.current) return;
-      setLoading(false);
-      if (error) {
+      let rows: EntryRow[];
+      try {
+        if (query) {
+          // Semantic search returns one page of the closest matches, ranked
+          // by similarity, so there is nothing more to load after it.
+          const { data, error } = await supabase.rpc("match_entries", {
+            query_embedding: await embed(query),
+            match_threshold: SEARCH_THRESHOLD,
+            match_count: SEARCH_LIMIT,
+          });
+          if (error) throw error;
+          rows = data;
+        } else {
+          let q = supabase
+            .from("entries")
+            .select("id, text, created_at")
+            .order("created_at", { ascending: false })
+            .limit(ENTRY_LIMIT);
+          if (cursor) q = q.lt("created_at", cursor);
+          const { data, error } = await q;
+          if (error) throw error;
+          rows = data;
+        }
+      } catch (error) {
+        if (id === requestId.current) setLoading(false);
         console.error(error);
         return;
       }
+      if (id !== requestId.current) return;
+      setLoading(false);
 
-      const newEntries = data.map(toEntry);
+      const newEntries = rows.map(toEntry);
       setEntries((prev) => {
         const updated = cursor ? [...prev, ...newEntries] : newEntries;
         if (!query) writeCache(user.id, updated);
         return updated;
       });
-      setHasMore(newEntries.length === ENTRY_LIMIT);
+      setHasMore(!query && newEntries.length === ENTRY_LIMIT);
     },
     [user, query],
   );
@@ -135,9 +161,18 @@ export default function Journal() {
     const trimmed = text.trim();
     if (!trimmed || !user) return;
 
+    // Save the entry even if embedding fails; the backfill script can fill
+    // in missing embeddings later.
+    let embedding: number[] | null = null;
+    try {
+      embedding = await embed(trimmed);
+    } catch (error) {
+      console.error(error);
+    }
+
     const { data, error } = await supabase
       .from("entries")
-      .insert({ text: trimmed })
+      .insert({ text: trimmed, embedding })
       .select("id, text, created_at")
       .single();
     if (error) {
