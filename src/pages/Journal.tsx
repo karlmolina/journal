@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 
 const LOCAL_STORAGE_KEY = "journal_entries";
 const ENTRY_LIMIT = 10;
+const SEARCH_DEBOUNCE_MS = 300;
 
 interface Entry {
   id: string;
@@ -53,11 +54,26 @@ export default function Journal() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
   const observer = useRef<IntersectionObserver | null>(null);
+  // Bumped on every fresh load so responses for an outdated query are dropped.
+  const requestId = useRef(0);
+
+  // Debounce the search box so we don't query on every keystroke.
+  useEffect(() => {
+    const timeout = setTimeout(
+      () => setQuery(search.trim()),
+      SEARCH_DEBOUNCE_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [search]);
 
   const loadEntries = useCallback(
     async (cursor?: string) => {
       if (!user) return;
+      if (!cursor) requestId.current++;
+      const id = requestId.current;
       setLoading(true);
 
       let q = supabase
@@ -65,9 +81,13 @@ export default function Journal() {
         .select("id, text, created_at")
         .order("created_at", { ascending: false })
         .limit(ENTRY_LIMIT);
+      if (query) {
+        q = q.textSearch("fts", query, { type: "websearch", config: "english" });
+      }
       if (cursor) q = q.lt("created_at", cursor);
 
       const { data, error } = await q;
+      if (id !== requestId.current) return;
       setLoading(false);
       if (error) {
         console.error(error);
@@ -77,21 +97,22 @@ export default function Journal() {
       const newEntries = data.map(toEntry);
       setEntries((prev) => {
         const updated = cursor ? [...prev, ...newEntries] : newEntries;
-        writeCache(user.id, updated);
+        if (!query) writeCache(user.id, updated);
         return updated;
       });
       setHasMore(newEntries.length === ENTRY_LIMIT);
     },
-    [user],
+    [user, query],
   );
 
-  // Show cached entries instantly, then refresh from Supabase.
+  // Show cached entries instantly, then refresh from Supabase. While
+  // searching, start from an empty list instead of the cache.
   useEffect(() => {
     if (!user) return;
-    setEntries(readCache(user.id));
+    setEntries(query ? [] : readCache(user.id));
     setHasMore(true);
     loadEntries();
-  }, [user, loadEntries]);
+  }, [user, query, loadEntries]);
 
   // --- Infinite scroll observer ---
   const lastEntryRef = useCallback(
@@ -124,12 +145,17 @@ export default function Journal() {
       return;
     }
 
+    setText("");
+    // A new entry may not match the current search, so clear it to show it.
+    if (query) {
+      setSearch("");
+      return;
+    }
     setEntries((prev) => {
       const updated = [toEntry(data), ...prev];
       writeCache(user.id, updated);
       return updated;
     });
-    setText("");
   };
 
   const handleLogout = async () => {
@@ -157,8 +183,19 @@ export default function Journal() {
         </button>
       </form>
 
+      <input
+        type="search"
+        className="input w-full mb-2 sm:mb-4 focus:outline-none"
+        placeholder="Search entries..."
+        aria-label="Search entries"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
       {entries.length === 0 && !loading ? (
-        <p className="text-center text-gray-400">No entries yet.</p>
+        <p className="text-center text-gray-400">
+          {query ? "No matching entries." : "No entries yet."}
+        </p>
       ) : (
         <div className="space-y-2">
           {entries.map(({ id, text, createdAt }, i) => (
