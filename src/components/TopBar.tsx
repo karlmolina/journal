@@ -1,3 +1,6 @@
+import { useEffect } from "react";
+import { themeChange } from "theme-change";
+
 interface TopBarProps {
   userPhoto?: string | null;
   onSignOut: () => void;
@@ -56,6 +59,12 @@ function ThemeSwatch({ theme }: { theme: string }) {
 }
 
 export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
+  // TopBar mounts after ThemeRoot (e.g. once auth/data finishes loading), so
+  // bind the theme buttons here too.
+  useEffect(() => {
+    themeChange(false);
+  }, []);
+
   return (
     <div className="flex justify-between items-center mb-4 sm:mb-8">
       <h1 className="text-2xl ml-2 sm:ml-0">Journal8</h1>
