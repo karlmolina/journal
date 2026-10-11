@@ -22,11 +22,19 @@ interface EntryRow {
   created_at: string;
 }
 
+interface SearchRow extends EntryRow {
+  highlighted: string;
+}
+
 const toEntry = (row: EntryRow): Entry => ({
   id: row.id,
   text: row.text,
   createdAt: row.created_at,
 });
+
+interface SearchResult extends Entry {
+  highlighted: string;
+}
 
 function readCache(userId: string): Entry[] {
   try {
@@ -57,7 +65,7 @@ export default function Journal() {
   const observer = useRef<IntersectionObserver | null>(null);
   const latestRequest = useRef(0);
   const [searchText, setSearchText] = useState("");
-  const [results, setResults] = useState<Entry[] | null>(null);
+  const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -128,7 +136,12 @@ export default function Journal() {
       console.error(error);
       return;
     }
-    setResults((data as EntryRow[]).map(toEntry));
+    setResults(
+      (data as SearchRow[]).map((row) => ({
+        ...toEntry(row),
+        highlighted: row.highlighted,
+      })),
+    );
   }, []);
 
   // Search 300ms after the user stops typing.
@@ -245,8 +258,13 @@ export default function Journal() {
           {results.length === 0 ? (
             <p className="text-center text-gray-400">No matching entries.</p>
           ) : (
-            results.map(({ id, text, createdAt }) => (
-              <JournalEntry key={id} text={text} createdAt={new Date(createdAt)} />
+            results.map(({ id, text, highlighted, createdAt }) => (
+              <JournalEntry
+                key={id}
+                text={text}
+                highlighted={highlighted}
+                createdAt={new Date(createdAt)}
+              />
             ))
           )}
         </div>
