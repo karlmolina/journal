@@ -101,7 +101,16 @@ export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
           <div tabIndex={0} className="btn btn-ghost btn-circle avatar">
             <div className="w-10 rounded-full">
               {userPhoto ? (
-                <img src={userPhoto} alt="Profile" />
+                <img
+                  src={userPhoto}
+                  alt="Profile"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src =
+                      "https://api.dicebear.com/7.x/initials/svg?seed=User";
+                  }}
+                />
               ) : (
                 <img
                   src="https://api.dicebear.com/7.x/initials/svg?seed=User"

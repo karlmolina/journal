@@ -140,7 +140,9 @@ export default function Journal() {
   return (
     <div className="max-w-xl mx-auto p-2 sm:p-6">
       <TopBar
-        userPhoto={user?.user_metadata?.avatar_url}
+        userPhoto={
+          user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture
+        }
         onSignOut={handleLogout}
       />
 
