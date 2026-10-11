@@ -87,7 +87,7 @@ export default function TopBar({
     return (
       <form
         onSubmit={onSearchSubmit}
-        className="mb-4 sm:mb-8"
+        className="py-2 sm:py-4"
       >
         <label className="input w-full focus-within:outline-none transition-shadow">
           <svg
@@ -131,7 +131,7 @@ export default function TopBar({
   }
 
   return (
-    <div className="flex justify-between items-center mb-4 sm:mb-8">
+    <div className="flex justify-between items-center py-2 sm:py-4">
       <h1 className="text-2xl ml-2 sm:ml-0">Journal8</h1>
 
       <div className="flex items-center">

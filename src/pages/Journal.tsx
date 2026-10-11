@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import { supabase } from "../supabase";
 import TopBar from "../components/TopBar";
 import JournalEntry from "../components/JournalEntry";
@@ -64,6 +70,12 @@ export default function Journal() {
   const [hasMore, setHasMore] = useState(true);
   const observer = useRef<IntersectionObserver | null>(null);
   const latestRequest = useRef(0);
+  // Scroll bookkeeping: the newest entry is at the bottom, so we jump there on
+  // first render / new entry, and keep position steady when older ones load above.
+  const scrollToBottom = useRef(true);
+  const prevScrollHeight = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showJumpDown, setShowJumpDown] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -96,6 +108,8 @@ export default function Journal() {
       if (requestId !== latestRequest.current) return;
 
       const newEntries = data.map(toEntry);
+      if (cursor)
+        prevScrollHeight.current = scrollRef.current?.scrollHeight ?? null;
       setEntries((prev) => {
         const seen = new Set(prev.map((e) => e.id));
         const updated = cursor
@@ -112,6 +126,7 @@ export default function Journal() {
   // Show cached entries instantly, then refresh from Supabase.
   useEffect(() => {
     if (!user) return;
+    scrollToBottom.current = true;
     setEntries(readCache(user.id));
     setHasMore(true);
     loadEntries();
@@ -152,7 +167,10 @@ export default function Journal() {
       setSearching(false);
       return;
     }
-    searchTimer.current = setTimeout(() => runSearch(query), SEARCH_DEBOUNCE_MS);
+    searchTimer.current = setTimeout(
+      () => runSearch(query),
+      SEARCH_DEBOUNCE_MS,
+    );
     return () => clearTimeout(searchTimer.current);
   }, [searchText, runSearch]);
 
@@ -175,7 +193,31 @@ export default function Journal() {
     setSearchOpen(!searchOpen);
   };
 
-  // --- Infinite scroll observer ---
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (scrollToBottom.current && entries.length > 0) {
+      scrollToBottom.current = false;
+      el.scrollTop = el.scrollHeight;
+    } else if (prevScrollHeight.current !== null) {
+      el.scrollTop += el.scrollHeight - prevScrollHeight.current;
+    }
+    prevScrollHeight.current = null;
+  }, [entries]);
+
+  const handleListScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    setShowJumpDown(el.scrollHeight - el.scrollTop - el.clientHeight > 200);
+  };
+
+  const jumpToBottom = () => {
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  };
+
+  // --- Infinite scroll observer (fires at the top: older entries load upward) ---
   const lastEntryRef = useCallback(
     (node: HTMLDivElement | null) => {
       if (loading) return;
@@ -212,6 +254,7 @@ export default function Journal() {
       return updated;
     });
     setText("");
+    scrollToBottom.current = true;
   };
 
   const handleLogout = async () => {
@@ -220,7 +263,7 @@ export default function Journal() {
   };
 
   return (
-    <div className="max-w-xl mx-auto p-2 sm:p-6">
+    <div className="max-w-xl mx-auto px-2 sm:px-6 h-dvh flex flex-col">
       <TopBar
         userPhoto={
           user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture
@@ -238,11 +281,70 @@ export default function Journal() {
         searching={searching}
       />
 
+      <div className="relative flex-1 min-h-0">
+        <div
+          ref={scrollRef}
+          onScroll={handleListScroll}
+          className="h-full overflow-y-auto scrollbar-none"
+        >
+          {loading && !results && (
+            <div className="text-center text-gray-400 mb-4">
+              <span className="loading loading-spinner loading-lg"></span>
+            </div>
+          )}
+
+          {results ? (
+            <div className="space-y-2">
+              {results.length === 0 ? (
+                <p className="text-center text-gray-400">
+                  No matching entries.
+                </p>
+              ) : (
+                results.map(({ id, text, highlighted, createdAt }) => (
+                  <JournalEntry
+                    key={id}
+                    text={text}
+                    highlighted={highlighted}
+                    createdAt={new Date(createdAt)}
+                  />
+                ))
+              )}
+            </div>
+          ) : entries.length === 0 && !loading ? (
+            <p className="text-center text-gray-400">No entries yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {[...entries].reverse().map(({ id, text, createdAt }, i) => (
+                <JournalEntry
+                  key={id}
+                  text={text}
+                  createdAt={new Date(createdAt)}
+                  refProp={i === 0 ? lastEntryRef : undefined}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+        {showJumpDown && !results && (
+          <button
+            type="button"
+            onClick={jumpToBottom}
+            aria-label="Scroll to latest entry"
+            className="btn btn-circle btn-primary btn-sm absolute bottom-2 left-1/2 -translate-x-1/2 shadow"
+          >
+            ↓
+          </button>
+        )}
+      </div>
+
       {!searchOpen && (
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          className="shrink-0 bg-base-100 pb-[env(safe-area-inset-bottom)] pt-2"
+        >
           <textarea
             id="journal-entry"
-            className="textarea w-full h-32 resize-none focus:outline-none transition-shadow text-base p-2 sm:p-4"
+            className="textarea w-full h-24 resize-none focus:outline-none transition-shadow text-base p-2 sm:p-4"
             placeholder="Write a journal entry..."
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -251,42 +353,6 @@ export default function Journal() {
             Add Entry
           </button>
         </form>
-      )}
-
-      {results ? (
-        <div className="space-y-2">
-          {results.length === 0 ? (
-            <p className="text-center text-gray-400">No matching entries.</p>
-          ) : (
-            results.map(({ id, text, highlighted, createdAt }) => (
-              <JournalEntry
-                key={id}
-                text={text}
-                highlighted={highlighted}
-                createdAt={new Date(createdAt)}
-              />
-            ))
-          )}
-        </div>
-      ) : entries.length === 0 && !loading ? (
-        <p className="text-center text-gray-400">No entries yet.</p>
-      ) : (
-        <div className="space-y-2">
-          {entries.map(({ id, text, createdAt }, i) => (
-            <JournalEntry
-              key={id}
-              text={text}
-              createdAt={new Date(createdAt)}
-              refProp={i === entries.length - 1 ? lastEntryRef : undefined}
-            />
-          ))}
-        </div>
-      )}
-
-      {loading && !results && (
-        <div className="text-center text-gray-400 mt-4">
-          <span className="loading loading-spinner loading-lg"></span>
-        </div>
       )}
     </div>
   );
