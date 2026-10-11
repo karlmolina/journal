@@ -75,6 +75,7 @@ export default function Journal() {
   const scrollToBottom = useRef(true);
   const prevScrollHeight = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showJumpDown, setShowJumpDown] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [results, setResults] = useState<SearchResult[] | null>(null);
@@ -205,6 +206,20 @@ export default function Journal() {
     prevScrollHeight.current = null;
   }, [entries]);
 
+  // Grow the entry box with its content (up to its max-height).
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+  }, [text, searchOpen]);
+
+  // Search results are bottom-anchored like the journal: newest nearest the input.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el && results) el.scrollTop = el.scrollHeight;
+  }, [results]);
+
   const handleListScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     setShowJumpDown(el.scrollHeight - el.scrollTop - el.clientHeight > 200);
@@ -269,16 +284,6 @@ export default function Journal() {
           user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture
         }
         onSignOut={handleLogout}
-        searchOpen={searchOpen}
-        onSearchToggle={toggleSearch}
-        searchText={searchText}
-        onSearchTextChange={(value) => {
-          setSearchText(value);
-          if (!value) setResults(null);
-        }}
-        onSearchClear={clearSearchText}
-        onSearchSubmit={handleSearch}
-        searching={searching}
       />
 
       <div className="relative flex-1 min-h-0">
@@ -295,12 +300,12 @@ export default function Journal() {
 
           {results ? (
             <div className="space-y-2">
-              {results.length === 0 ? (
+              {results.length === 0 && !searching ? (
                 <p className="text-center text-gray-400">
                   No matching entries.
                 </p>
               ) : (
-                results.map(({ id, text, highlighted, createdAt }) => (
+                [...results].reverse().map(({ id, text, highlighted, createdAt }) => (
                   <JournalEntry
                     key={id}
                     text={text}
@@ -337,21 +342,114 @@ export default function Journal() {
         )}
       </div>
 
-      {!searchOpen && (
+      {searchOpen ? (
+        <form
+          onSubmit={handleSearch}
+          className="shrink-0 bg-base-100 flex items-end gap-2 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
+        >
+          <label className="input relative flex-1 text-base gap-0 pl-10 pr-10 sm:h-16 sm:pl-16 sm:pr-16 focus-within:outline-none transition-shadow">
+            <button
+              type="button"
+              className="btn btn-ghost btn-circle btn-sm absolute z-10 left-1 bottom-1 sm:left-4 sm:bottom-4"
+              onClick={toggleSearch}
+              aria-label="Close search"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M19 12H5" />
+                <path d="m12 19-7-7 7-7" />
+              </svg>
+            </button>
+            <input
+              type="text"
+              autoFocus
+              placeholder="Search entries..."
+              value={searchText}
+              onChange={(e) => {
+                setSearchText(e.target.value);
+                if (!e.target.value) setResults(null);
+              }}
+              onKeyDown={(e) => e.key === "Escape" && toggleSearch()}
+            />
+            {searching && (
+              <span className="loading loading-spinner loading-xs"></span>
+            )}
+            <button
+              type="button"
+              className="btn btn-ghost btn-circle btn-sm absolute z-10 right-1 bottom-1 sm:right-4 sm:bottom-4"
+              // Clear the text first; close search if there's nothing to clear.
+              onClick={searchText ? clearSearchText : toggleSearch}
+              aria-label={searchText ? "Clear search" : "Close search"}
+            >
+              ✕
+            </button>
+          </label>
+        </form>
+      ) : (
         <form
           onSubmit={handleSubmit}
-          className="shrink-0 bg-base-100 pb-[env(safe-area-inset-bottom)] pt-2"
+          className="shrink-0 bg-base-100 flex items-end gap-2 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
         >
-          <textarea
-            id="journal-entry"
-            className="textarea w-full h-24 resize-none focus:outline-none transition-shadow text-base p-2 sm:p-4"
-            placeholder="Write a journal entry..."
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-          <button type="submit" className="btn btn-primary my-2 sm:my-4 w-full">
-            Add Entry
-          </button>
+          <div className="relative flex-1">
+            <button
+              type="button"
+              className="btn btn-ghost btn-circle btn-sm absolute z-10 left-1 bottom-1 sm:left-4 sm:bottom-4"
+              onClick={toggleSearch}
+              aria-label="Search entries"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </button>
+            <textarea
+              id="journal-entry"
+              ref={textareaRef}
+              rows={1}
+              className="textarea block w-full min-h-10 max-h-48 resize-none focus:outline-none transition-shadow text-base pl-10 pr-10 py-[7px] sm:min-h-16 sm:pl-16 sm:pr-16 sm:py-[19px]"
+              placeholder="Write a journal entry..."
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <button
+              type="submit"
+              className="btn btn-primary btn-circle btn-sm absolute z-10 right-1 bottom-1 sm:right-4 sm:bottom-4"
+              aria-label="Add entry"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </button>
+          </div>
         </form>
       )}
     </div>

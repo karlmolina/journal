@@ -4,13 +4,6 @@ import { themeChange } from "theme-change";
 interface TopBarProps {
   userPhoto?: string | null;
   onSignOut: () => void;
-  searchOpen: boolean;
-  onSearchToggle: () => void;
-  searchText: string;
-  onSearchTextChange: (value: string) => void;
-  onSearchClear: () => void;
-  onSearchSubmit: (e: React.FormEvent) => void;
-  searching: boolean;
 }
 
 const themes = [
@@ -68,85 +61,18 @@ function ThemeSwatch({ theme }: { theme: string }) {
 export default function TopBar({
   userPhoto,
   onSignOut,
-  searchOpen,
-  onSearchToggle,
-  searchText,
-  onSearchTextChange,
-  onSearchClear,
-  onSearchSubmit,
-  searching,
 }: TopBarProps) {
   // TopBar mounts after ThemeRoot (e.g. once auth/data finishes loading), so
-  // bind the theme buttons here too. Opening search unmounts them, so rebind
-  // whenever it toggles.
+  // bind the theme buttons here too.
   useEffect(() => {
     themeChange(false);
-  }, [searchOpen]);
-
-  if (searchOpen) {
-    return (
-      <form
-        onSubmit={onSearchSubmit}
-        className="py-2 sm:py-4"
-      >
-        <label className="input w-full focus-within:outline-none transition-shadow">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="opacity-50"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-          <input
-            type="text"
-            autoFocus
-            placeholder="Search entries..."
-            value={searchText}
-            onChange={(e) => onSearchTextChange(e.target.value)}
-            onKeyDown={(e) => e.key === "Escape" && onSearchToggle()}
-          />
-          {searching && (
-            <span className="loading loading-spinner loading-xs"></span>
-          )}
-          <button
-            type="button"
-            className="btn btn-ghost btn-circle btn-xs"
-            // Clear the text first; close search if there's nothing to clear.
-            onClick={searchText ? onSearchClear : onSearchToggle}
-            aria-label={searchText ? "Clear search" : "Close search"}
-          >
-            ✕
-          </button>
-        </label>
-      </form>
-    );
-  }
+  }, []);
 
   return (
     <div className="flex justify-between items-center py-2 sm:py-4">
       <h1 className="text-2xl ml-2 sm:ml-0">Journal8</h1>
 
       <div className="flex items-center">
-        {/* Search toggle */}
-        <button
-          className="btn btn-ghost btn-circle"
-          onClick={onSearchToggle}
-          aria-label="Search entries"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="7" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-        </button>
-
         {/* Theme dropdown */}
         <div className="dropdown dropdown-end">
           <button tabIndex={0} className="btn btn-ghost btn-circle">
