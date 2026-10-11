@@ -109,23 +109,6 @@ export default function Journal() {
     loadEntries();
   }, [user, loadEntries]);
 
-  // Embed any entries that predate semantic search (e.g. migrated ones).
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    (async () => {
-      while (!cancelled) {
-        const { data, error } = await supabase.functions.invoke("embed", {
-          body: { backfill: true },
-        });
-        if (error || data?.done) return;
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
   // Only the latest request may update state, so slow earlier responses can't
   // overwrite newer results.
   const searchRequestId = useRef(0);
@@ -136,8 +119,8 @@ export default function Journal() {
   const runSearch = useCallback(async (query: string) => {
     const requestId = ++searchRequestId.current;
     setSearching(true);
-    const { data, error } = await supabase.functions.invoke("search", {
-      body: { query },
+    const { data, error } = await supabase.rpc("search_entries", {
+      query_text: query,
     });
     if (requestId !== searchRequestId.current) return;
     setSearching(false);
@@ -145,7 +128,7 @@ export default function Journal() {
       console.error(error);
       return;
     }
-    setResults((data.results as EntryRow[]).map(toEntry));
+    setResults((data as EntryRow[]).map(toEntry));
   }, []);
 
   // Search 300ms after the user stops typing.
@@ -209,9 +192,6 @@ export default function Journal() {
       console.error(error);
       return;
     }
-
-    // Fire and forget; the backfill on next load covers any failure.
-    supabase.functions.invoke("embed", { body: { entryId: data.id } });
 
     setEntries((prev) => {
       const updated = [toEntry(data), ...prev];
