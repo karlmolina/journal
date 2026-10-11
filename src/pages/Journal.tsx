@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 
 const LOCAL_STORAGE_KEY = "journal_entries";
 const ENTRY_LIMIT = 10;
+const SEARCH_DEBOUNCE_MS = 300;
 
 interface Entry {
   id: string;
@@ -54,10 +55,19 @@ export default function Journal() {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const observer = useRef<IntersectionObserver | null>(null);
+  const latestRequest = useRef(0);
+  const [searchText, setSearchText] = useState("");
+  const [results, setResults] = useState<Entry[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const loadEntries = useCallback(
     async (cursor?: string) => {
       if (!user) return;
+      // Only a fresh (cursorless) load invalidates in-flight requests.
+      const requestId = cursor
+        ? latestRequest.current
+        : ++latestRequest.current;
       setLoading(true);
 
       let q = supabase
@@ -74,9 +84,15 @@ export default function Journal() {
         return;
       }
 
+      // A fresh load started after this one; its result supersedes ours.
+      if (requestId !== latestRequest.current) return;
+
       const newEntries = data.map(toEntry);
       setEntries((prev) => {
-        const updated = cursor ? [...prev, ...newEntries] : newEntries;
+        const seen = new Set(prev.map((e) => e.id));
+        const updated = cursor
+          ? [...prev, ...newEntries.filter((e) => !seen.has(e.id))]
+          : newEntries;
         writeCache(user.id, updated);
         return updated;
       });
@@ -92,6 +108,76 @@ export default function Journal() {
     setHasMore(true);
     loadEntries();
   }, [user, loadEntries]);
+
+  // Embed any entries that predate semantic search (e.g. migrated ones).
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      while (!cancelled) {
+        const { data, error } = await supabase.functions.invoke("embed", {
+          body: { backfill: true },
+        });
+        if (error || data?.done) return;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // Only the latest request may update state, so slow earlier responses can't
+  // overwrite newer results.
+  const searchRequestId = useRef(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+
+  const runSearch = useCallback(async (query: string) => {
+    const requestId = ++searchRequestId.current;
+    setSearching(true);
+    const { data, error } = await supabase.functions.invoke("search", {
+      body: { query },
+    });
+    if (requestId !== searchRequestId.current) return;
+    setSearching(false);
+    if (error) {
+      console.error(error);
+      return;
+    }
+    setResults((data.results as EntryRow[]).map(toEntry));
+  }, []);
+
+  // Search 300ms after the user stops typing.
+  useEffect(() => {
+    const query = searchText.trim();
+    if (!query) {
+      searchRequestId.current++;
+      setSearching(false);
+      return;
+    }
+    searchTimer.current = setTimeout(() => runSearch(query), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(searchTimer.current);
+  }, [searchText, runSearch]);
+
+  // Enter searches immediately instead of waiting out the debounce.
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = searchText.trim();
+    if (!query) return;
+    clearTimeout(searchTimer.current);
+    runSearch(query);
+  };
+
+  const clearSearchText = () => {
+    setSearchText("");
+    setResults(null);
+  };
+
+  const toggleSearch = () => {
+    if (searchOpen) clearSearchText();
+    setSearchOpen(!searchOpen);
+  };
 
   // --- Infinite scroll observer ---
   const lastEntryRef = useCallback(
@@ -124,6 +210,9 @@ export default function Journal() {
       return;
     }
 
+    // Fire and forget; the backfill on next load covers any failure.
+    supabase.functions.invoke("embed", { body: { entryId: data.id } });
+
     setEntries((prev) => {
       const updated = [toEntry(data), ...prev];
       writeCache(user.id, updated);
@@ -144,22 +233,44 @@ export default function Journal() {
           user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture
         }
         onSignOut={handleLogout}
+        searchOpen={searchOpen}
+        onSearchToggle={toggleSearch}
+        searchText={searchText}
+        onSearchTextChange={(value) => {
+          setSearchText(value);
+          if (!value) setResults(null);
+        }}
+        onSearchClear={clearSearchText}
+        onSearchSubmit={handleSearch}
+        searching={searching}
       />
 
-      <form onSubmit={handleSubmit} className="">
-        <textarea
-          id="journal-entry"
-          className="textarea w-full h-32 resize-none focus:outline-none transition-shadow text-base p-2 sm:p-4"
-          placeholder="Write a journal entry..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <button type="submit" className="btn btn-primary my-2 sm:my-4 w-full">
-          Add Entry
-        </button>
-      </form>
+      {!searchOpen && (
+        <form onSubmit={handleSubmit}>
+          <textarea
+            id="journal-entry"
+            className="textarea w-full h-32 resize-none focus:outline-none transition-shadow text-base p-2 sm:p-4"
+            placeholder="Write a journal entry..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <button type="submit" className="btn btn-primary my-2 sm:my-4 w-full">
+            Add Entry
+          </button>
+        </form>
+      )}
 
-      {entries.length === 0 && !loading ? (
+      {results ? (
+        <div className="space-y-2">
+          {results.length === 0 ? (
+            <p className="text-center text-gray-400">No matching entries.</p>
+          ) : (
+            results.map(({ id, text, createdAt }) => (
+              <JournalEntry key={id} text={text} createdAt={new Date(createdAt)} />
+            ))
+          )}
+        </div>
+      ) : entries.length === 0 && !loading ? (
         <p className="text-center text-gray-400">No entries yet.</p>
       ) : (
         <div className="space-y-2">
@@ -174,7 +285,7 @@ export default function Journal() {
         </div>
       )}
 
-      {loading && (
+      {loading && !results && (
         <div className="text-center text-gray-400 mt-4">
           <span className="loading loading-spinner loading-lg"></span>
         </div>

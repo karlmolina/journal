@@ -3,7 +3,12 @@
   themes: all;
 }
 
+/* Must be on the root element: it reserves space for the scrollbar so the
+   page doesn't shift sideways when content grows past the viewport. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   overflow-y: auto;
-  scrollbar-gutter: stable;
 }
