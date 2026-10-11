@@ -1,9 +1,12 @@
 // One-time migration of journal entries from Firestore to Supabase.
 //
 // Usage:
-//   bun scripts/migrate-firestore-to-supabase.ts [--dry-run]
+//   node --experimental-strip-types --env-file=.env \
+//     scripts/migrate-firestore-to-supabase.ts [--dry-run] [--skip-email=a@b.com]
 //
-// Environment (Bun loads .env automatically):
+// Run with Node rather than Bun: Firestore's gRPC client hangs under Bun.
+//
+// Environment (loaded from .env by --env-file):
 //   GOOGLE_APPLICATION_CREDENTIALS  Path to a Firebase service account JSON key
 //   VITE_SUPABASE_URL               Supabase project URL
 //   SUPABASE_SECRET_KEY       Supabase secret key (bypasses RLS)
@@ -20,6 +23,12 @@ import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { createClient } from "@supabase/supabase-js";
 
 const dryRun = process.argv.includes("--dry-run");
+// Emails to leave out entirely, e.g. --skip-email=test@example.com (repeatable).
+const skipEmails = new Set(
+  process.argv
+    .filter((arg) => arg.startsWith("--skip-email="))
+    .map((arg) => arg.slice("--skip-email=".length).toLowerCase()),
+);
 const BATCH_SIZE = 500;
 // Fixed namespace for UUIDv5 IDs generated from Firestore doc IDs.
 const NAMESPACE = "6f1c2a4e-8b3d-4f5a-9c7e-1d2b3a4c5e6f";
@@ -91,6 +100,10 @@ async function main() {
     const email = emailByUid.get(uid);
     if (!email) {
       console.warn(`Skipping Firebase user ${uid}: no email on record.`);
+      continue;
+    }
+    if (skipEmails.has(email)) {
+      console.log(`Skipping ${email} (--skip-email).`);
       continue;
     }
     let supabaseId = supabaseIdByEmail.get(email);

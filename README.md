@@ -17,8 +17,8 @@ For CI deploys, set the `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` 
 `scripts/migrate-firestore-to-supabase.ts` copies existing Firestore entries into Supabase, matching users by email. Download a Firebase service account key (Project settings → Service accounts), save it as `firebase-service-account.json` (gitignored), set the variables listed in `.env.example`, then:
 
 ```sh
-bun scripts/migrate-firestore-to-supabase.ts --dry-run
-bun scripts/migrate-firestore-to-supabase.ts
+node --experimental-strip-types --env-file=.env scripts/migrate-firestore-to-supabase.ts --dry-run
+node --experimental-strip-types --env-file=.env scripts/migrate-firestore-to-supabase.ts
 ```
 
-Re-running is safe: already-copied entries are skipped.
+Use Node rather than Bun, since Firestore's gRPC client hangs under Bun. Pass `--skip-email=user@example.com` (repeatable) to leave an account out. Re-running is safe: already-copied entries are skipped.
