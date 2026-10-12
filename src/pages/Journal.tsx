@@ -13,6 +13,11 @@ import { useAuth } from "../context/AuthContext";
 const LOCAL_STORAGE_KEY = "journal_entries";
 const ENTRY_LIMIT = 10;
 const SEARCH_DEBOUNCE_MS = 300;
+const PLACEHOLDERS = [
+  "What happened today?",
+  "How's it going today?",
+  "How are you feeling today?",
+];
 
 interface Entry {
   id: string;
@@ -83,6 +88,10 @@ export default function Journal() {
   const [searchOpen, setSearchOpen] = useState(false);
   // The entry box is a compact one-row pill until focused or non-empty.
   const [focused, setFocused] = useState(false);
+  // Picked once per page load so the prompt stays steady while typing.
+  const [placeholder] = useState(
+    () => PLACEHOLDERS[Math.floor(Math.random() * PLACEHOLDERS.length)],
+  );
   const expanded = focused || text !== "";
 
   const loadEntries = useCallback(
@@ -442,7 +451,7 @@ export default function Journal() {
               className={`block max-h-64 resize-none [field-sizing:content] bg-transparent border-0 outline-none px-2 text-lg leading-snug placeholder:text-base-content/50 ${
                 expanded ? "order-first basis-full mb-3" : "flex-1 min-w-0"
               }`}
-              placeholder="Write a journal entry..."
+              placeholder={placeholder}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onFocus={resizeTextarea}
