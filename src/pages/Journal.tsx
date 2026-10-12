@@ -81,6 +81,9 @@ export default function Journal() {
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // The entry box is a compact one-row pill until focused or non-empty.
+  const [focused, setFocused] = useState(false);
+  const expanded = focused || text !== "";
 
   const loadEntries = useCallback(
     async (cursor?: string) => {
@@ -402,61 +405,69 @@ export default function Journal() {
           onSubmit={handleSubmit}
           className="shrink-0 bg-base-100 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
         >
-          <div className="bg-base-content/8 rounded-3xl px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4 shadow-sm">
+          <div
+            className={`bg-base-content/8 rounded-3xl shadow-sm flex flex-wrap items-center ${
+              expanded ? "px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4" : "p-2"
+            }`}
+            onFocus={() => setFocused(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false);
+            }}
+          >
+            <button
+              type="button"
+              className={`btn btn-ghost btn-circle${expanded ? " mr-auto" : ""}`}
+              onClick={toggleSearch}
+              aria-label="Search entries"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </button>
             <textarea
               id="journal-entry"
               ref={textareaRef}
               rows={1}
-              className="block w-full max-h-64 resize-none [field-sizing:content] bg-transparent border-0 outline-none px-2 text-lg leading-snug placeholder:text-base-content/50"
+              className={`block max-h-64 resize-none [field-sizing:content] bg-transparent border-0 outline-none px-2 text-lg leading-snug placeholder:text-base-content/50 ${
+                expanded ? "order-first basis-full mb-3" : "flex-1 min-w-0"
+              }`}
               placeholder="Write a journal entry..."
               value={text}
               onChange={(e) => setText(e.target.value)}
               onFocus={resizeTextarea}
             />
-            <div className="flex items-center justify-between mt-3">
-              <button
-                type="button"
-                className="btn btn-ghost btn-circle"
-                onClick={toggleSearch}
-                aria-label="Search entries"
+            <button
+              type="submit"
+              className="btn btn-primary btn-circle"
+              disabled={!text.trim()}
+              aria-label="Add entry"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m21 21-4.3-4.3" />
-                </svg>
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary btn-circle"
-                disabled={!text.trim()}
-                aria-label="Add entry"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.25"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 19V5" />
-                  <path d="m5 12 7-7 7 7" />
-                </svg>
-              </button>
-            </div>
+                <path d="M12 19V5" />
+                <path d="m5 12 7-7 7 7" />
+              </svg>
+            </button>
           </div>
         </form>
       )}
