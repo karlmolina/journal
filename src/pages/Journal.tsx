@@ -206,13 +206,16 @@ export default function Journal() {
     prevScrollHeight.current = null;
   }, [entries]);
 
-  // Grow the entry box with its content (up to its max-height).
-  useLayoutEffect(() => {
+  // Grow the entry box with its content (up to its max-height). Browsers with
+  // `field-sizing: content` do this in CSS; others measure the textarea here.
+  const resizeTextarea = useCallback(() => {
     const el = textareaRef.current;
-    if (!el) return;
+    if (!el || CSS.supports("field-sizing", "content")) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
-  }, [text, searchOpen]);
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useLayoutEffect(resizeTextarea, [text, searchOpen, resizeTextarea]);
 
   // Search results are bottom-anchored like the journal: newest nearest the input.
   useLayoutEffect(() => {
@@ -404,10 +407,11 @@ export default function Journal() {
               id="journal-entry"
               ref={textareaRef}
               rows={1}
-              className="block w-full max-h-64 resize-none bg-transparent border-0 outline-none px-2 text-lg leading-snug placeholder:text-base-content/50"
+              className="block w-full max-h-64 resize-none [field-sizing:content] bg-transparent border-0 outline-none px-2 text-lg leading-snug placeholder:text-base-content/50"
               placeholder="Write a journal entry..."
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onFocus={resizeTextarea}
             />
             <div className="flex items-center justify-between mt-3">
               <button
