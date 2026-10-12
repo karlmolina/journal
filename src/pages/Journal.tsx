@@ -13,6 +13,11 @@ import { useAuth } from "../context/AuthContext";
 const LOCAL_STORAGE_KEY = "journal_entries";
 const ENTRY_LIMIT = 10;
 const SEARCH_DEBOUNCE_MS = 300;
+const PLACEHOLDERS = [
+  "What happened today?",
+  "How's it going today?",
+  "How are you feeling today?",
+];
 
 interface Entry {
   id: string;
@@ -81,6 +86,13 @@ export default function Journal() {
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // The entry box is a compact one-row pill until focused or non-empty.
+  const [focused, setFocused] = useState(false);
+  // Picked once per page load so the prompt stays steady while typing.
+  const [placeholder] = useState(
+    () => PLACEHOLDERS[Math.floor(Math.random() * PLACEHOLDERS.length)],
+  );
+  const expanded = focused || text !== "";
 
   const loadEntries = useCallback(
     async (cursor?: string) => {
@@ -206,13 +218,16 @@ export default function Journal() {
     prevScrollHeight.current = null;
   }, [entries]);
 
-  // Grow the entry box with its content (up to its max-height).
-  useLayoutEffect(() => {
+  // Grow the entry box with its content (up to its max-height). Browsers with
+  // `field-sizing: content` do this in CSS; others measure the textarea here.
+  const resizeTextarea = useCallback(() => {
     const el = textareaRef.current;
-    if (!el) return;
+    if (!el || CSS.supports("field-sizing", "content")) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
-  }, [text, searchOpen]);
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useLayoutEffect(resizeTextarea, [text, searchOpen, resizeTextarea]);
 
   // Search results are bottom-anchored like the journal: newest nearest the input.
   useLayoutEffect(() => {
@@ -347,10 +362,10 @@ export default function Journal() {
           onSubmit={handleSearch}
           className="shrink-0 bg-base-100 flex items-end gap-2 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
         >
-          <label className="input relative flex-1 text-base gap-0 pl-10 pr-10 sm:h-16 sm:pl-16 sm:pr-16 focus-within:outline-none transition-shadow">
+          <label className="input relative flex-1 h-14 rounded-3xl bg-base-content/8 border-0 shadow-sm text-lg gap-0 pl-14 pr-14 sm:h-16 sm:pl-16 sm:pr-16 focus-within:outline-none">
             <button
               type="button"
-              className="btn btn-ghost btn-circle btn-sm absolute z-10 left-1 bottom-1 sm:left-4 sm:bottom-4"
+              className="btn btn-ghost btn-circle btn-sm absolute z-10 left-3 bottom-3 sm:left-4 sm:bottom-4"
               onClick={toggleSearch}
               aria-label="Close search"
             >
@@ -385,7 +400,7 @@ export default function Journal() {
             )}
             <button
               type="button"
-              className="btn btn-ghost btn-circle btn-sm absolute z-10 right-1 bottom-1 sm:right-4 sm:bottom-4"
+              className="btn btn-ghost btn-circle btn-sm absolute z-10 right-3 bottom-3 sm:right-4 sm:bottom-4"
               // Clear the text first; close search if there's nothing to clear.
               onClick={searchText ? clearSearchText : toggleSearch}
               aria-label={searchText ? "Clear search" : "Close search"}
@@ -397,19 +412,27 @@ export default function Journal() {
       ) : (
         <form
           onSubmit={handleSubmit}
-          className="shrink-0 bg-base-100 flex items-end gap-2 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
+          className="shrink-0 bg-base-100 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
         >
-          <div className="relative flex-1">
+          <div
+            className={`bg-base-content/8 rounded-3xl shadow-sm flex flex-wrap items-center ${
+              expanded ? "px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4" : "p-2"
+            }`}
+            onFocus={() => setFocused(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false);
+            }}
+          >
             <button
               type="button"
-              className="btn btn-ghost btn-circle btn-sm absolute z-10 left-1 bottom-1 sm:left-4 sm:bottom-4"
+              className={`btn btn-ghost btn-circle${expanded ? " mr-auto" : ""}`}
               onClick={toggleSearch}
               aria-label="Search entries"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
+                width="22"
+                height="22"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -425,28 +448,33 @@ export default function Journal() {
               id="journal-entry"
               ref={textareaRef}
               rows={1}
-              className="textarea block w-full min-h-10 max-h-48 resize-none focus:outline-none transition-shadow text-base pl-10 pr-10 py-[7px] sm:min-h-16 sm:pl-16 sm:pr-16 sm:py-[19px]"
-              placeholder="Write a journal entry..."
+              className={`block max-h-64 resize-none [field-sizing:content] bg-transparent border-0 outline-none px-2 text-lg leading-snug placeholder:text-base-content/50 ${
+                expanded ? "order-first basis-full mb-3" : "flex-1 min-w-0"
+              }`}
+              placeholder={placeholder}
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onFocus={resizeTextarea}
             />
             <button
               type="submit"
-              className="btn btn-primary btn-circle btn-sm absolute z-10 right-1 bottom-1 sm:right-4 sm:bottom-4"
+              className="btn btn-primary btn-circle"
+              disabled={!text.trim()}
               aria-label="Add entry"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
+                width="22"
+                height="22"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="2.25"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <path d="m9 18 6-6-6-6" />
+                <path d="M12 19V5" />
+                <path d="m5 12 7-7 7 7" />
               </svg>
             </button>
           </div>
