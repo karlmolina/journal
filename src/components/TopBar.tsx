@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { themeChange } from "theme-change";
 
 interface TopBarProps {
@@ -44,6 +44,56 @@ const themes = [
   "silk",
 ];
 
+const PHOTO_CACHE_KEY = "journal_photo";
+const DEFAULT_AVATAR = "https://api.dicebear.com/7.x/initials/svg?seed=User";
+
+// Google rate-limits avatar requests and they need the network, so keep a
+// data-URL copy of the photo and show that instantly on later loads.
+function useCachedPhoto(src?: string | null) {
+  const [cached, setCached] = useState<{ src: string; data: string } | null>(
+    () => {
+      try {
+        return JSON.parse(localStorage.getItem(PHOTO_CACHE_KEY) ?? "null");
+      } catch {
+        return null;
+      }
+    },
+  );
+  const hit = cached && cached.src === src ? cached.data : null;
+
+  useEffect(() => {
+    if (!src || hit) return;
+    let cancelled = false;
+    fetch(src, { referrerPolicy: "no-referrer" })
+      .then((res) => (res.ok ? res.blob() : Promise.reject(res.status)))
+      .then(
+        (blob) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          }),
+      )
+      .then((data) => {
+        if (cancelled) return;
+        setCached({ src, data });
+        try {
+          localStorage.setItem(PHOTO_CACHE_KEY, JSON.stringify({ src, data }));
+        } catch {
+          // Ignore quota / private mode errors; the cache is only a convenience.
+        }
+      })
+      // Not cacheable (offline, CORS); the <img> still loads the URL directly.
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [src, hit]);
+
+  return hit ?? src;
+}
+
 function ThemeSwatch({ theme }: { theme: string }) {
   return (
     <div
@@ -58,10 +108,9 @@ function ThemeSwatch({ theme }: { theme: string }) {
   );
 }
 
-export default function TopBar({
-  userPhoto,
-  onSignOut,
-}: TopBarProps) {
+export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
+  const photo = useCachedPhoto(userPhoto);
+
   // TopBar mounts after ThemeRoot (e.g. once auth/data finishes loading), so
   // bind the theme buttons here too.
   useEffect(() => {
@@ -114,22 +163,18 @@ export default function TopBar({
         <div className="dropdown dropdown-end ml-2">
           <div tabIndex={0} className="btn btn-ghost btn-circle avatar">
             <div className="w-8 rounded-full">
-              {userPhoto ? (
+              {photo ? (
                 <img
-                  src={userPhoto}
+                  src={photo}
                   alt="Profile"
                   referrerPolicy="no-referrer"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src =
-                      "https://api.dicebear.com/7.x/initials/svg?seed=User";
+                    e.currentTarget.src = DEFAULT_AVATAR;
                   }}
                 />
               ) : (
-                <img
-                  src="https://api.dicebear.com/7.x/initials/svg?seed=User"
-                  alt="Default avatar"
-                />
+                <img src={DEFAULT_AVATAR} alt="Default avatar" />
               )}
             </div>
           </div>
