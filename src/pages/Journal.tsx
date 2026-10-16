@@ -9,6 +9,7 @@ import { supabase } from "../supabase";
 import TopBar from "../components/TopBar";
 import JournalEntry from "../components/JournalEntry";
 import { useAuth } from "../context/AuthContext";
+import useVisualViewport from "../hooks/useVisualViewport";
 
 const LOCAL_STORAGE_KEY = "journal_entries";
 const ENTRY_LIMIT = 10;
@@ -69,6 +70,7 @@ function writeCache(userId: string, entries: Entry[]) {
 
 export default function Journal() {
   const { user } = useAuth();
+  useVisualViewport();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -235,10 +237,26 @@ export default function Journal() {
     if (el && results) el.scrollTop = el.scrollHeight;
   }, [results]);
 
+  // Whether the list is scrolled to the newest entry, so it can stay there
+  // when the list gets shorter (keyboard opening, entry box expanding).
+  const atBottom = useRef(true);
+
   const handleListScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
-    setShowJumpDown(el.scrollHeight - el.scrollTop - el.clientHeight > 200);
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    atBottom.current = distance < 2;
+    setShowJumpDown(distance > 200);
   };
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      if (atBottom.current) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const jumpToBottom = () => {
     scrollRef.current?.scrollTo({
@@ -293,7 +311,9 @@ export default function Journal() {
   };
 
   return (
-    <div className="max-w-xl mx-auto px-2 sm:px-6 h-dvh flex flex-col">
+    // Fixed to the visible area so the page itself never scrolls: the entry
+    // list is the only scroller and the top bar stays put when the keyboard opens.
+    <div className="fixed inset-x-0 top-(--vv-top,0px) h-(--vv-height,100dvh) max-w-xl mx-auto px-2 sm:px-6 flex flex-col">
       <TopBar
         userPhoto={
           user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture
@@ -305,7 +325,7 @@ export default function Journal() {
         <div
           ref={scrollRef}
           onScroll={handleListScroll}
-          className="h-full overflow-y-auto scrollbar-none"
+          className="h-full overflow-y-auto overscroll-contain scrollbar-none"
         >
           {loading && !results && (
             <div className="text-center text-gray-400 mb-4">
