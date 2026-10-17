@@ -13,7 +13,10 @@ export default function App() {
 
   return (
     <div className="flex justify-center items-center h-screen">
-      <p className="text-gray-500 text-lg">Loading...</p>
+      <span
+        className="loading loading-spinner loading-md text-base-content/40"
+        aria-label="Loading"
+      ></span>
     </div>
   );
 }

@@ -119,23 +119,29 @@ export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
 
   return (
     <div className="flex justify-between items-center py-2 sm:py-4">
-      <h1 className="text-2xl ml-2 sm:ml-0">Journal8</h1>
+      <h1 className="text-2xl font-extrabold tracking-tight ml-2 sm:ml-0">
+        Journal8
+      </h1>
 
       <div className="flex items-center">
         {/* Theme dropdown */}
         <div className="dropdown dropdown-end">
-          <button tabIndex={0} className="btn btn-ghost btn-circle">
+          <button
+            tabIndex={0}
+            className="btn btn-ghost btn-circle"
+            aria-label="Change theme"
+          >
             <ThemeSwatch theme="light" />
           </button>
           <ul
             tabIndex={0}
-            className="menu-sm menu flex-nowrap bg-base-100 rounded-box shadow dropdown-content max-h-[80vh] overflow-y-auto w-55 border border-base-content/20 rounded-md"
+            className="menu-sm menu flex-nowrap bg-base-100 rounded-2xl shadow-lg dropdown-content max-h-[80vh] overflow-y-auto w-55 border border-base-content/10 mt-1 p-1.5 font-medium"
           >
             {themes.map((theme) => (
               <li key={theme}>
                 {/* theme-change automatically switches theme and saves in localStorage */}
                 <button
-                  className="gap-3 px-2"
+                  className="gap-3 px-2 py-2 capitalize"
                   data-set-theme={theme}
                   data-act-class="[&_svg]:visible"
                 >
@@ -161,8 +167,13 @@ export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
             small glyphs, so it is inset and given extra margin to look evenly
             spaced. */}
         <div className="dropdown dropdown-end ml-2">
-          <div tabIndex={0} className="btn btn-ghost btn-circle avatar">
-            <div className="w-8 rounded-full">
+          <div
+            tabIndex={0}
+            role="button"
+            aria-label="Account"
+            className="btn btn-ghost btn-circle avatar"
+          >
+            <div className="w-8 rounded-full ring-1 ring-base-content/10">
               {photo ? (
                 <img
                   src={photo}
@@ -181,7 +192,7 @@ export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
 
           <ul
             tabIndex={0}
-            className="menu menu-sm dropdown-content bg-base-100 rounded-md mt-3 w-52 p-2 shadow border border-base-content/20"
+            className="menu dropdown-content bg-base-100 rounded-2xl mt-2 w-52 p-1.5 shadow-lg border border-base-content/10 font-medium"
           >
             <li>
               <button onClick={onSignOut}>Sign out</button>

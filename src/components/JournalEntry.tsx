@@ -1,4 +1,4 @@
-import formatDate from "../functions/formatDate";
+import formatDate, { formatFullDate } from "../functions/formatDate";
 
 // The database wraps search matches in these private-use characters.
 const MATCH_START = "\ue000";
@@ -10,7 +10,10 @@ function renderHighlighted(highlighted: string) {
     .split(new RegExp(`${MATCH_START}(.*?)${MATCH_END}`, "gs"))
     .map((part, i) =>
       i % 2 === 1 ? (
-        <mark key={i} className="bg-primary/30 text-inherit rounded-sm">
+        <mark
+          key={i}
+          className="bg-primary/30 text-inherit font-semibold rounded-sm px-0.5"
+        >
           {part}
         </mark>
       ) : (
@@ -41,31 +44,37 @@ export default function JournalEntry({
   return (
     <div
       ref={refProp}
-      className="card bg-base-100 border-base-content/20 border"
+      className={`rounded-2xl bg-base-content/5 px-4 py-3 sm:px-5 sm:py-4 ${
+        // Unsaved entries were just written, so they animate in.
+        status ? "animate-entry-in" : ""
+      }`}
     >
-      <div className="card-body text-base p-2 sm:p-4">
-        <div className="text-sm text-gray-400 flex items-center gap-2">
+      <div className="text-xs font-semibold tracking-wide text-base-content/55 flex items-center gap-2 min-h-5">
+        <time
+          dateTime={createdAt.toISOString()}
+          title={formatFullDate(createdAt)}
+        >
           {formatDate(createdAt)}
-          {status === "saving" && (
-            <span className="loading loading-spinner loading-xs"></span>
-          )}
-          {status === "failed" && (
-            <>
-              <span className="text-error">Not saved</span>
-              <button
-                type="button"
-                className="btn btn-link btn-xs p-0 min-h-0 h-auto"
-                onClick={onRetry}
-              >
-                Retry
-              </button>
-            </>
-          )}
-        </div>
-        <p className="whitespace-pre-wrap">
-          {highlighted ? renderHighlighted(highlighted) : text}
-        </p>
+        </time>
+        {status === "saving" && (
+          <span className="loading loading-spinner loading-xs opacity-70"></span>
+        )}
+        {status === "failed" && (
+          <>
+            <span className="text-error">Not saved</span>
+            <button
+              type="button"
+              className="btn btn-link btn-xs p-0 min-h-0 h-auto font-semibold"
+              onClick={onRetry}
+            >
+              Retry
+            </button>
+          </>
+        )}
       </div>
+      <p className="mt-1.5 whitespace-pre-wrap text-[1.0625rem] leading-relaxed font-medium text-base-content/90">
+        {highlighted ? renderHighlighted(highlighted) : text}
+      </p>
     </div>
   );
 }
