@@ -384,6 +384,9 @@ export default function Journal() {
     };
     updatePending((prev) => [entry, ...prev]);
     updateText("");
+    // Clearing the text disables the send button, which drops focus without a
+    // blur event, so the box would otherwise stay expanded.
+    if (document.activeElement !== textareaRef.current) setFocused(false);
     scrollToBottom.current = true;
     saveEntry(entry);
   };
@@ -540,7 +543,10 @@ export default function Journal() {
             }`}
             onFocus={() => setFocused(true)}
             onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false);
+              if (e.currentTarget.contains(e.relatedTarget)) return;
+              setFocused(false);
+              // Drop stray blank lines so the box collapses to one row.
+              if (!text.trim()) updateText("");
             }}
           >
             <button
