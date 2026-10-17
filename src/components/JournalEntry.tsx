@@ -44,12 +44,12 @@ export default function JournalEntry({
   return (
     <div
       ref={refProp}
-      className={`rounded-2xl bg-base-content/5 px-4 py-3 sm:px-5 sm:py-4 ${
+      className={`rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-3 sm:px-5 sm:py-4 ${
         // Unsaved entries were just written, so they animate in.
         status ? "animate-entry-in" : ""
       }`}
     >
-      <div className="text-xs font-semibold tracking-wide text-base-content/55 flex items-center gap-2 min-h-5">
+      <div className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70 flex items-center gap-2 min-h-5">
         <time
           dateTime={createdAt.toISOString()}
           title={formatFullDate(createdAt)}
@@ -72,7 +72,7 @@ export default function JournalEntry({
           </>
         )}
       </div>
-      <p className="mt-1.5 whitespace-pre-wrap text-[1.0625rem] leading-relaxed font-medium text-base-content/90">
+      <p className="mt-1.5 whitespace-pre-wrap text-[1.0625rem] leading-relaxed font-medium text-base-content/90 dark:text-[color-mix(in_oklab,var(--color-base-content),white_45%)]">
         {highlighted ? renderHighlighted(highlighted) : text}
       </p>
     </div>
