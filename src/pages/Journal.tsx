@@ -511,7 +511,7 @@ export default function Journal() {
           onSubmit={handleSearch}
           className="shrink-0 bg-base-100 flex items-end gap-2 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
         >
-          <label className="input relative flex-1 h-14 rounded-3xl bg-base-content/8 border-0 shadow-sm text-lg font-medium gap-0 pl-14 pr-14 sm:h-16 sm:pl-16 sm:pr-16 focus-within:outline-none [&_input]:placeholder:text-base-content/50">
+          <label className="input relative flex-1 h-14 rounded-3xl bg-base-content/8 border-0 shadow-sm text-lg font-medium dark:font-[450] gap-0 pl-14 pr-14 sm:h-16 sm:pl-16 sm:pr-16 focus-within:outline-none [&_input]:placeholder:text-base-content/50">
             <button
               type="button"
               className="btn btn-ghost btn-circle absolute z-10 left-2 bottom-2 sm:left-3 sm:bottom-3"
@@ -613,7 +613,7 @@ export default function Journal() {
               id="journal-entry"
               ref={textareaRef}
               rows={1}
-              className={`block max-h-64 resize-none [field-sizing:content] bg-transparent border-0 outline-none px-2 text-lg font-medium leading-snug placeholder:text-base-content/50 ${
+              className={`block max-h-64 resize-none [field-sizing:content] bg-transparent border-0 outline-none px-2 text-lg font-medium dark:font-[450] leading-snug placeholder:text-base-content/50 ${
                 expanded ? "order-first basis-full mb-3" : "flex-1 min-w-0"
               }`}
               placeholder={placeholder}
