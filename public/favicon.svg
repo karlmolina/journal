@@ -4,10 +4,29 @@
       <stop offset="0" stop-color="#3b9bff"/>
       <stop offset="1" stop-color="#1d4fd8"/>
     </linearGradient>
+    <clipPath id="tile"><rect width="512" height="512" rx="120"/></clipPath>
   </defs>
   <rect width="512" height="512" rx="120" fill="url(#bg)"/>
-  <g transform="translate(256 256) scale(1) translate(-256 -256)" fill="none" stroke="#fff" stroke-width="60">
-    <circle cx="256" cy="168" r="70"/>
-    <circle cx="256" cy="336" r="86"/>
+  <g transform="translate(256 256) scale(1) translate(-256 -256)" clip-path="url(#tile)">
+    <!-- journal -->
+    <g transform="rotate(8 340 190)">
+      <rect x="236" y="64" width="204" height="252" rx="30" fill="#fff"/>
+      <path d="M266 64h22v252h-22a30 30 0 0 1-30-30V94a30 30 0 0 1 30-30z" fill="#c7dcff"/>
+      <g fill="none" stroke="#1d4fd8" stroke-width="22" stroke-linecap="round">
+        <path d="M334 132v60a20 20 0 0 1-38 9"/>
+        <circle cx="392" cy="144" r="18"/>
+        <circle cx="392" cy="194" r="24"/>
+      </g>
+    </g>
+    <!-- thought bubbles -->
+    <circle cx="224" cy="236" r="14" fill="#fff"/>
+    <circle cx="198" cy="264" r="9" fill="#fff"/>
+    <!-- thinking man, hand on chin -->
+    <g fill="#0b2a6f">
+      <path d="M0 520c0-92 60-146 136-146s136 54 136 146z"/>
+      <circle cx="136" cy="316" r="58"/>
+    </g>
+    <path d="M232 470l-30-92" fill="none" stroke="#2a5bd6" stroke-width="30" stroke-linecap="round"/>
+    <circle cx="196" cy="362" r="22" fill="#2a5bd6"/>
   </g>
 </svg>
