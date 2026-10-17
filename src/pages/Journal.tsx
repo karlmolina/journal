@@ -12,6 +12,10 @@ import { useAuth } from "../context/AuthContext";
 import useVisualViewport from "../hooks/useVisualViewport";
 
 const LOCAL_STORAGE_KEY = "journal_entries";
+// Entries submitted but not yet confirmed saved, so a reload or a failed request
+// doesn't lose them; they're retried until the insert succeeds.
+const PENDING_KEY = "journal_pending";
+const DRAFT_KEY = "journal_draft";
 const ENTRY_LIMIT = 10;
 const SEARCH_DEBOUNCE_MS = 300;
 const PLACEHOLDERS = [
@@ -48,31 +52,52 @@ interface SearchResult extends Entry {
   highlighted: string;
 }
 
-function readCache(userId: string): Entry[] {
+function readStored<T>(key: string, userId: string, fallback: T): T {
   try {
-    const cached = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${userId}`);
-    return cached ? JSON.parse(cached) : [];
+    const cached = localStorage.getItem(`${key}_${userId}`);
+    return cached ? JSON.parse(cached) : fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-function writeCache(userId: string, entries: Entry[]) {
+function writeStored(key: string, userId: string, value: unknown) {
   try {
-    localStorage.setItem(
-      `${LOCAL_STORAGE_KEY}_${userId}`,
-      JSON.stringify(entries),
-    );
+    localStorage.setItem(`${key}_${userId}`, JSON.stringify(value));
   } catch {
     // Ignore quota / private mode errors; the cache is only a convenience.
   }
 }
 
+const readCache = (userId: string) =>
+  readStored<Entry[]>(LOCAL_STORAGE_KEY, userId, []);
+const writeCache = (userId: string, entries: Entry[]) =>
+  writeStored(LOCAL_STORAGE_KEY, userId, entries);
+const readPending = (userId: string) =>
+  readStored<Entry[]>(PENDING_KEY, userId, []);
+const writePending = (userId: string, entries: Entry[]) =>
+  writeStored(PENDING_KEY, userId, entries);
+const readDraft = (userId: string) => readStored(DRAFT_KEY, userId, "");
+const writeDraft = (userId: string, draft: string) => {
+  if (draft) writeStored(DRAFT_KEY, userId, draft);
+  else localStorage.removeItem(`${DRAFT_KEY}_${userId}`);
+};
+
 export default function Journal() {
   const { user } = useAuth();
+  const userId = user?.id;
   useVisualViewport();
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [text, setText] = useState("");
+  // Seeded synchronously so cached entries are in the very first paint.
+  const [entries, setEntries] = useState<Entry[]>(() =>
+    userId ? readCache(userId) : [],
+  );
+  // Newest first, like `entries`; shown above them until the insert succeeds.
+  const [pending, setPending] = useState<Entry[]>(() =>
+    userId ? readPending(userId) : [],
+  );
+  // Ids whose save failed this session, shown with a retry button.
+  const [failed, setFailed] = useState<Set<string>>(new Set());
+  const [text, setText] = useState(() => (userId ? readDraft(userId) : ""));
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const observer = useRef<IntersectionObserver | null>(null);
@@ -98,7 +123,7 @@ export default function Journal() {
 
   const loadEntries = useCallback(
     async (cursor?: string) => {
-      if (!user) return;
+      if (!userId) return;
       // Only a fresh (cursorless) load invalidates in-flight requests.
       const requestId = cursor
         ? latestRequest.current
@@ -130,22 +155,82 @@ export default function Journal() {
         const updated = cursor
           ? [...prev, ...newEntries.filter((e) => !seen.has(e.id))]
           : newEntries;
-        writeCache(user.id, updated);
+        writeCache(userId, updated);
         return updated;
       });
       setHasMore(newEntries.length === ENTRY_LIMIT);
     },
-    [user],
+    [userId],
   );
 
-  // Show cached entries instantly, then refresh from Supabase.
+  const updatePending = useCallback(
+    (update: (prev: Entry[]) => Entry[]) => {
+      if (!userId) return;
+      setPending((prev) => {
+        const updated = update(prev);
+        writePending(userId, updated);
+        return updated;
+      });
+    },
+    [userId],
+  );
+
+  // Inserts with the entry's client-generated id, so retrying one that already
+  // reached the database (e.g. the page reloaded before the reply) is a no-op.
+  const saving = useRef(new Set<string>());
+  const saveEntry = useCallback(
+    async (entry: Entry) => {
+      if (!userId || saving.current.has(entry.id)) return;
+      saving.current.add(entry.id);
+      setFailed((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.id);
+        return next;
+      });
+      const { data, error } = await supabase
+        .from("entries")
+        .upsert(
+          { id: entry.id, text: entry.text },
+          { onConflict: "id", ignoreDuplicates: true },
+        )
+        .select("id, text, created_at");
+      saving.current.delete(entry.id);
+      if (error) {
+        console.error(error);
+        setFailed((prev) => new Set(prev).add(entry.id));
+        return;
+      }
+      // An already-saved duplicate returns no row; the next refresh has it.
+      const saved = data[0] ? toEntry(data[0]) : null;
+      if (saved)
+        setEntries((prev) => {
+          if (prev.some((e) => e.id === saved.id)) return prev;
+          const updated = [saved, ...prev];
+          writeCache(userId, updated);
+          return updated;
+        });
+      updatePending((prev) => prev.filter((e) => e.id !== entry.id));
+    },
+    [userId, updatePending],
+  );
+
+  // Show cached entries and draft instantly, retry unsaved entries, then
+  // refresh from Supabase.
+  const loadedFor = useRef(userId);
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     scrollToBottom.current = true;
-    setEntries(readCache(user.id));
+    // State was seeded from this user's cache on mount; only re-read on change.
+    if (loadedFor.current !== userId) {
+      loadedFor.current = userId;
+      setEntries(readCache(userId));
+      setPending(readPending(userId));
+      setText(readDraft(userId));
+    }
     setHasMore(true);
+    readPending(userId).forEach(saveEntry);
     loadEntries();
-  }, [user, loadEntries]);
+  }, [userId, loadEntries, saveEntry]);
 
   // Only the latest request may update state, so slow earlier responses can't
   // overwrite newer results.
@@ -211,14 +296,14 @@ export default function Journal() {
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    if (scrollToBottom.current && entries.length > 0) {
+    if (scrollToBottom.current && entries.length + pending.length > 0) {
       scrollToBottom.current = false;
       el.scrollTop = el.scrollHeight;
     } else if (prevScrollHeight.current !== null) {
       el.scrollTop += el.scrollHeight - prevScrollHeight.current;
     }
     prevScrollHeight.current = null;
-  }, [entries]);
+  }, [entries, pending]);
 
   // Grow the entry box with its content (up to its max-height). Browsers with
   // `field-sizing: content` do this in CSS; others measure the textarea here.
@@ -280,35 +365,39 @@ export default function Journal() {
     [loading, hasMore, entries, loadEntries],
   );
 
-  // Add new entry
-  const handleSubmit = async (e: React.FormEvent) => {
+  const updateText = (value: string) => {
+    setText(value);
+    if (userId) writeDraft(userId, value);
+  };
+
+  // Add new entry: show it right away and save in the background. It stays in
+  // the pending list (and localStorage) until the insert succeeds.
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = text.trim();
-    if (!trimmed || !user) return;
+    if (!trimmed || !userId) return;
 
-    const { data, error } = await supabase
-      .from("entries")
-      .insert({ text: trimmed })
-      .select("id, text, created_at")
-      .single();
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setEntries((prev) => {
-      const updated = [toEntry(data), ...prev];
-      writeCache(user.id, updated);
-      return updated;
-    });
-    setText("");
+    const entry: Entry = {
+      id: crypto.randomUUID(),
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+    updatePending((prev) => [entry, ...prev]);
+    updateText("");
     scrollToBottom.current = true;
+    saveEntry(entry);
   };
 
   const handleLogout = async () => {
-    if (user) localStorage.removeItem(`${LOCAL_STORAGE_KEY}_${user.id}`);
+    if (userId)
+      for (const key of [LOCAL_STORAGE_KEY, PENDING_KEY, DRAFT_KEY])
+        localStorage.removeItem(`${key}_${userId}`);
     await supabase.auth.signOut();
   };
+
+  // A pending entry the refresh already returned was saved by an earlier visit.
+  const savedIds = new Set(entries.map((e) => e.id));
+  const unsaved = pending.filter((e) => !savedIds.has(e.id));
 
   return (
     // Fixed to the visible area so the page itself never scrolls: the entry
@@ -340,17 +429,19 @@ export default function Journal() {
                   No matching entries.
                 </p>
               ) : (
-                [...results].reverse().map(({ id, text, highlighted, createdAt }) => (
-                  <JournalEntry
-                    key={id}
-                    text={text}
-                    highlighted={highlighted}
-                    createdAt={new Date(createdAt)}
-                  />
-                ))
+                [...results]
+                  .reverse()
+                  .map(({ id, text, highlighted, createdAt }) => (
+                    <JournalEntry
+                      key={id}
+                      text={text}
+                      highlighted={highlighted}
+                      createdAt={new Date(createdAt)}
+                    />
+                  ))
               )}
             </div>
-          ) : entries.length === 0 && !loading ? (
+          ) : entries.length === 0 && unsaved.length === 0 && !loading ? (
             <p className="text-center text-gray-400">No entries yet.</p>
           ) : (
             <div className="space-y-2">
@@ -360,6 +451,15 @@ export default function Journal() {
                   text={text}
                   createdAt={new Date(createdAt)}
                   refProp={i === 0 ? lastEntryRef : undefined}
+                />
+              ))}
+              {[...unsaved].reverse().map((entry) => (
+                <JournalEntry
+                  key={entry.id}
+                  text={entry.text}
+                  createdAt={new Date(entry.createdAt)}
+                  status={failed.has(entry.id) ? "failed" : "saving"}
+                  onRetry={() => saveEntry(entry)}
                 />
               ))}
             </div>
@@ -473,7 +573,7 @@ export default function Journal() {
               }`}
               placeholder={placeholder}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => updateText(e.target.value)}
               onFocus={resizeTextarea}
             />
             <button

@@ -25,6 +25,9 @@ interface JournalEntryProps {
   highlighted?: string;
   createdAt: Date;
   refProp?: (node: HTMLDivElement | null) => void;
+  // Set while the entry hasn't been confirmed saved.
+  status?: "saving" | "failed";
+  onRetry?: () => void;
 }
 
 export default function JournalEntry({
@@ -32,6 +35,8 @@ export default function JournalEntry({
   highlighted,
   createdAt,
   refProp,
+  status,
+  onRetry,
 }: JournalEntryProps) {
   return (
     <div
@@ -39,7 +44,24 @@ export default function JournalEntry({
       className="card bg-base-100 border-base-content/20 border"
     >
       <div className="card-body text-base p-2 sm:p-4">
-        <div className="text-sm text-gray-400">{formatDate(createdAt)}</div>
+        <div className="text-sm text-gray-400 flex items-center gap-2">
+          {formatDate(createdAt)}
+          {status === "saving" && (
+            <span className="loading loading-spinner loading-xs"></span>
+          )}
+          {status === "failed" && (
+            <>
+              <span className="text-error">Not saved</span>
+              <button
+                type="button"
+                className="btn btn-link btn-xs p-0 min-h-0 h-auto"
+                onClick={onRetry}
+              >
+                Retry
+              </button>
+            </>
+          )}
+        </div>
         <p className="whitespace-pre-wrap">
           {highlighted ? renderHighlighted(highlighted) : text}
         </p>
