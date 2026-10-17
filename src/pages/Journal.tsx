@@ -83,6 +83,15 @@ const writeDraft = (userId: string, draft: string) => {
   else localStorage.removeItem(`${DRAFT_KEY}_${userId}`);
 };
 
+function EmptyState({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-1">
+      <p className="text-lg font-bold">{title}</p>
+      <p className="text-sm font-medium text-base-content/55">{hint}</p>
+    </div>
+  );
+}
+
 export default function Journal() {
   const { user } = useAuth();
   const userId = user?.id;
@@ -420,17 +429,18 @@ export default function Journal() {
           className="h-full overflow-y-auto overscroll-contain scrollbar-none"
         >
           {loading && !results && (
-            <div className="text-center text-gray-400 mb-4">
-              <span className="loading loading-spinner loading-lg"></span>
+            <div className="flex justify-center py-4 text-base-content/40">
+              <span className="loading loading-spinner loading-md"></span>
             </div>
           )}
 
           {results ? (
-            <div className="space-y-2">
+            <div className="flex flex-col gap-3 pb-1">
               {results.length === 0 && !searching ? (
-                <p className="text-center text-gray-400">
-                  No matching entries.
-                </p>
+                <EmptyState
+                  title="No matching entries"
+                  hint="Try a different word or phrase."
+                />
               ) : (
                 [...results]
                   .reverse()
@@ -445,9 +455,12 @@ export default function Journal() {
               )}
             </div>
           ) : entries.length === 0 && unsaved.length === 0 && !loading ? (
-            <p className="text-center text-gray-400">No entries yet.</p>
+            <EmptyState
+              title="Nothing here yet"
+              hint="Write your first entry below. Only you can see it."
+            />
           ) : (
-            <div className="space-y-2">
+            <div className="flex flex-col gap-3 pb-1">
               {[...entries].reverse().map(({ id, text, createdAt }, i) => (
                 <JournalEntry
                   key={id}
@@ -473,9 +486,22 @@ export default function Journal() {
             type="button"
             onClick={jumpToBottom}
             aria-label="Scroll to latest entry"
-            className="btn btn-circle btn-primary btn-sm absolute bottom-2 left-1/2 -translate-x-1/2 shadow"
+            className="btn btn-circle btn-primary absolute bottom-3 left-1/2 -translate-x-1/2 shadow-lg active:scale-95 transition"
           >
-            ↓
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 5v14" />
+              <path d="m19 12-7 7-7-7" />
+            </svg>
           </button>
         )}
       </div>
@@ -485,10 +511,10 @@ export default function Journal() {
           onSubmit={handleSearch}
           className="shrink-0 bg-base-100 flex items-end gap-2 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
         >
-          <label className="input relative flex-1 h-14 rounded-3xl bg-base-content/8 border-0 shadow-sm text-lg gap-0 pl-14 pr-14 sm:h-16 sm:pl-16 sm:pr-16 focus-within:outline-none">
+          <label className="input relative flex-1 h-14 rounded-3xl bg-base-content/8 border-0 shadow-sm text-lg font-medium gap-0 pl-14 pr-14 sm:h-16 sm:pl-16 sm:pr-16 focus-within:outline-none [&_input]:placeholder:text-base-content/50">
             <button
               type="button"
-              className="btn btn-ghost btn-circle btn-sm absolute z-10 left-3 bottom-3 sm:left-4 sm:bottom-4"
+              className="btn btn-ghost btn-circle absolute z-10 left-2 bottom-2 sm:left-3 sm:bottom-3"
               onClick={toggleSearch}
               aria-label="Close search"
             >
@@ -499,7 +525,7 @@ export default function Journal() {
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="2.25"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
@@ -523,12 +549,25 @@ export default function Journal() {
             )}
             <button
               type="button"
-              className="btn btn-ghost btn-circle btn-sm absolute z-10 right-3 bottom-3 sm:right-4 sm:bottom-4"
+              className="btn btn-ghost btn-circle absolute z-10 right-2 bottom-2 sm:right-3 sm:bottom-3"
               // Clear the text first; close search if there's nothing to clear.
               onClick={searchText ? clearSearchText : toggleSearch}
               aria-label={searchText ? "Clear search" : "Close search"}
             >
-              ✕
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
             </button>
           </label>
         </form>
@@ -538,7 +577,7 @@ export default function Journal() {
           className="shrink-0 bg-base-100 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
         >
           <div
-            className={`bg-base-content/8 rounded-3xl shadow-sm flex flex-wrap items-center ${
+            className={`bg-base-content/8 rounded-3xl shadow-sm flex flex-wrap items-center transition-[padding] duration-150 focus-within:bg-base-content/10 ${
               expanded ? "px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4" : "p-2"
             }`}
             onFocus={() => setFocused(true)}
@@ -562,7 +601,7 @@ export default function Journal() {
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="2.25"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
@@ -574,7 +613,7 @@ export default function Journal() {
               id="journal-entry"
               ref={textareaRef}
               rows={1}
-              className={`block max-h-64 resize-none [field-sizing:content] bg-transparent border-0 outline-none px-2 text-lg leading-snug placeholder:text-base-content/50 ${
+              className={`block max-h-64 resize-none [field-sizing:content] bg-transparent border-0 outline-none px-2 text-lg font-medium leading-snug placeholder:text-base-content/50 ${
                 expanded ? "order-first basis-full mb-3" : "flex-1 min-w-0"
               }`}
               placeholder={placeholder}
@@ -584,7 +623,7 @@ export default function Journal() {
             />
             <button
               type="submit"
-              className="btn btn-primary btn-circle"
+              className="btn btn-primary btn-circle transition active:scale-95"
               disabled={!text.trim()}
               aria-label="Add entry"
             >
@@ -595,7 +634,7 @@ export default function Journal() {
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2.25"
+                strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >

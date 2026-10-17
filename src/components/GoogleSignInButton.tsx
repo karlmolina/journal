@@ -6,7 +6,7 @@ export default function GoogleSignInButton({ onClick }: Props) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center justify-center space-x-3 bg-white text-gray-900 border border-gray-300 rounded-md px-4 py-2 shadow-sm hover:shadow-md hover:bg-gray-50 transition cursor-pointer"
+      className="flex items-center justify-center space-x-3 bg-white text-gray-900 border border-gray-300 rounded-full px-6 py-3 font-semibold shadow-sm hover:shadow-md hover:bg-gray-50 active:scale-[0.98] transition cursor-pointer"
     >
       {/* Google Logo */}
       <svg

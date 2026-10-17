@@ -3,9 +3,18 @@
   themes: all;
 }
 
+@theme {
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji";
+}
+
 body {
   overflow-anchor: none;
   overflow-y: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01";
 }
 
 .scrollbar-none {
@@ -13,4 +22,20 @@ body {
 }
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* New entries rise into place instead of appearing abruptly. */
+@keyframes entry-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.animate-entry-in {
+  animation: entry-in 220ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-entry-in {
+    animation: none;
+  }
 }
