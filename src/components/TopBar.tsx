@@ -119,7 +119,8 @@ export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
 
   return (
     <div className="flex justify-between items-center py-2 sm:py-4">
-      <h1 className="text-2xl font-extrabold tracking-tight ml-2 sm:ml-0">
+      <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight ml-2 sm:ml-0">
+        <img src="/favicon.svg" alt="" className="size-7" />
         Journal8
       </h1>
 
