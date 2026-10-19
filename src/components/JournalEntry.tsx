@@ -1,4 +1,4 @@
-import formatDate, { formatFullDate } from "../functions/formatDate";
+import formatDate from "../functions/formatDate";
 
 // The database wraps search matches in these private-use characters.
 const MATCH_START = "\ue000";
@@ -50,10 +50,7 @@ export default function JournalEntry({
       }`}
     >
       <div className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70 flex items-center gap-2 min-h-5">
-        <time
-          dateTime={createdAt.toISOString()}
-          title={formatFullDate(createdAt)}
-        >
+        <time dateTime={createdAt.toISOString()}>
           {formatDate(createdAt)}
         </time>
         {status === "saving" && (
