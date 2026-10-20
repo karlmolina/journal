@@ -1,34 +1,20 @@
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-const startOfDay = (d: Date) =>
-  new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-
-// Short, relative label for an entry: "Today · 7:18 PM", "Yesterday · 9:02 AM",
-// "Friday, Oct 16 · 6:48 PM", with the year added for other years.
 export default function formatDate(date: string | number | Date): string {
   const d = new Date(date);
-  const now = new Date();
-  const time = d.toLocaleString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
 
-  const days = Math.round((startOfDay(now) - startOfDay(d)) / DAY_MS);
-  if (days === 0) return `Today · ${time}`;
-  if (days === 1) return `Yesterday · ${time}`;
+  const hours = d.getHours() % 12 || 12;
+  const minutes = d.getMinutes().toString().padStart(2, "0");
+  const ampm = d.getHours() >= 12 ? "PM" : "AM";
 
-  const day = d.toLocaleString("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-    year: d.getFullYear() === now.getFullYear() ? undefined : "numeric",
-  });
-  return `${day} · ${time}`;
+  const weekday = d.toLocaleString("en-US", { weekday: "long" });
+  const month = d.toLocaleString("en-US", { month: "long" });
+  const day = d.getDate();
+  const year = d.getFullYear();
+
+  const ordinal = (n: number) => {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return s[(v - 20) % 10] || s[v] || s[0];
+  };
+
+  return `${hours}:${minutes} ${ampm} ${weekday} ${month} ${day}${ordinal(day)}, ${year}`;
 }
-
-// The full date and time, for the timestamp's tooltip.
-export const formatFullDate = (date: string | number | Date): string =>
-  new Date(date).toLocaleString("en-US", {
-    dateStyle: "full",
-    timeStyle: "short",
-  });
