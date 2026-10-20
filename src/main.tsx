@@ -15,6 +15,7 @@ const Session = React.lazy(() => import("./pages/workouts/Session"));
 const Library = React.lazy(() => import("./pages/workouts/Library"));
 const Injuries = React.lazy(() => import("./pages/workouts/Injuries"));
 const Progress = React.lazy(() => import("./pages/workouts/Progress"));
+const Plan = React.lazy(() => import("./pages/workouts/Plan"));
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -30,6 +31,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="library" element={<Library />} />
               <Route path="injuries" element={<Injuries />} />
               <Route path="progress" element={<Progress />} />
+              <Route path="plan" element={<Plan />} />
             </Route>
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
