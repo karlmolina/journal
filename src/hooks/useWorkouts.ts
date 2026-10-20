@@ -5,6 +5,8 @@ export interface WorkoutSet {
   id: string;
   workout_id: string;
   exercise_name: string;
+  // The library exercise this set was, if any.
+  exercise_id: string | null;
   reps: number | null;
   weight: number | null;
   duration_seconds: number | null;
@@ -23,13 +25,16 @@ export interface Workout {
 
 export type NewSet = Pick<
   WorkoutSet,
-  "exercise_name" | "reps" | "weight" | "duration_seconds"
+  "exercise_name" | "exercise_id" | "reps" | "weight" | "duration_seconds"
 >;
+
+// What the set form collects; the library link is filled in from the name.
+export type SetInput = Omit<NewSet, "exercise_id">;
 
 const CACHE_KEY = "workouts";
 const HISTORY_LIMIT = 20;
 const SELECT =
-  "id, started_at, paused_at, paused_seconds, ended_at, notes, workout_sets (id, workout_id, exercise_name, reps, weight, duration_seconds, created_at)";
+  "id, started_at, paused_at, paused_seconds, ended_at, notes, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, created_at)";
 
 // Stopwatch time: wall time since the start, minus time spent paused.
 export function elapsedSeconds(w: Workout, now = Date.now()) {

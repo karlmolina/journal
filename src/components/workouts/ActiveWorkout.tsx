@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { NewSet, Workout, WorkoutSet } from "../../hooks/useWorkouts";
+import type { SetInput, Workout, WorkoutSet } from "../../hooks/useWorkouts";
 import { elapsedSeconds } from "../../hooks/useWorkouts";
 import { formatClock } from "../../functions/formatDuration";
 import SetForm from "./SetForm";
@@ -25,13 +25,15 @@ interface ActiveWorkoutProps {
   onResume: () => void;
   onFinish: (notes: string) => void;
   onDiscard: () => void;
-  onAddSet: (set: NewSet) => void;
+  initialExercise?: string;
+  onAddSet: (set: SetInput) => void;
   onRemoveSet: (set: WorkoutSet) => void;
 }
 
 export default function ActiveWorkout({
   workout,
   suggestions,
+  initialExercise,
   onPause,
   onResume,
   onFinish,
@@ -127,7 +129,11 @@ export default function ActiveWorkout({
 
       <section className={cardClass}>
         <h2 className="font-bold mb-3">Log a set</h2>
-        <SetForm suggestions={suggestions} onAdd={onAddSet} />
+        <SetForm
+          suggestions={suggestions}
+          initialExercise={initialExercise}
+          onAdd={onAddSet}
+        />
       </section>
 
       {workout.workout_sets.length > 0 && (
