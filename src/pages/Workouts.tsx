@@ -8,6 +8,7 @@ const TABS = [
   { to: "/workouts", label: "Workout", end: true },
   { to: "/workouts/library", label: "Library" },
   { to: "/workouts/injuries", label: "Injuries" },
+  { to: "/workouts/progress", label: "Progress" },
 ];
 
 // Shell for the workouts section: the top bar, its own tabs, and the page.
