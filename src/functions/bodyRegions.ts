@@ -1,3 +1,5 @@
+import type { Side } from "../hooks/useInjuries";
+
 // Body regions shared by the exercise library and the injury body map. The
 // keys are stored in the database, so only add to this list.
 export const BODY_REGIONS = [
@@ -25,3 +27,25 @@ const LABELS = new Map<string, string>(
 );
 
 export const regionLabel = (key: string) => LABELS.get(key) ?? key;
+
+export const placeKey = (region: string, side: Side) => `${region}:${side}`;
+
+export function placeLabel(region: string, side: Side) {
+  const label = regionLabel(region);
+  if (side === "center") return label;
+  return `${side === "left" ? "Left" : "Right"} ${label.toLowerCase()}`;
+}
+
+// Tailwind fill classes for a pain level (no check-in yet = neutral marker).
+export function painFill(pain: number | null) {
+  if (pain === null) return "fill-base-content/45";
+  if (pain <= 3) return "fill-success";
+  if (pain <= 6) return "fill-warning";
+  return "fill-error";
+}
+
+export function painText(pain: number) {
+  if (pain <= 3) return "text-success";
+  if (pain <= 6) return "text-warning";
+  return "text-error";
+}

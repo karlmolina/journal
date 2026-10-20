@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import TopBar from "../components/TopBar";
 import { useAuth } from "../context/AuthContext";
@@ -6,6 +7,7 @@ import signOut from "../functions/signOut";
 const TABS = [
   { to: "/workouts", label: "Workout", end: true },
   { to: "/workouts/library", label: "Library" },
+  { to: "/workouts/injuries", label: "Injuries" },
 ];
 
 // Shell for the workouts section: the top bar, its own tabs, and the page.
@@ -38,7 +40,15 @@ export default function Workouts() {
           </NavLink>
         ))}
       </nav>
-      <Outlet />
+      <Suspense
+        fallback={
+          <div className="flex justify-center py-8 text-base-content/40">
+            <span className="loading loading-spinner loading-md"></span>
+          </div>
+        }
+      >
+        <Outlet />
+      </Suspense>
     </div>
   );
 }
