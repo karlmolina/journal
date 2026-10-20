@@ -10,6 +10,7 @@ import TopBar from "../components/TopBar";
 import JournalEntry from "../components/JournalEntry";
 import { useAuth } from "../context/AuthContext";
 import useVisualViewport from "../hooks/useVisualViewport";
+import signOut from "../functions/signOut";
 
 const LOCAL_STORAGE_KEY = "journal_entries";
 // Entries submitted but not yet confirmed saved, so a reload or a failed request
@@ -400,13 +401,6 @@ export default function Journal() {
     saveEntry(entry);
   };
 
-  const handleLogout = async () => {
-    if (userId)
-      for (const key of [LOCAL_STORAGE_KEY, PENDING_KEY, DRAFT_KEY])
-        localStorage.removeItem(`${key}_${userId}`);
-    await supabase.auth.signOut();
-  };
-
   // A pending entry the refresh already returned was saved by an earlier visit.
   const savedIds = new Set(entries.map((e) => e.id));
   const unsaved = pending.filter((e) => !savedIds.has(e.id));
@@ -419,7 +413,7 @@ export default function Journal() {
         userPhoto={
           user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture
         }
-        onSignOut={handleLogout}
+        onSignOut={() => signOut(userId)}
       />
 
       <div className="relative flex-1 min-h-0">
