@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import type { NewSet } from "../../hooks/useWorkouts";
+import type { SetInput } from "../../hooks/useWorkouts";
 import { parseClock } from "../../functions/formatDuration";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 
@@ -9,11 +9,17 @@ const fieldClass =
 interface SetFormProps {
   // Exercise names used before, most recent first.
   suggestions: string[];
-  onAdd: (set: NewSet) => void;
+  // Prefills the exercise, e.g. when coming from the library.
+  initialExercise?: string;
+  onAdd: (set: SetInput) => void;
 }
 
-export default function SetForm({ suggestions, onAdd }: SetFormProps) {
-  const [exercise, setExercise] = useState("");
+export default function SetForm({
+  suggestions,
+  initialExercise = "",
+  onAdd,
+}: SetFormProps) {
+  const [exercise, setExercise] = useState(initialExercise);
   const [reps, setReps] = useState("");
   const [weight, setWeight] = useState("");
   const [time, setTime] = useState("");
