@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { NavLink } from "react-router-dom";
 import { themeChange } from "theme-change";
 
 interface TopBarProps {
@@ -108,6 +109,70 @@ function ThemeSwatch({ theme }: { theme: string }) {
   );
 }
 
+const SECTIONS = [
+  {
+    to: "/journal",
+    label: "Journal",
+    icon: (
+      <>
+        <path d="M12 20h9" />
+        <path d="M16.4 3.6a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z" />
+      </>
+    ),
+  },
+  {
+    to: "/workouts",
+    label: "Workouts",
+    icon: (
+      <>
+        <path d="M6.5 6.5v11" />
+        <path d="M17.5 6.5v11" />
+        <path d="M3 9.5v5" />
+        <path d="M21 9.5v5" />
+        <path d="M6.5 12h11" />
+      </>
+    ),
+  },
+];
+
+// Switches between the journal and workouts. Icons only on narrow screens so
+// the title and both menus still fit on one row.
+function SectionTabs() {
+  return (
+    <nav className="flex items-center gap-0.5 rounded-full bg-base-content/8 p-1">
+      {SECTIONS.map(({ to, label, icon }) => (
+        <NavLink
+          key={to}
+          to={to}
+          aria-label={label}
+          className={({ isActive }) =>
+            `flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-bold transition sm:px-3 ${
+              isActive
+                ? "bg-base-100 shadow-sm"
+                : "text-base-content/60 hover:text-base-content"
+            }`
+          }
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            {icon}
+          </svg>
+          <span className="hidden sm:inline">{label}</span>
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
 export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
   const photo = useCachedPhoto(userPhoto);
 
@@ -118,14 +183,16 @@ export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
   }, []);
 
   return (
-    <div className="flex justify-between items-center py-2 sm:py-4">
+    <div className="flex justify-between items-center gap-2 py-2 sm:py-4">
       <h1 className="text-2xl font-extrabold tracking-tight ml-2 sm:ml-0">
         Journal8
       </h1>
 
       <div className="flex items-center">
+        <SectionTabs />
+
         {/* Theme dropdown */}
-        <div className="dropdown dropdown-end">
+        <div className="dropdown dropdown-end ml-1">
           <button
             tabIndex={0}
             className="btn btn-ghost btn-circle"
