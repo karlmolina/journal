@@ -67,13 +67,22 @@ Write a plan that fits their goals, the days and minutes they have, and their eq
 
 When an exercise from their library fits, use its exact name so it links to the instructions they already have. Keep names short and standard otherwise. "reps" can be a count ("8-10"), a time ("30 sec") or a distance. Use "notes" for one short cue, load guidance, or "" when nothing needs saying. Put warm-ups inside sessions as exercises.
 
-"summary" is two or three sentences on the plan's approach and how to progress it week to week. "safety_notes" lists brief points specific to this person (for example when to stop or see a professional because of an injury); leave it empty if there is nothing specific. You are not diagnosing anything.`;
+"summary" is two or three sentences on the plan's approach and how to progress it week to week. "safety_notes" lists brief points specific to this person (for example when to stop or see a professional because of an injury); leave it empty if there is nothing specific. You are not diagnosing anything.
+
+Sometimes you are given their current plan and a change they want. Then return the whole plan with that change made, however big or small: swapping exercises, changing days, sets, reps, rest, length, focus or difficulty, or rebuilding it. Keep everything they didn't ask to change as it is, and update "summary" and "safety_notes" if the change affects them.`;
 
 interface Body {
   goals?: string;
   days_per_week?: number;
   minutes_per_session?: number;
   equipment?: string;
+  // To revise an existing plan instead of writing a new one.
+  plan_id?: string;
+  instruction?: string;
+}
+
+interface Plan {
+  sessions: unknown[];
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -101,10 +110,36 @@ Deno.serve(async (req) => {
   if (!user) return json({ error: "not_signed_in" }, 401);
 
   const body: Body = await req.json().catch(() => ({}));
-  const goals = body.goals?.trim().slice(0, 2000);
-  const days = Math.round(Number(body.days_per_week));
-  const minutes = Math.round(Number(body.minutes_per_session));
-  const equipment = body.equipment?.trim().slice(0, 500) || null;
+
+  let goals: string | undefined;
+  let days: number;
+  let minutes: number;
+  let equipment: string | null;
+  let revising: { id: string; plan: Plan; instruction: string } | null = null;
+  if (body.plan_id) {
+    const instruction = body.instruction?.trim().slice(0, 2000);
+    if (!instruction) return json({ error: "invalid_request" }, 400);
+    const { data: current, error } = await supabase
+      .from("workout_plans")
+      .select("id, goals, days_per_week, minutes_per_session, equipment, plan")
+      .eq("id", body.plan_id)
+      .maybeSingle();
+    if (error) {
+      console.error(error);
+      return json({ error: "load_failed" }, 500);
+    }
+    if (!current) return json({ error: "plan_not_found" }, 404);
+    goals = current.goals;
+    days = current.days_per_week;
+    minutes = current.minutes_per_session;
+    equipment = current.equipment;
+    revising = { id: current.id, plan: current.plan, instruction };
+  } else {
+    goals = body.goals?.trim().slice(0, 2000);
+    days = Math.round(Number(body.days_per_week));
+    minutes = Math.round(Number(body.minutes_per_session));
+    equipment = body.equipment?.trim().slice(0, 500) || null;
+  }
   if (!goals || !(days >= 1 && days <= 7) || !(minutes >= 10 && minutes <= 240))
     return json({ error: "invalid_request" }, 400);
 
@@ -177,7 +212,11 @@ Deno.serve(async (req) => {
       latest_set: r.best,
     })),
     exercise_library: exercisesRes.data ?? [],
+    ...(revising && { current_plan: revising.plan }),
   };
+  const ask = revising
+    ? `Change my plan like this:\n\n${revising.instruction}`
+    : "Write my weekly plan.";
 
   const client = new Anthropic({ apiKey });
   let message;
@@ -196,7 +235,7 @@ Deno.serve(async (req) => {
       messages: [
         {
           role: "user",
-          content: `Here is everything the app knows about me, as JSON:\n\n${JSON.stringify(context, null, 2)}\n\nWrite my weekly plan.`,
+          content: `Here is everything the app knows about me, as JSON:\n\n${JSON.stringify(context, null, 2)}\n\n${ask}`,
         },
       ],
     });
@@ -212,7 +251,7 @@ Deno.serve(async (req) => {
   if (message.stop_reason === "refusal")
     return json({ error: "declined" }, 422);
   const text = message.content.find((b) => b.type === "text");
-  let plan;
+  let plan: Plan;
   try {
     plan = JSON.parse(text && "text" in text ? text.text : "");
   } catch {
@@ -224,13 +263,20 @@ Deno.serve(async (req) => {
     .from("workout_plans")
     .insert({
       goals,
-      days_per_week: days,
+      // A revision can add or drop days.
+      days_per_week: revising
+        ? Math.min(Math.max(plan.sessions.length, 1), 7)
+        : days,
       minutes_per_session: minutes,
       equipment,
       plan,
       model: message.model,
+      revised_from: revising?.id ?? null,
+      instruction: revising?.instruction ?? null,
     })
-    .select()
+    .select(
+      "id, goals, days_per_week, minutes_per_session, equipment, plan, revised_from, instruction, created_at",
+    )
     .single();
   if (error) {
     console.error(error);

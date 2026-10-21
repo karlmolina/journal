@@ -1,0 +1,69 @@
+import type { WorkoutPlan, PlannedExercise } from "../hooks/useWorkoutPlans";
+import type { Workout, WorkoutSet } from "../hooks/useWorkouts";
+
+const key = (name: string) => name.trim().toLowerCase();
+
+// The plan and every earlier version it was revised from, so workouts done
+// on an older version still count toward where you are in the plan.
+function lineage(plan: WorkoutPlan, plans: WorkoutPlan[]) {
+  const ids = new Set<string>();
+  let current: WorkoutPlan | undefined = plan;
+  while (current && !ids.has(current.id)) {
+    ids.add(current.id);
+    const parent: string | null | undefined = current.revised_from;
+    current = parent ? plans.find((p) => p.id === parent) : undefined;
+  }
+  return ids;
+}
+
+// The session after the last one you did, wrapping around to the first.
+// `workouts` is newest first.
+export function nextSessionIndex(
+  plan: WorkoutPlan,
+  plans: WorkoutPlan[],
+  workouts: Workout[],
+) {
+  const count = plan.plan.sessions.length;
+  if (count === 0) return 0;
+  const ids = lineage(plan, plans);
+  const last = workouts.find(
+    (w) => w.plan_id && ids.has(w.plan_id) && w.plan_session != null,
+  );
+  return last ? (last.plan_session! + 1) % count : 0;
+}
+
+// A starting rep count from the plan's text: "8-10" gives 8. Timed or
+// distance targets ("30 sec", "400 m") give nothing; the set timer covers those.
+export function plannedReps(reps: string): number | null {
+  if (/sec|min|\d\s*s\b|\bm\b|km|mile|yd|ft|meter|metre/i.test(reps))
+    return null;
+  const match = reps.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+// The most recent set of an exercise, to prefill the next one. `workouts`
+// is newest first; sets inside a workout are oldest first.
+export function lastSetOf(
+  name: string,
+  workouts: Workout[],
+): WorkoutSet | undefined {
+  const k = key(name);
+  for (const w of workouts)
+    for (let i = w.workout_sets.length - 1; i >= 0; i--)
+      if (key(w.workout_sets[i].exercise_name) === k) return w.workout_sets[i];
+  return undefined;
+}
+
+export function setsDone(exercise: PlannedExercise, sets: WorkoutSet[]) {
+  const k = key(exercise.name);
+  return sets.filter((s) => key(s.exercise_name) === k).length;
+}
+
+// The first planned exercise that still has sets to do.
+export function currentExerciseIndex(
+  exercises: PlannedExercise[],
+  sets: WorkoutSet[],
+) {
+  const i = exercises.findIndex((e) => setsDone(e, sets) < e.sets);
+  return i === -1 ? null : i;
+}

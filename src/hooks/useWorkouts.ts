@@ -20,7 +20,15 @@ export interface Workout {
   paused_seconds: number;
   ended_at: string | null;
   notes: string | null;
+  // The plan and session (an index into its sessions) this workout follows.
+  plan_id: string | null;
+  plan_session: number | null;
   workout_sets: WorkoutSet[];
+}
+
+export interface PlanSessionRef {
+  plan_id: string;
+  plan_session: number;
 }
 
 export type NewSet = Pick<
@@ -34,7 +42,7 @@ export type SetInput = Omit<NewSet, "exercise_id">;
 const CACHE_KEY = "workouts";
 const HISTORY_LIMIT = 20;
 const SELECT =
-  "id, started_at, paused_at, paused_seconds, ended_at, notes, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, created_at)";
+  "id, started_at, paused_at, paused_seconds, ended_at, notes, plan_id, plan_session, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, created_at)";
 
 // Stopwatch time: wall time since the start, minus time spent paused.
 export function elapsedSeconds(w: Workout, now = Date.now()) {
@@ -177,29 +185,37 @@ export default function useWorkouts(userId?: string) {
     [fail],
   );
 
-  const start = useCallback(async () => {
-    if (state.current.active) return;
-    const workout: Workout = {
-      id: crypto.randomUUID(),
-      started_at: new Date().toISOString(),
-      paused_at: null,
-      paused_seconds: 0,
-      ended_at: null,
-      notes: null,
-      workout_sets: [],
-    };
-    setActive(workout);
-    setError(null);
-    const { error } = await supabase
-      .from("workouts")
-      .insert({ id: workout.id, started_at: workout.started_at });
-    if (error) {
-      setActive(null);
-      // Most likely a workout was started on another device; show that one.
-      fail("Couldn't start the workout.", error);
-      load();
-    }
-  }, [fail, load]);
+  const start = useCallback(
+    async (planned?: PlanSessionRef) => {
+      if (state.current.active) return;
+      const workout: Workout = {
+        id: crypto.randomUUID(),
+        started_at: new Date().toISOString(),
+        paused_at: null,
+        paused_seconds: 0,
+        ended_at: null,
+        notes: null,
+        plan_id: planned?.plan_id ?? null,
+        plan_session: planned?.plan_session ?? null,
+        workout_sets: [],
+      };
+      setActive(workout);
+      setError(null);
+      const { error } = await supabase.from("workouts").insert({
+        id: workout.id,
+        started_at: workout.started_at,
+        plan_id: workout.plan_id,
+        plan_session: workout.plan_session,
+      });
+      if (error) {
+        setActive(null);
+        // Most likely a workout was started on another device; show that one.
+        fail("Couldn't start the workout.", error);
+        load();
+      }
+    },
+    [fail, load],
+  );
 
   const pause = useCallback(() => {
     updateActive(
@@ -319,6 +335,36 @@ export default function useWorkouts(userId?: string) {
     [fail],
   );
 
+  // Sets can be corrected in the running workout and in past ones.
+  const updateSet = useCallback(
+    async (set: WorkoutSet, changes: Partial<NewSet>) => {
+      const replace = (next: WorkoutSet) => (w: Workout) =>
+        w.id === set.workout_id
+          ? {
+              ...w,
+              workout_sets: w.workout_sets.map((s) =>
+                s.id === set.id ? next : s,
+              ),
+            }
+          : w;
+      const apply = (next: WorkoutSet) => {
+        setActive((w) => (w ? replace(next)(w) : w));
+        setHistory((h) => h.map(replace(next)));
+      };
+      apply({ ...set, ...changes });
+      setError(null);
+      const { error } = await supabase
+        .from("workout_sets")
+        .update(changes)
+        .eq("id", set.id);
+      if (error) {
+        apply(set);
+        fail("Couldn't update that set.", error);
+      }
+    },
+    [fail],
+  );
+
   return {
     active,
     history,
@@ -334,6 +380,7 @@ export default function useWorkouts(userId?: string) {
     discard,
     removeWorkout,
     addSet,
+    updateSet,
     removeSet,
   };
 }

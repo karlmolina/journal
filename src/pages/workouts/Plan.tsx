@@ -7,6 +7,8 @@ import useWorkoutPlans, {
   type PlanRequest,
   type WorkoutPlan,
 } from "../../hooks/useWorkoutPlans";
+import useWorkouts from "../../hooks/useWorkouts";
+import { nextSessionIndex } from "../../functions/planProgress";
 
 const DAYS = [2, 3, 4, 5, 6];
 const MINUTES = [20, 30, 45, 60, 90];
@@ -132,12 +134,73 @@ function PlanForm({
   );
 }
 
+function ReviseForm({
+  generating,
+  onSubmit,
+}: {
+  generating: boolean;
+  onSubmit: (instruction: string) => Promise<boolean>;
+}) {
+  const [instruction, setInstruction] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!instruction.trim() || generating) return;
+    if (await onSubmit(instruction.trim())) setInstruction("");
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className={`${cardClass} flex flex-col gap-3`}
+    >
+      <div>
+        <h2 className="font-bold">Change this plan</h2>
+        <p className="text-sm font-medium text-base-content/55">
+          Tell Claude what to change. It keeps the rest, and your current
+          version stays under earlier plans.
+        </p>
+      </div>
+      <textarea
+        className={`${fieldClass} resize-none`}
+        rows={3}
+        placeholder="Like: Swap running for cycling, make Thursday 30 minutes, and add more core work."
+        value={instruction}
+        onChange={(e) => setInstruction(e.target.value)}
+        aria-label="What to change"
+        disabled={generating}
+      />
+      <button
+        type="submit"
+        className="btn btn-primary rounded-full font-bold"
+        disabled={!instruction.trim() || generating}
+      >
+        {generating ? (
+          <>
+            <span className="loading loading-spinner loading-sm"></span>
+            Updating your plan…
+          </>
+        ) : (
+          "Update plan"
+        )}
+      </button>
+    </form>
+  );
+}
+
 function PlanView({
   plan,
+  next,
+  inProgress,
   onLog,
+  onStart,
 }: {
   plan: WorkoutPlan;
+  next: number;
+  // A workout is running, so starting another isn't possible.
+  inProgress: boolean;
   onLog: (exercise: string) => void;
+  onStart: (session: number) => void;
 }) {
   const { title, summary, sessions, safety_notes } = plan.plan;
   return (
@@ -151,6 +214,11 @@ function PlanView({
           })}
         </p>
         <h2 className="text-xl font-extrabold tracking-tight">{title}</h2>
+        {plan.instruction && (
+          <p className="mt-1 text-sm font-semibold text-base-content/60">
+            Updated: “{plan.instruction}”
+          </p>
+        )}
         <p className="mt-1 font-medium text-base-content/90 dark:text-[color-mix(in_oklab,var(--color-base-content),white_45%)]">
           {summary}
         </p>
@@ -165,10 +233,30 @@ function PlanView({
 
       {sessions.map((s, i) => (
         <section key={i} className={cardClass}>
-          <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70">
-            {s.day} · {s.duration_minutes} min
-          </p>
-          <h3 className="text-lg font-bold leading-snug">{s.focus}</h3>
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70">
+                {i === next && (
+                  <span className="text-primary font-bold">Up next · </span>
+                )}
+                {s.day} · {s.duration_minutes} min
+              </p>
+              <h3 className="text-lg font-bold leading-snug">{s.focus}</h3>
+            </div>
+            {!inProgress && (
+              <button
+                type="button"
+                className={`btn btn-sm rounded-full font-bold ${
+                  i === next
+                    ? "btn-primary"
+                    : "bg-base-content/8 border-0 shadow-none"
+                }`}
+                onClick={() => onStart(i)}
+              >
+                Start
+              </button>
+            )}
+          </div>
           <ol className="mt-2 flex flex-col divide-y divide-base-content/8">
             {s.exercises.map((e, j) => (
               <li key={j} className="flex items-start gap-3 py-2">
@@ -210,8 +298,10 @@ export default function Plan() {
     error,
     dismissError,
     generate,
+    revise,
     removePlan,
   } = useWorkoutPlans(user?.id);
+  const { active, history, start } = useWorkouts(user?.id);
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [planning, setPlanning] = useState(false);
@@ -254,11 +344,37 @@ export default function Plan() {
         </div>
       )}
 
+      {active && !showForm && (
+        <button
+          type="button"
+          className="rounded-2xl bg-primary/12 px-4 py-3 text-sm font-bold text-left cursor-pointer"
+          onClick={() => navigate("/workouts")}
+        >
+          A workout is in progress. Go to it →
+        </button>
+      )}
+
       {selected && !showForm && (
-        <PlanView
-          plan={selected}
-          onLog={(exercise) => navigate("/workouts", { state: { exercise } })}
-        />
+        <>
+          <PlanView
+            plan={selected}
+            next={nextSessionIndex(selected, plans, history)}
+            inProgress={active !== null}
+            onLog={(exercise) => navigate("/workouts", { state: { exercise } })}
+            onStart={async (session) => {
+              await start({ plan_id: selected.id, plan_session: session });
+              navigate("/workouts");
+            }}
+          />
+          <ReviseForm
+            generating={generating}
+            onSubmit={async (instruction) => {
+              const ok = await revise(selected, instruction);
+              if (ok) setSelectedId(null);
+              return ok;
+            }}
+          />
+        </>
       )}
 
       {older.length > 0 && !showForm && (
@@ -277,11 +393,12 @@ export default function Plan() {
                 onClick={() => setSelectedId(p.id)}
               >
                 <p className="font-bold truncate">{p.plan.title}</p>
-                <p className="text-xs font-semibold text-base-content/55">
+                <p className="text-xs font-semibold text-base-content/55 truncate">
                   {new Date(p.created_at).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
                   })}
+                  {p.instruction && ` · ${p.instruction}`}
                 </p>
               </button>
               <button

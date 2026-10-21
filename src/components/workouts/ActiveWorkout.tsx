@@ -1,48 +1,144 @@
 import { useEffect, useState } from "react";
 import type { SetInput, Workout, WorkoutSet } from "../../hooks/useWorkouts";
 import { elapsedSeconds } from "../../hooks/useWorkouts";
+import type { PlannedSession } from "../../hooks/useWorkoutPlans";
+import useTick from "../../hooks/useTick";
 import { formatClock } from "../../functions/formatDuration";
-import SetForm from "./SetForm";
+import { currentExerciseIndex, setsDone } from "../../functions/planProgress";
 import SetList from "./SetList";
+import SetTimer from "./SetTimer";
 
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
 
-// Re-renders every second while the stopwatch runs.
-function useTick(running: boolean) {
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [running]);
+// Rest between sets when the plan doesn't say.
+const DEFAULT_REST = 90;
+
+export interface PlannedWorkout {
+  planTitle: string;
+  session: PlannedSession;
 }
 
 interface ActiveWorkoutProps {
   workout: Workout;
+  planned?: PlannedWorkout;
   suggestions: string[];
+  timerKey: string;
+  prefillFor: (exercise: string) => Partial<SetInput>;
   onPause: () => void;
   onResume: () => void;
   onFinish: (notes: string) => void;
   onDiscard: () => void;
   initialExercise?: string;
   onAddSet: (set: SetInput) => void;
+  onUpdateSet: (set: WorkoutSet, changes: SetInput) => void;
   onRemoveSet: (set: WorkoutSet) => void;
+}
+
+function PlanChecklist({
+  session,
+  sets,
+  selected,
+  onSelect,
+}: {
+  session: PlannedSession;
+  sets: WorkoutSet[];
+  selected: number | null;
+  onSelect: (i: number) => void;
+}) {
+  return (
+    <ol className="mt-2 flex flex-col gap-1">
+      {session.exercises.map((e, i) => {
+        const done = setsDone(e, sets);
+        const complete = done >= e.sets;
+        return (
+          <li key={i}>
+            <button
+              type="button"
+              className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition cursor-pointer ${
+                selected === i ? "bg-primary/15" : "hover:bg-base-content/6"
+              }`}
+              onClick={() => onSelect(i)}
+              aria-pressed={selected === i}
+            >
+              <span
+                className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                  complete
+                    ? "bg-primary text-primary-content"
+                    : "bg-base-content/10 text-base-content/60"
+                }`}
+                aria-hidden="true"
+              >
+                {complete ? "✓" : i + 1}
+              </span>
+              <span className="flex-1 min-w-0">
+                <span
+                  className={`block font-bold truncate ${complete ? "text-base-content/50 line-through" : ""}`}
+                >
+                  {e.name}
+                </span>
+                <span className="block text-xs font-semibold text-base-content/55 tabular-nums">
+                  {e.sets} × {e.reps}
+                  {e.rest_seconds > 0 && ` · rest ${e.rest_seconds}s`}
+                </span>
+              </span>
+              <span className="text-sm font-bold tabular-nums text-base-content/60">
+                {Math.min(done, e.sets)}/{e.sets}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 export default function ActiveWorkout({
   workout,
+  planned,
   suggestions,
+  timerKey,
+  prefillFor,
   initialExercise,
   onPause,
   onResume,
   onFinish,
   onDiscard,
   onAddSet,
+  onUpdateSet,
   onRemoveSet,
 }: ActiveWorkoutProps) {
   const paused = workout.paused_at !== null;
   useTick(!paused);
+  const sets = workout.workout_sets;
+  const exercises = planned?.session.exercises ?? [];
+  // The exercise picked in the checklist; otherwise the first unfinished one.
+  const [picked, setPicked] = useState<number | null>(null);
+  const auto = currentExerciseIndex(exercises, sets);
+  const selectedIndex = picked ?? auto;
+  const selected =
+    selectedIndex !== null ? exercises[selectedIndex] : undefined;
+  const target =
+    selected &&
+    `Set ${Math.min(setsDone(selected, sets) + 1, selected.sets)} of ${selected.sets} · ${selected.reps}`;
+
+  const restFor = (name: string) => {
+    const e = exercises.find(
+      (x) => x.name.trim().toLowerCase() === name.trim().toLowerCase(),
+    );
+    return e ? e.rest_seconds : DEFAULT_REST;
+  };
+
+  const handleSave = (set: SetInput) => {
+    onAddSet(set);
+    // Once the picked exercise has all its sets, go back to following the plan.
+    if (
+      selected &&
+      set.exercise_name.toLowerCase() === selected.name.toLowerCase() &&
+      setsDone(selected, sets) + 1 >= selected.sets
+    )
+      setPicked(null);
+  };
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [notes, setNotes] = useState("");
@@ -127,18 +223,48 @@ export default function ActiveWorkout({
         )}
       </section>
 
+      {planned && (
+        <section className={cardClass}>
+          <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70">
+            {planned.planTitle} · {planned.session.day}
+          </p>
+          <h2 className="font-bold">{planned.session.focus}</h2>
+          <PlanChecklist
+            session={planned.session}
+            sets={sets}
+            selected={selectedIndex}
+            onSelect={setPicked}
+          />
+          {auto === null && exercises.length > 0 && (
+            <p className="mt-2 text-sm font-bold text-center text-primary">
+              Every planned set is done. Nice work.
+            </p>
+          )}
+        </section>
+      )}
+
       <section className={cardClass}>
-        <h2 className="font-bold mb-3">Log a set</h2>
-        <SetForm
+        <SetTimer
+          workoutId={workout.id}
+          storageKey={timerKey}
+          exercise={selected?.name ?? initialExercise ?? ""}
+          target={target || undefined}
+          notes={selected?.notes || undefined}
           suggestions={suggestions}
-          initialExercise={initialExercise}
-          onAdd={onAddSet}
+          prefillFor={prefillFor}
+          restFor={restFor}
+          onSave={handleSave}
         />
       </section>
 
-      {workout.workout_sets.length > 0 && (
+      {sets.length > 0 && (
         <section className={cardClass}>
-          <SetList sets={workout.workout_sets} onRemove={onRemoveSet} />
+          <SetList
+            sets={sets}
+            suggestions={suggestions}
+            onUpdate={onUpdateSet}
+            onRemove={onRemoveSet}
+          />
         </section>
       )}
 
