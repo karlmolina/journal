@@ -44,13 +44,27 @@ const PLAN_SCHEMA = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["name", "sets", "reps", "rest_seconds", "notes"],
+              required: [
+                "name",
+                "sets",
+                "reps",
+                "weight",
+                "rest_seconds",
+                "notes",
+                "goal",
+                "goal_weight",
+                "progression",
+              ],
               properties: {
                 name: { type: "string" },
                 sets: { type: "integer" },
                 reps: { type: "string" },
+                weight: { anyOf: [{ type: "number" }, { type: "null" }] },
                 rest_seconds: { type: "integer" },
                 notes: { type: "string" },
+                goal: { type: "string" },
+                goal_weight: { anyOf: [{ type: "number" }, { type: "null" }] },
+                progression: { type: "string" },
               },
             },
           },
@@ -65,15 +79,26 @@ const SYSTEM = `You are a strength and conditioning coach with a physical therap
 
 Write a plan that fits their goals, the days and minutes they have, and their equipment. Work around their current injuries: favour the rehab and prevention exercises listed for the injured area, keep loads and ranges pain-free, and never prescribe movements that obviously load an injury with high pain. Use their recent training to pick sensible starting loads and to build on what they already do.
 
-When an exercise from their library fits, use its exact name so it links to the instructions they already have. Keep names short and standard otherwise. "reps" can be a count ("8-10"), a time ("30 sec") or a distance. Use "notes" for one short cue, load guidance, or "" when nothing needs saying. Put warm-ups inside sessions as exercises.
+When an exercise from their library fits, use its exact name so it links to the instructions they already have. Keep names short and standard otherwise. "reps" can be a count ("8-10"), a time ("30 sec") or a distance. Use "notes" for one short cue, or "" when nothing needs saying. Put warm-ups inside sessions as exercises.
 
-"summary" is two or three sentences on the plan's approach and how to progress it week to week. "safety_notes" lists brief points specific to this person (for example when to stop or see a professional because of an injury); leave it empty if there is nothing specific. You are not diagnosing anything.`;
+Give every exercise a progression toward a goal. "weight" is the load in pounds to use now, based on their recent sets when they have done it (null for bodyweight, timed or cardio work). "goal" is where this exercise should get to over the next 6 to 8 weeks, short and concrete, like "3 × 10 at 65 lb", "3 × 60 sec holds" or "Run 5k without stopping". "goal_weight" is the goal's load in pounds, or null when the goal isn't a weight. "progression" is the one rule for moving toward the goal, like "Add 5 lb once every set reaches 10 reps" or "Add 10 sec per hold each week while pain stays at 3/10 or less". For injured areas, progress by pain response, not by the calendar.
+
+"summary" is two or three sentences on the plan's approach and how to progress it week to week. "safety_notes" lists brief points specific to this person (for example when to stop or see a professional because of an injury); leave it empty if there is nothing specific. You are not diagnosing anything.
+
+Sometimes you are given their current plan and a change they want. Then return the whole plan with that change made, however big or small: swapping exercises, changing days, sets, reps, rest, length, focus or difficulty, or rebuilding it. Keep everything they didn't ask to change as it is, and update "summary" and "safety_notes" if the change affects them.`;
 
 interface Body {
   goals?: string;
   days_per_week?: number;
   minutes_per_session?: number;
   equipment?: string;
+  // To revise an existing plan instead of writing a new one.
+  plan_id?: string;
+  instruction?: string;
+}
+
+interface Plan {
+  sessions: unknown[];
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -101,10 +126,36 @@ Deno.serve(async (req) => {
   if (!user) return json({ error: "not_signed_in" }, 401);
 
   const body: Body = await req.json().catch(() => ({}));
-  const goals = body.goals?.trim().slice(0, 2000);
-  const days = Math.round(Number(body.days_per_week));
-  const minutes = Math.round(Number(body.minutes_per_session));
-  const equipment = body.equipment?.trim().slice(0, 500) || null;
+
+  let goals: string | undefined;
+  let days: number;
+  let minutes: number;
+  let equipment: string | null;
+  let revising: { id: string; plan: Plan; instruction: string } | null = null;
+  if (body.plan_id) {
+    const instruction = body.instruction?.trim().slice(0, 2000);
+    if (!instruction) return json({ error: "invalid_request" }, 400);
+    const { data: current, error } = await supabase
+      .from("workout_plans")
+      .select("id, goals, days_per_week, minutes_per_session, equipment, plan")
+      .eq("id", body.plan_id)
+      .maybeSingle();
+    if (error) {
+      console.error(error);
+      return json({ error: "load_failed" }, 500);
+    }
+    if (!current) return json({ error: "plan_not_found" }, 404);
+    goals = current.goals;
+    days = current.days_per_week;
+    minutes = current.minutes_per_session;
+    equipment = current.equipment;
+    revising = { id: current.id, plan: current.plan, instruction };
+  } else {
+    goals = body.goals?.trim().slice(0, 2000);
+    days = Math.round(Number(body.days_per_week));
+    minutes = Math.round(Number(body.minutes_per_session));
+    equipment = body.equipment?.trim().slice(0, 500) || null;
+  }
   if (!goals || !(days >= 1 && days <= 7) || !(minutes >= 10 && minutes <= 240))
     return json({ error: "invalid_request" }, 400);
 
@@ -177,7 +228,11 @@ Deno.serve(async (req) => {
       latest_set: r.best,
     })),
     exercise_library: exercisesRes.data ?? [],
+    ...(revising && { current_plan: revising.plan }),
   };
+  const ask = revising
+    ? `Change my plan like this:\n\n${revising.instruction}`
+    : "Write my weekly plan.";
 
   const client = new Anthropic({ apiKey });
   let message;
@@ -196,7 +251,7 @@ Deno.serve(async (req) => {
       messages: [
         {
           role: "user",
-          content: `Here is everything the app knows about me, as JSON:\n\n${JSON.stringify(context, null, 2)}\n\nWrite my weekly plan.`,
+          content: `Here is everything the app knows about me, as JSON:\n\n${JSON.stringify(context, null, 2)}\n\n${ask}`,
         },
       ],
     });
@@ -212,7 +267,7 @@ Deno.serve(async (req) => {
   if (message.stop_reason === "refusal")
     return json({ error: "declined" }, 422);
   const text = message.content.find((b) => b.type === "text");
-  let plan;
+  let plan: Plan;
   try {
     plan = JSON.parse(text && "text" in text ? text.text : "");
   } catch {
@@ -224,13 +279,20 @@ Deno.serve(async (req) => {
     .from("workout_plans")
     .insert({
       goals,
-      days_per_week: days,
+      // A revision can add or drop days.
+      days_per_week: revising
+        ? Math.min(Math.max(plan.sessions.length, 1), 7)
+        : days,
       minutes_per_session: minutes,
       equipment,
       plan,
       model: message.model,
+      revised_from: revising?.id ?? null,
+      instruction: revising?.instruction ?? null,
     })
-    .select()
+    .select(
+      "id, goals, days_per_week, minutes_per_session, equipment, plan, revised_from, instruction, created_at",
+    )
     .single();
   if (error) {
     console.error(error);

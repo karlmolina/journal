@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Workout } from "../../hooks/useWorkouts";
+import type { SetInput, Workout, WorkoutSet } from "../../hooks/useWorkouts";
 import { elapsedSeconds } from "../../hooks/useWorkouts";
 import { formatDuration } from "../../functions/formatDuration";
 import SetList from "./SetList";
@@ -22,11 +22,15 @@ function formatDay(iso: string) {
 
 interface WorkoutHistoryCardProps {
   workout: Workout;
+  suggestions?: string[];
+  onUpdateSet?: (set: WorkoutSet, changes: SetInput) => void;
   onDelete: () => void;
 }
 
 export default function WorkoutHistoryCard({
   workout,
+  suggestions,
+  onUpdateSet,
   onDelete,
 }: WorkoutHistoryCardProps) {
   const [open, setOpen] = useState(false);
@@ -86,7 +90,11 @@ export default function WorkoutHistoryCard({
             </p>
           )}
           {setCount > 0 ? (
-            <SetList sets={workout.workout_sets} />
+            <SetList
+              sets={workout.workout_sets}
+              suggestions={suggestions}
+              onUpdate={onUpdateSet}
+            />
           ) : (
             <p className="text-sm font-medium text-base-content/55">
               No sets logged.
