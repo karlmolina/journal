@@ -44,13 +44,27 @@ const PLAN_SCHEMA = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["name", "sets", "reps", "rest_seconds", "notes"],
+              required: [
+                "name",
+                "sets",
+                "reps",
+                "weight",
+                "rest_seconds",
+                "notes",
+                "goal",
+                "goal_weight",
+                "progression",
+              ],
               properties: {
                 name: { type: "string" },
                 sets: { type: "integer" },
                 reps: { type: "string" },
+                weight: { anyOf: [{ type: "number" }, { type: "null" }] },
                 rest_seconds: { type: "integer" },
                 notes: { type: "string" },
+                goal: { type: "string" },
+                goal_weight: { anyOf: [{ type: "number" }, { type: "null" }] },
+                progression: { type: "string" },
               },
             },
           },
@@ -65,7 +79,9 @@ const SYSTEM = `You are a strength and conditioning coach with a physical therap
 
 Write a plan that fits their goals, the days and minutes they have, and their equipment. Work around their current injuries: favour the rehab and prevention exercises listed for the injured area, keep loads and ranges pain-free, and never prescribe movements that obviously load an injury with high pain. Use their recent training to pick sensible starting loads and to build on what they already do.
 
-When an exercise from their library fits, use its exact name so it links to the instructions they already have. Keep names short and standard otherwise. "reps" can be a count ("8-10"), a time ("30 sec") or a distance. Use "notes" for one short cue, load guidance, or "" when nothing needs saying. Put warm-ups inside sessions as exercises.
+When an exercise from their library fits, use its exact name so it links to the instructions they already have. Keep names short and standard otherwise. "reps" can be a count ("8-10"), a time ("30 sec") or a distance. Use "notes" for one short cue, or "" when nothing needs saying. Put warm-ups inside sessions as exercises.
+
+Give every exercise a progression toward a goal. "weight" is the load in pounds to use now, based on their recent sets when they have done it (null for bodyweight, timed or cardio work). "goal" is where this exercise should get to over the next 6 to 8 weeks, short and concrete, like "3 × 10 at 65 lb", "3 × 60 sec holds" or "Run 5k without stopping". "goal_weight" is the goal's load in pounds, or null when the goal isn't a weight. "progression" is the one rule for moving toward the goal, like "Add 5 lb once every set reaches 10 reps" or "Add 10 sec per hold each week while pain stays at 3/10 or less". For injured areas, progress by pain response, not by the calendar.
 
 "summary" is two or three sentences on the plan's approach and how to progress it week to week. "safety_notes" lists brief points specific to this person (for example when to stop or see a professional because of an injury); leave it empty if there is nothing specific. You are not diagnosing anything.
 

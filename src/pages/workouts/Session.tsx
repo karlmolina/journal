@@ -144,7 +144,8 @@ export default function Session() {
       );
       return {
         reps: (target && plannedReps(target.reps)) ?? last?.reps ?? null,
-        weight: last?.weight ?? null,
+        // Your last weight once you've done it; the plan's until then.
+        weight: last?.weight ?? target?.weight ?? null,
       };
     },
     [active, history, planned],

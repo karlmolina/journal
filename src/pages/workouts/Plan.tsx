@@ -4,11 +4,17 @@ import Chip from "../../components/Chip";
 import ErrorBanner from "../../components/ErrorBanner";
 import { useAuth } from "../../context/AuthContext";
 import useWorkoutPlans, {
+  type PlannedExercise,
   type PlanRequest,
   type WorkoutPlan,
 } from "../../hooks/useWorkoutPlans";
-import useWorkouts from "../../hooks/useWorkouts";
-import { nextSessionIndex } from "../../functions/planProgress";
+import useWorkouts, { type Workout } from "../../hooks/useWorkouts";
+import {
+  bestWeight,
+  describeTarget,
+  nextSessionIndex,
+} from "../../functions/planProgress";
+import { WEIGHT_UNIT } from "../../functions/workoutSets";
 
 const DAYS = [2, 3, 4, 5, 6];
 const MINUTES = [20, 30, 45, 60, 90];
@@ -188,14 +194,70 @@ function ReviseForm({
   );
 }
 
+// Where an exercise is headed, how to get there, and (for weighted goals)
+// how far along the heaviest logged set is from the plan's starting weight.
+function GoalProgress({
+  exercise: e,
+  workouts,
+}: {
+  exercise: PlannedExercise;
+  workouts: Workout[];
+}) {
+  if (!e.goal) return null;
+  const start = e.weight ?? null;
+  const goal = e.goal_weight ?? null;
+  const best = bestWeight(e.name, workouts);
+  const current = Math.max(best ?? 0, start ?? 0);
+  const showBar = start !== null && goal !== null && goal > start;
+  const pct = showBar
+    ? Math.min(Math.max((current - start) / (goal - start), 0), 1) * 100
+    : 0;
+  return (
+    <div className="mt-1.5 flex flex-col gap-1">
+      <p className="text-sm font-bold">
+        <span className="text-primary">Goal</span> {e.goal}
+      </p>
+      {showBar && (
+        <div className="flex items-center gap-2">
+          <div
+            className="flex-1 h-1.5 rounded-full bg-base-content/10 overflow-hidden"
+            role="progressbar"
+            aria-label={`${e.name} progress toward ${goal} ${WEIGHT_UNIT}`}
+            aria-valuemin={start}
+            aria-valuemax={goal}
+            aria-valuenow={current}
+          >
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <span className="text-xs font-semibold tabular-nums text-base-content/60">
+            {best !== null ? `Best ${best}` : `Start ${start}`} / {goal}{" "}
+            {WEIGHT_UNIT}
+          </span>
+        </div>
+      )}
+      {e.progression && (
+        <p className="text-sm font-medium text-base-content/60">
+          {e.progression}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function PlanView({
   plan,
   next,
   inProgress,
+  workouts,
   onLog,
   onStart,
 }: {
   plan: WorkoutPlan;
+  // Newest first, for progress toward each exercise's goal.
+  workouts: Workout[];
   next: number;
   // A workout is running, so starting another isn't possible.
   inProgress: boolean;
@@ -263,7 +325,7 @@ function PlanView({
                 <div className="flex-1 min-w-0">
                   <p className="font-bold">{e.name}</p>
                   <p className="text-sm font-semibold text-base-content/60 tabular-nums">
-                    {e.sets} × {e.reps}
+                    {describeTarget(e)}
                     {e.rest_seconds > 0 && ` · rest ${e.rest_seconds}s`}
                   </p>
                   {e.notes && (
@@ -271,6 +333,7 @@ function PlanView({
                       {e.notes}
                     </p>
                   )}
+                  <GoalProgress exercise={e} workouts={workouts} />
                 </div>
                 <button
                   type="button"
@@ -360,6 +423,7 @@ export default function Plan() {
             plan={selected}
             next={nextSessionIndex(selected, plans, history)}
             inProgress={active !== null}
+            workouts={active ? [active, ...history] : history}
             onLog={(exercise) => navigate("/workouts", { state: { exercise } })}
             onStart={async (session) => {
               await start({ plan_id: selected.id, plan_session: session });

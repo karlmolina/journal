@@ -1,5 +1,6 @@
 import type { WorkoutPlan, PlannedExercise } from "../hooks/useWorkoutPlans";
 import type { Workout, WorkoutSet } from "../hooks/useWorkouts";
+import { WEIGHT_UNIT } from "./workoutSets";
 
 const key = (name: string) => name.trim().toLowerCase();
 
@@ -66,4 +67,20 @@ export function currentExerciseIndex(
 ) {
   const i = exercises.findIndex((e) => setsDone(e, sets) < e.sets);
   return i === -1 ? null : i;
+}
+
+// "3 × 8-10 · 45 lb"
+export function describeTarget(e: PlannedExercise) {
+  return `${e.sets} × ${e.reps}${e.weight != null ? ` · ${e.weight} ${WEIGHT_UNIT}` : ""}`;
+}
+
+// The heaviest weight logged for an exercise, if any.
+export function bestWeight(name: string, workouts: Workout[]) {
+  const k = key(name);
+  let best: number | null = null;
+  for (const w of workouts)
+    for (const s of w.workout_sets)
+      if (key(s.exercise_name) === k && s.weight !== null)
+        best = Math.max(best ?? 0, s.weight);
+  return best;
 }

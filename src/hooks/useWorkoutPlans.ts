@@ -8,6 +8,13 @@ export interface PlannedExercise {
   reps: string;
   rest_seconds: number;
   notes: string;
+  // Progression fields; plans written before they existed don't have them.
+  // Weight to use now and the goal's weight, in lb; null when not weighted.
+  weight?: number | null;
+  goal?: string;
+  goal_weight?: number | null;
+  // The rule for moving toward the goal.
+  progression?: string;
 }
 
 export interface PlannedSession {

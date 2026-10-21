@@ -4,7 +4,12 @@ import { elapsedSeconds } from "../../hooks/useWorkouts";
 import type { PlannedSession } from "../../hooks/useWorkoutPlans";
 import useTick from "../../hooks/useTick";
 import { formatClock } from "../../functions/formatDuration";
-import { currentExerciseIndex, setsDone } from "../../functions/planProgress";
+import {
+  currentExerciseIndex,
+  describeTarget,
+  setsDone,
+} from "../../functions/planProgress";
+import { WEIGHT_UNIT } from "../../functions/workoutSets";
 import SetList from "./SetList";
 import SetTimer from "./SetTimer";
 
@@ -78,7 +83,7 @@ function PlanChecklist({
                   {e.name}
                 </span>
                 <span className="block text-xs font-semibold text-base-content/55 tabular-nums">
-                  {e.sets} × {e.reps}
+                  {describeTarget(e)}
                   {e.rest_seconds > 0 && ` · rest ${e.rest_seconds}s`}
                 </span>
               </span>
@@ -120,7 +125,7 @@ export default function ActiveWorkout({
     selectedIndex !== null ? exercises[selectedIndex] : undefined;
   const target =
     selected &&
-    `Set ${Math.min(setsDone(selected, sets) + 1, selected.sets)} of ${selected.sets} · ${selected.reps}`;
+    `Set ${Math.min(setsDone(selected, sets) + 1, selected.sets)} of ${selected.sets} · ${selected.reps}${selected.weight != null ? ` at ${selected.weight} ${WEIGHT_UNIT}` : ""}`;
 
   const restFor = (name: string) => {
     const e = exercises.find(
@@ -249,7 +254,11 @@ export default function ActiveWorkout({
           storageKey={timerKey}
           exercise={selected?.name ?? initialExercise ?? ""}
           target={target || undefined}
-          notes={selected?.notes || undefined}
+          notes={
+            [selected?.notes, selected?.goal && `Goal ${selected.goal}`]
+              .filter(Boolean)
+              .join(" · ") || undefined
+          }
           suggestions={suggestions}
           prefillFor={prefillFor}
           restFor={restFor}
