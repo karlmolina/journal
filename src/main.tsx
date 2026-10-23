@@ -5,6 +5,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import App from "./App";
 import SignIn from "./pages/SignIn";
 import Journal from "./pages/Journal";
+import Invites from "./pages/Invites";
+import MembersOnly from "./components/MembersOnly";
 import "./index.css";
 import { AuthProvider } from "./context/AuthProvider";
 import Root from "./components/ThemeRoot";
@@ -17,7 +19,22 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Routes>
             <Route path="/" element={<App />} />
             <Route path="/signin" element={<SignIn />} />
-            <Route path="/journal" element={<Journal />} />
+            <Route
+              path="/journal"
+              element={
+                <MembersOnly>
+                  <Journal />
+                </MembersOnly>
+              }
+            />
+            <Route
+              path="/invites"
+              element={
+                <MembersOnly admin>
+                  <Invites />
+                </MembersOnly>
+              }
+            />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Root>

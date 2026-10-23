@@ -10,6 +10,10 @@ A personal journal built with React, Vite, Tailwind/daisyUI, and [Supabase](http
 4. Copy `.env.example` to `.env` and fill in your project URL and publishable key.
 5. `bun install && bun run dev`
 
+## Invites
+
+Accounts are invite-only. Anyone can sign in with Google, but they can't use the app until they enter an invite code. Accounts that existed before invites were added are already members, and the migration makes karlgmolina@gmail.com the admin. Admins find **Invite codes** in the profile menu, where they can make, copy, and revoke codes. Each code works once. To make someone else an admin, run `update public.members set is_admin = true where user_id = '<their user id>';` in the SQL editor.
+
 For CI deploys, set the `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` repository secrets.
 
 ## Migrating from Firestore
