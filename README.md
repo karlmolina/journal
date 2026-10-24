@@ -24,8 +24,8 @@ The Plan tab calls the `plan-workout` Edge Function (`supabase/functions/plan-wo
 supabase login
 supabase link --project-ref <your-project-ref>
 supabase secrets set GEMINI_API_KEY=...
-# Optional; defaults to gemini-2.5-pro
-supabase secrets set GEMINI_MODEL=gemini-3.8-flash
+# Optional; defaults to gemini-3.8-flash, which the free tier covers
+supabase secrets set GEMINI_MODEL=gemini-2.5-pro
 supabase functions deploy plan-workout
 ```
 

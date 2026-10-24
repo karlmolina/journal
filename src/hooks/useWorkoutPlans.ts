@@ -60,10 +60,9 @@ const MESSAGES: Record<string, string> = {
   bad_api_key: "The Gemini API key in Supabase was rejected.",
   rate_limited:
     "Gemini's free limit is used up for now. Try again in a minute, or tomorrow if you've hit the daily limit.",
-  daily_limit:
-    "You've made 20 plans in the last day. Try again tomorrow.",
+  daily_limit: "You've made 20 plans in the last day. Try again tomorrow.",
   model_unavailable:
-    "Your Gemini key can't use this model. Set GEMINI_MODEL to another one, like gemini-3.8-flash.",
+    "Your Gemini key can't use this model. Set GEMINI_MODEL in Supabase to one your key covers, like gemini-3.8-flash.",
   declined: "Gemini couldn't write a plan for that. Try rewording your goals.",
   not_signed_in: "Your session expired. Sign in again and retry.",
   not_a_member: "Redeem an invite code to use AI planning.",
@@ -131,13 +130,22 @@ export default function useWorkoutPlans(userId?: string) {
     setGenerating(false);
     if (error) {
       console.error(error);
+      // The function answers { error: code }; the gateway in front of it
+      // answers { message }. Unknown errors keep their detail on screen so
+      // they can be reported.
       let code = "";
-      if (error instanceof FunctionsHttpError)
-        code = await error.context
+      let detail = error.message;
+      if (error instanceof FunctionsHttpError) {
+        const res: Response = error.context;
+        const b: { error?: string; message?: string } = await res
           .json()
-          .then((b: { error?: string }) => b.error ?? "")
-          .catch(() => "");
-      setError(MESSAGES[code] ?? "Couldn't make a plan. Try again.");
+          .catch(() => ({}));
+        code = b.error ?? "";
+        detail = `${res.status} ${b.error ?? b.message ?? ""}`.trim();
+      }
+      setError(
+        MESSAGES[code] ?? `Couldn't make a plan (${detail}). Try again.`,
+      );
       return false;
     }
     setPlans((prev) => [data as WorkoutPlan, ...prev]);
