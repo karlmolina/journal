@@ -235,7 +235,7 @@ function GoalProgress({
   return (
     <div className="mt-1.5 flex flex-col gap-1">
       <p className="text-sm font-bold">
-        <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]">
+        <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
           Goal
         </span>{" "}
         {e.goal}
@@ -322,7 +322,7 @@ function PlanView({
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
                 {i === next && (
-                  <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)] font-bold">
+                  <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] font-bold">
                     Up next ·{" "}
                   </span>
                 )}
@@ -349,7 +349,7 @@ function PlanView({
               <li key={j} className="flex items-start gap-3 py-2">
                 <div className="flex-1 min-w-0">
                   {e.superset?.trim() && (
-                    <p className="text-xs font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]">
+                    <p className="text-xs font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
                       Superset {e.superset.trim().toUpperCase()}
                     </p>
                   )}
@@ -372,7 +372,7 @@ function PlanView({
                 </div>
                 <button
                   type="button"
-                  className="btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)] mt-0.5"
+                  className="btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] mt-0.5"
                   onClick={() => onLog(e.name)}
                   aria-label={`Log ${e.name}`}
                 >

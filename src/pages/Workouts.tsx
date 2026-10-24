@@ -17,7 +17,7 @@ export default function Workouts() {
   const { user } = useAuth();
 
   return (
-    <div className="max-w-xl mx-auto px-2 sm:px-6 min-h-dvh flex flex-col">
+    <div className="max-w-xl mx-auto px-2 sm:px-6 min-h-dvh flex flex-col pb-[env(safe-area-inset-bottom)]">
       <TopBar
         userPhoto={
           user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture

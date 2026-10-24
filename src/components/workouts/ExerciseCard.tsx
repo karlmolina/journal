@@ -72,7 +72,7 @@ export default function ExerciseCard({
               className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                 p === "healing"
                   ? "bg-secondary/15 text-secondary dark:text-[color-mix(in_oklab,var(--color-secondary),white_45%)]"
-                  : "bg-primary/15 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]"
+                  : "bg-primary/15 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]"
               }`}
             >
               {p === "healing" ? "Healing" : "Prevention"}
