@@ -8,6 +8,13 @@ export interface PlannedExercise {
   reps: string;
   rest_seconds: number;
   notes: string;
+  // Progression fields; plans written before they existed don't have them.
+  // Weight to use now and the goal's weight, in lb; null when not weighted.
+  weight?: number | null;
+  goal?: string;
+  goal_weight?: number | null;
+  // The rule for moving toward the goal.
+  progression?: string;
 }
 
 export interface PlannedSession {
@@ -29,6 +36,9 @@ export interface WorkoutPlan {
     sessions: PlannedSession[];
     safety_notes: string[];
   };
+  // Set when the AI rewrote an earlier plan on request.
+  revised_from: string | null;
+  instruction: string | null;
   created_at: string;
 }
 
@@ -41,16 +51,20 @@ export interface PlanRequest {
 
 const CACHE_KEY = "workout_plans";
 const SELECT =
-  "id, goals, days_per_week, minutes_per_session, equipment, plan, created_at";
+  "id, goals, days_per_week, minutes_per_session, equipment, plan, revised_from, instruction, created_at";
 
 // What to tell the person for each error the Edge Function can return.
 const MESSAGES: Record<string, string> = {
   missing_api_key:
-    "AI planning isn't set up yet: the Anthropic API key hasn't been added to Supabase.",
-  bad_api_key: "The Anthropic API key in Supabase was rejected.",
-  rate_limited: "Claude is busy right now. Try again in a minute.",
-  declined: "Claude couldn't write a plan for that. Try rewording your goals.",
+    "AI planning isn't set up yet: the Gemini API key hasn't been added to Supabase.",
+  bad_api_key: "The Gemini API key in Supabase was rejected.",
+  rate_limited:
+    "Gemini's free limit is used up for now. Try again in a minute, or tomorrow if you've hit the daily limit.",
+  model_unavailable:
+    "Your Gemini key can't use this model. Set GEMINI_MODEL to another one, like gemini-3.8-flash.",
+  declined: "Gemini couldn't write a plan for that. Try rewording your goals.",
   not_signed_in: "Your session expired. Sign in again and retry.",
+  plan_not_found: "That plan was deleted. Pick another one.",
 };
 
 function readCache(userId: string): WorkoutPlan[] {
@@ -104,11 +118,12 @@ export default function useWorkoutPlans(userId?: string) {
     };
   }, [userId]);
 
-  const generate = useCallback(async (request: PlanRequest) => {
+  // Either a new plan from a request, or a rewrite of an existing plan.
+  const callAI = useCallback(async (body: object) => {
     setGenerating(true);
     setError(null);
     const { data, error } = await supabase.functions.invoke("plan-workout", {
-      body: request,
+      body,
     });
     setGenerating(false);
     if (error) {
@@ -125,6 +140,17 @@ export default function useWorkoutPlans(userId?: string) {
     setPlans((prev) => [data as WorkoutPlan, ...prev]);
     return true;
   }, []);
+
+  const generate = useCallback(
+    (request: PlanRequest) => callAI(request),
+    [callAI],
+  );
+
+  const revise = useCallback(
+    (plan: WorkoutPlan, instruction: string) =>
+      callAI({ plan_id: plan.id, instruction }),
+    [callAI],
+  );
 
   const removePlan = useCallback(async (plan: WorkoutPlan) => {
     setPlans((prev) => prev.filter((p) => p.id !== plan.id));
@@ -151,6 +177,7 @@ export default function useWorkoutPlans(userId?: string) {
     error,
     dismissError: () => setError(null),
     generate,
+    revise,
     removePlan,
   };
 }
