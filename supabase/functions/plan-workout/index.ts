@@ -101,6 +101,17 @@ interface Plan {
   sessions: unknown[];
 }
 
+// The parts of a generateContent response this function reads.
+interface GeminiResponse {
+  error?: { status?: string; message?: string };
+  promptFeedback?: { blockReason?: string };
+  candidates?: {
+    finishReason?: string;
+    content?: { parts?: { text?: string; thought?: boolean }[] };
+  }[];
+  modelVersion?: string;
+}
+
 const today = () => new Date().toISOString().slice(0, 10);
 
 Deno.serve(async (req) => {
@@ -263,8 +274,7 @@ Deno.serve(async (req) => {
     return null;
   });
   if (!res) return json({ error: "ai_failed" }, 502);
-  // deno-lint-ignore no-explicit-any
-  const result: any = await res.json().catch(() => null);
+  const result: GeminiResponse | null = await res.json().catch(() => null);
   if (!res.ok) {
     console.error(res.status, JSON.stringify(result));
     const status = result?.error?.status;
@@ -288,8 +298,8 @@ Deno.serve(async (req) => {
     return json({ error: "declined" }, 422);
   // Skip thought summaries; the plan is in the answer parts.
   const text = (candidate?.content?.parts ?? [])
-    .filter((p: { thought?: boolean; text?: string }) => !p.thought && p.text)
-    .map((p: { text: string }) => p.text)
+    .filter((p) => !p.thought && p.text)
+    .map((p) => p.text)
     .join("");
   let plan: Plan;
   try {
@@ -311,7 +321,7 @@ Deno.serve(async (req) => {
       minutes_per_session: minutes,
       equipment,
       plan,
-      model: result.modelVersion ?? model,
+      model: result?.modelVersion ?? model,
       revised_from: revising?.id ?? null,
       instruction: revising?.instruction ?? null,
     })
