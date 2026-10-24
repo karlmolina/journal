@@ -8,6 +8,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 
 const DEFAULT_MODEL = "gemini-2.5-pro";
+const DAILY_PLAN_LIMIT = 20;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -143,6 +144,19 @@ Deno.serve(async (req) => {
     return json({ error: "load_failed" }, 500);
   }
   if (!member) return json({ error: "not_a_member" }, 403);
+
+  // Every call saves a plan, so recent plans count toward a daily cap that
+  // keeps one account (or a stolen session) from running up the Gemini bill.
+  const { count, error: countError } = await supabase
+    .from("workout_plans")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", new Date(Date.now() - 86_400_000).toISOString());
+  if (countError) {
+    console.error(countError);
+    return json({ error: "load_failed" }, 500);
+  }
+  if ((count ?? 0) >= DAILY_PLAN_LIMIT)
+    return json({ error: "daily_limit" }, 429);
 
   const body: Body = await req.json().catch(() => ({}));
 

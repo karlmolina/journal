@@ -30,14 +30,3 @@ supabase functions deploy plan-workout
 ```
 
 Create the key at https://aistudio.google.com/apikey. Without it the Plan tab shows "AI planning isn't set up yet". On the free tier Google may use prompts to improve its products, and daily request limits are low.
-
-## Migrating from Firestore
-
-`scripts/migrate-firestore-to-supabase.ts` copies existing Firestore entries into Supabase, matching users by email. Download a Firebase service account key (Project settings → Service accounts), save it as `firebase-service-account.json` (gitignored), set the variables listed in `.env.example`, then:
-
-```sh
-node --experimental-strip-types --env-file=.env scripts/migrate-firestore-to-supabase.ts --dry-run
-node --experimental-strip-types --env-file=.env scripts/migrate-firestore-to-supabase.ts
-```
-
-Use Node rather than Bun, since Firestore's gRPC client hangs under Bun. Pass `--skip-email=user@example.com` (repeatable) to leave an account out. Re-running is safe: already-copied entries are skipped.
