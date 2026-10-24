@@ -99,7 +99,7 @@ export default function ExerciseInput({
           <button
             type="button"
             aria-label="Clear exercise"
-            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-base-content/45 hover:text-base-content"
+            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-base-content/45 dark:text-base-content/75 hover:text-base-content dark:hover:text-base-content"
             // Keep focus in the input, as with the suggestions.
             onPointerDown={(e) => e.preventDefault()}
             onClick={clear}

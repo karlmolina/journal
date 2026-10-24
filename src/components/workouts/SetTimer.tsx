@@ -10,7 +10,7 @@ import ExerciseHowTo from "./ExerciseHowTo";
 import ExerciseNote from "./ExerciseNote";
 
 const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45";
+  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 
 // What the timer is doing. Times are epoch milliseconds so the clocks stay
 // right across reloads and while the phone is locked.
@@ -123,11 +123,11 @@ function SupersetControl({
 }) {
   const [adding, setAdding] = useState(false);
   const [partner, setPartner] = useState("");
-  const linkClass = "btn btn-ghost btn-xs rounded-full font-bold text-primary";
+  const linkClass = "btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]";
 
   if (partners?.length)
     return (
-      <div className="flex items-center justify-center gap-1 text-sm font-semibold text-base-content/60">
+      <div className="flex items-center justify-center gap-1 text-sm font-semibold text-base-content/60 dark:text-base-content/80">
         <span className="truncate">Superset with {partners.join(", ")}</span>
         <button type="button" className={linkClass} onClick={onLeave}>
           Remove
@@ -156,7 +156,7 @@ function SupersetControl({
   };
   return (
     <div className="flex flex-col gap-2 rounded-xl bg-base-content/5 p-2">
-      <p className="text-sm font-semibold text-base-content/60 px-1">
+      <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 px-1">
         Do a set of each in turn, then rest.
       </p>
       <ExerciseInput
@@ -320,7 +320,7 @@ export default function SetTimer({
   };
 
   const restClock = rest && (
-    <p className="text-sm font-semibold text-base-content/60 tabular-nums">
+    <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
       Resting {formatClock(rested)}
       {rest.target > 0 && ` · target ${formatClock(rest.target)}`}
     </p>
@@ -333,12 +333,12 @@ export default function SetTimer({
       <div className="flex flex-col items-center text-center">
         <p className="font-bold">{state.exercise}</p>
         {state.side && (
-          <p className="text-sm font-bold text-primary">
+          <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]">
             {sideLabel(state.side)}
           </p>
         )}
         {target && (
-          <p className="text-sm font-semibold text-base-content/60">{target}</p>
+          <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">{target}</p>
         )}
         <div className="w-full mt-2 flex flex-col gap-2 text-left">
           <ExerciseHowTo exercise={lookup?.(state.exercise)} />
@@ -365,7 +365,7 @@ export default function SetTimer({
         </button>
         <button
           type="button"
-          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 mt-1"
+          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
           onClick={() => setState({ phase: "ready", rest: state.rest })}
         >
           Cancel set
@@ -377,7 +377,7 @@ export default function SetTimer({
     return (
       <div className="flex flex-col gap-2">
         {restClock}
-        <p className="text-sm font-semibold text-base-content/60">
+        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">
           {state.side && `${sideLabel(state.side)}. `}
           {state.seconds
             ? `That set took ${formatClock(state.seconds)}. Check the numbers and save it.`
@@ -402,11 +402,11 @@ export default function SetTimer({
     const goal = state.rest.target;
     return (
       <div className="flex flex-col items-center text-center">
-        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70">
+        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
           Rest
         </p>
         <p
-          className={`my-1 text-5xl font-extrabold tracking-tight tabular-nums ${rested >= goal ? "text-primary" : ""}`}
+          className={`my-1 text-5xl font-extrabold tracking-tight tabular-nums ${rested >= goal ? "text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]" : ""}`}
           role="timer"
         >
           {formatClock(rested)}
@@ -417,13 +417,13 @@ export default function SetTimer({
             style={{ width: `${Math.min(1, rested / goal) * 100}%` }}
           />
         </div>
-        <p className="text-sm font-semibold text-base-content/60 mb-2 tabular-nums">
+        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 mb-2 tabular-nums">
           {rested >= goal
             ? `Target ${formatClock(goal)} reached. Go when you're ready.`
             : `Target ${formatClock(goal)}`}
         </p>
         {name && (
-          <p className="text-sm font-semibold text-base-content/60 mb-2">
+          <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 mb-2">
             Next: {name}
             {target && ` · ${target}`}
           </p>
@@ -438,7 +438,7 @@ export default function SetTimer({
         </button>
         <button
           type="button"
-          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 mt-1"
+          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
           onClick={() => setState({ phase: "ready", rest: state.rest })}
         >
           Change exercise
@@ -472,7 +472,7 @@ export default function SetTimer({
         suggestions={suggestions}
       />
       {(target || notes) && (
-        <p className="text-sm font-semibold text-base-content/60">
+        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">
           {[target, notes].filter(Boolean).join(" · ")}
         </p>
       )}
@@ -503,7 +503,7 @@ export default function SetTimer({
       />
       <button
         type="button"
-        className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 self-center"
+        className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 self-center"
         onClick={() =>
           setState({
             phase: "logging",

@@ -150,7 +150,7 @@ function SectionTabs() {
             `flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-bold transition sm:px-3 ${
               isActive
                 ? "bg-base-100 shadow-sm"
-                : "text-base-content/60 hover:text-base-content"
+                : "text-base-content/60 dark:text-base-content/80 hover:text-base-content dark:hover:text-base-content"
             }`
           }
         >

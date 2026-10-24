@@ -89,7 +89,7 @@ export default function LineChart({
                 y={y(t)}
                 textAnchor="end"
                 dominantBaseline="middle"
-                className="fill-base-content/55 text-[11px] font-semibold tabular-nums"
+                className="fill-base-content/55 dark:fill-base-content/75 text-[11px] font-semibold tabular-nums"
               >
                 {formatY(t)}
               </text>
@@ -108,7 +108,7 @@ export default function LineChart({
                       ? "end"
                       : "middle"
                 }
-                className="fill-base-content/55 text-[11px] font-semibold"
+                className="fill-base-content/55 dark:fill-base-content/75 text-[11px] font-semibold"
               >
                 {shortDate(t)}
               </text>
@@ -162,7 +162,7 @@ export default function LineChart({
             left: Math.min(Math.max(x(active.x), 60), width - 60),
           }}
         >
-          <span className="text-base-content/55">{shortDate(active.x)}</span>{" "}
+          <span className="text-base-content/55 dark:text-base-content/75">{shortDate(active.x)}</span>{" "}
           {active.label}
         </div>
       )}

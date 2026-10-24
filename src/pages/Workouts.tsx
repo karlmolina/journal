@@ -34,7 +34,7 @@ export default function Workouts() {
               `shrink-0 rounded-full px-2.5 sm:px-4 py-1.5 text-sm font-bold transition ${
                 isActive
                   ? "bg-base-content text-base-100"
-                  : "text-base-content/60 hover:bg-base-content/8 hover:text-base-content"
+                  : "text-base-content/60 dark:text-base-content/80 hover:bg-base-content/8 hover:text-base-content dark:hover:text-base-content"
               }`
             }
           >
@@ -44,7 +44,7 @@ export default function Workouts() {
       </nav>
       <Suspense
         fallback={
-          <div className="flex justify-center py-8 text-base-content/40">
+          <div className="flex justify-center py-8 text-base-content/40 dark:text-base-content/70">
             <span className="loading loading-spinner loading-md"></span>
           </div>
         }

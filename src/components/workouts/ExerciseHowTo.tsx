@@ -41,7 +41,7 @@ export default function ExerciseHowTo({ exercise }: { exercise?: Exercise }) {
       {toggles && (
         <button
           type="button"
-          className="mt-0.5 block text-xs font-bold text-primary cursor-pointer"
+          className="mt-0.5 block text-xs font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)] cursor-pointer"
           aria-expanded={open}
         >
           {open ? "Show less" : more ? "How to do it" : "Show more"}

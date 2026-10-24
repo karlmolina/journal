@@ -22,8 +22,8 @@ const MINUTES = [20, 30, 45, 60, 90];
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
 const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none transition focus:bg-base-content/12 placeholder:text-base-content/45";
-const label = "text-xs font-semibold tracking-wide text-base-content/55";
+  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none transition focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
+const label = "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
 
 function PlanForm({
   initial,
@@ -59,7 +59,7 @@ function PlanForm({
     >
       <div>
         <h2 className="font-bold">Plan my training</h2>
-        <p className="text-sm font-medium text-base-content/55">
+        <p className="text-sm font-medium text-base-content/55 dark:text-base-content/75">
           Gemini reads your injuries and recent workouts, then writes a weekly
           plan around them.
         </p>
@@ -132,7 +132,7 @@ function PlanForm({
         </button>
       </div>
       {generating && (
-        <p className="text-xs font-medium text-center text-base-content/55">
+        <p className="text-xs font-medium text-center text-base-content/55 dark:text-base-content/75">
           This usually takes under a minute.
         </p>
       )}
@@ -162,7 +162,7 @@ function ReviseForm({
     >
       <div>
         <h2 className="font-bold">Change this plan</h2>
-        <p className="text-sm font-medium text-base-content/55">
+        <p className="text-sm font-medium text-base-content/55 dark:text-base-content/75">
           Tell Gemini what to change. It keeps the rest, and your current
           version stays under earlier plans.
         </p>
@@ -215,7 +215,7 @@ function GoalProgress({
   return (
     <div className="mt-1.5 flex flex-col gap-1">
       <p className="text-sm font-bold">
-        <span className="text-primary">Goal</span> {e.goal}
+        <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]">Goal</span> {e.goal}
       </p>
       {showBar && (
         <div className="flex items-center gap-2">
@@ -232,14 +232,14 @@ function GoalProgress({
               style={{ width: `${pct}%` }}
             />
           </div>
-          <span className="text-xs font-semibold tabular-nums text-base-content/60">
+          <span className="text-xs font-semibold tabular-nums text-base-content/60 dark:text-base-content/80">
             {best !== null ? `Best ${best}` : `Start ${start}`} / {goal}{" "}
             {WEIGHT_UNIT}
           </span>
         </div>
       )}
       {e.progression && (
-        <p className="text-sm font-medium text-base-content/60">
+        <p className="text-sm font-medium text-base-content/60 dark:text-base-content/80">
           {e.progression}
         </p>
       )}
@@ -268,7 +268,7 @@ function PlanView({
   return (
     <div className="flex flex-col gap-3">
       <section className={cardClass}>
-        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70">
+        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
           {plan.days_per_week} days a week · {plan.minutes_per_session} min ·{" "}
           {new Date(plan.created_at).toLocaleDateString("en-US", {
             month: "short",
@@ -277,7 +277,7 @@ function PlanView({
         </p>
         <h2 className="text-xl font-extrabold tracking-tight">{title}</h2>
         {plan.instruction && (
-          <p className="mt-1 text-sm font-semibold text-base-content/60">
+          <p className="mt-1 text-sm font-semibold text-base-content/60 dark:text-base-content/80">
             Updated: “{plan.instruction}”
           </p>
         )}
@@ -297,9 +297,9 @@ function PlanView({
         <section key={i} className={cardClass}>
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70">
+              <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
                 {i === next && (
-                  <span className="text-primary font-bold">Up next · </span>
+                  <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)] font-bold">Up next · </span>
                 )}
                 {s.day} · {s.duration_minutes} min
               </p>
@@ -324,12 +324,12 @@ function PlanView({
               <li key={j} className="flex items-start gap-3 py-2">
                 <div className="flex-1 min-w-0">
                   {e.superset?.trim() && (
-                    <p className="text-xs font-bold text-primary">
+                    <p className="text-xs font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]">
                       Superset {e.superset.trim().toUpperCase()}
                     </p>
                   )}
                   <p className="font-bold">{e.name}</p>
-                  <p className="text-sm font-semibold text-base-content/60 tabular-nums">
+                  <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
                     {describeTarget(e)}
                     {e.rest_seconds > 0 &&
                       (!e.superset?.trim()
@@ -339,7 +339,7 @@ function PlanView({
                           ` · then rest ${e.rest_seconds}s`)}
                   </p>
                   {e.notes && (
-                    <p className="text-sm font-medium text-base-content/70">
+                    <p className="text-sm font-medium text-base-content/70 dark:text-base-content/80">
                       {e.notes}
                     </p>
                   )}
@@ -347,7 +347,7 @@ function PlanView({
                 </div>
                 <button
                   type="button"
-                  className="btn btn-ghost btn-xs rounded-full font-bold text-primary mt-0.5"
+                  className="btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)] mt-0.5"
                   onClick={() => onLog(e.name)}
                   aria-label={`Log ${e.name}`}
                 >
@@ -412,7 +412,7 @@ export default function Plan() {
       )}
 
       {loading && plans.length === 0 && (
-        <div className="flex justify-center py-4 text-base-content/40">
+        <div className="flex justify-center py-4 text-base-content/40 dark:text-base-content/70">
           <span className="loading loading-spinner loading-md"></span>
         </div>
       )}
@@ -453,7 +453,7 @@ export default function Plan() {
 
       {older.length > 0 && !showForm && (
         <>
-          <h2 className="mt-3 ml-1 text-sm font-bold tracking-wide text-base-content/60">
+          <h2 className="mt-3 ml-1 text-sm font-bold tracking-wide text-base-content/60 dark:text-base-content/80">
             Earlier plans
           </h2>
           {older.map((p) => (
@@ -467,7 +467,7 @@ export default function Plan() {
                 onClick={() => setSelectedId(p.id)}
               >
                 <p className="font-bold truncate">{p.plan.title}</p>
-                <p className="text-xs font-semibold text-base-content/55 truncate">
+                <p className="text-xs font-semibold text-base-content/55 dark:text-base-content/75 truncate">
                   {new Date(p.created_at).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
@@ -477,7 +477,7 @@ export default function Plan() {
               </button>
               <button
                 type="button"
-                className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55"
+                className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75"
                 onClick={() => removePlan(p)}
               >
                 Delete
@@ -487,7 +487,7 @@ export default function Plan() {
         </>
       )}
 
-      <p className="text-xs font-medium text-base-content/50 text-center px-4">
+      <p className="text-xs font-medium text-base-content/50 dark:text-base-content/75 text-center px-4">
         Plans are written by AI and aren't medical advice. Check with a
         professional before training through an injury.
       </p>

@@ -33,7 +33,7 @@ function PainTrend({ checkins }: { checkins: Checkin[] }) {
   return (
     <svg
       viewBox="-4 0 308 60"
-      className="w-full h-14 text-primary"
+      className="w-full h-14 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]"
       role="img"
       aria-label={`Pain over the last 30 days, from ${points[0].pain} to ${points[points.length - 1].pain}`}
     >
@@ -102,7 +102,7 @@ export default function InjuryCard({
     <div className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-3 sm:px-5 sm:py-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70">
+          <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
             {healed
               ? `${formatDay(injury.started_on)} – ${formatDay(injury.healed_on!)} · ${day} days`
               : `Since ${formatDay(injury.started_on)} · day ${day}`}
@@ -117,12 +117,12 @@ export default function InjuryCard({
               className={`text-2xl font-extrabold tabular-nums ${painText(last.pain)}`}
             >
               {last.pain}
-              <span className="text-sm font-bold text-base-content/40">
+              <span className="text-sm font-bold text-base-content/40 dark:text-base-content/70">
                 /10
               </span>
             </p>
             {first && first !== last && (
-              <p className="text-xs font-semibold text-base-content/55">
+              <p className="text-xs font-semibold text-base-content/55 dark:text-base-content/75">
                 from {first.pain}
               </p>
             )}
@@ -137,7 +137,7 @@ export default function InjuryCard({
           <div className="flex flex-col gap-2">
             <PainSlider value={pain} onChange={setPain} />
             <input
-              className="w-full rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none focus:bg-base-content/12 placeholder:text-base-content/45"
+              className="w-full rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65"
               placeholder="Notes for today (optional)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -156,7 +156,7 @@ export default function InjuryCard({
           </div>
         ) : (
           <div className="flex items-center justify-between gap-3 rounded-xl bg-base-content/5 px-3 py-2">
-            <span className="text-sm font-semibold text-base-content/70">
+            <span className="text-sm font-semibold text-base-content/70 dark:text-base-content/80">
               Checked in today
               {todays?.notes ? `: ${todays.notes}` : ""}
             </span>
@@ -181,7 +181,7 @@ export default function InjuryCard({
                 key={c.id}
                 className="flex gap-3 min-h-7 items-baseline text-sm font-medium"
               >
-                <span className="w-14 shrink-0 text-xs font-semibold text-base-content/55">
+                <span className="w-14 shrink-0 text-xs font-semibold text-base-content/55 dark:text-base-content/75">
                   {formatDay(c.checked_on)}
                 </span>
                 <span
@@ -189,7 +189,7 @@ export default function InjuryCard({
                 >
                   {c.pain}/10
                 </span>
-                <span className="text-base-content/70">{c.notes}</span>
+                <span className="text-base-content/70 dark:text-base-content/80">{c.notes}</span>
               </li>
             ))}
           </ol>
@@ -199,13 +199,13 @@ export default function InjuryCard({
       <div className="flex flex-wrap items-center gap-1 -mx-2">
         <Link
           to={`/workouts/library?region=${libraryRegion(injury.region)}&purpose=healing`}
-          className="btn btn-ghost btn-sm rounded-full font-bold text-primary"
+          className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]"
         >
           Exercises
         </Link>
         <button
           type="button"
-          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60"
+          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60 dark:text-base-content/80"
           onClick={() => setShowMore(!showMore)}
         >
           {showMore ? "Hide history" : "History"}
@@ -233,7 +233,7 @@ export default function InjuryCard({
             {showMore && (
               <button
                 type="button"
-                className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60"
+                className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60 dark:text-base-content/80"
                 onClick={() => setConfirmDelete(true)}
               >
                 Delete
@@ -242,7 +242,7 @@ export default function InjuryCard({
             {!healed && (
               <button
                 type="button"
-                className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60"
+                className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60 dark:text-base-content/80"
                 onClick={onMove}
               >
                 Move
