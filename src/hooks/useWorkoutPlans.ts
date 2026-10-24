@@ -71,7 +71,12 @@ const MESSAGES: Record<string, string> = {
   not_signed_in: "Your session expired. Sign in again and retry.",
   not_a_member: "Redeem an invite code to use AI planning.",
   plan_not_found: "That plan was deleted. Pick another one.",
+  ai_timeout: "Gemini took too long to answer. Try again in a minute.",
 };
+
+// A little longer than the function's own limit on Gemini, so its answer
+// normally arrives first; this only catches a request that hangs.
+const PLAN_TIMEOUT_MS = 150_000;
 
 function readCache(userId: string): WorkoutPlan[] {
   try {
@@ -130,6 +135,7 @@ export default function useWorkoutPlans(userId?: string) {
     setError(null);
     const { data, error } = await supabase.functions.invoke("plan-workout", {
       body,
+      timeout: PLAN_TIMEOUT_MS,
     });
     setGenerating(false);
     if (error) {
@@ -137,7 +143,7 @@ export default function useWorkoutPlans(userId?: string) {
       // The function answers { error: code }; the gateway in front of it
       // answers { message }. Unknown errors keep their detail on screen so
       // they can be reported.
-      let code = "";
+      let code = error.context?.name === "AbortError" ? "ai_timeout" : "";
       let detail = error.message;
       if (error instanceof FunctionsHttpError) {
         const res: Response = error.context;

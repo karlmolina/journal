@@ -15,6 +15,8 @@ import {
   nextSessionIndex,
 } from "../../functions/planProgress";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
+import { formatClock } from "../../functions/formatDuration";
+import useTick from "../../hooks/useTick";
 
 const DAYS = [2, 3, 4, 5, 6];
 const MINUTES = [20, 30, 45, 60, 90];
@@ -23,7 +25,28 @@ const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
 const fieldClass =
   "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none transition focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
-const label = "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
+const label =
+  "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
+
+// Shown while Gemini works, so a slow answer reads as progress, not a hang.
+// It mounts when the request starts, so its own clock is the elapsed time.
+function Waiting() {
+  const [startedAt] = useState(() => Date.now());
+  useTick(true);
+  const seconds = Math.floor((Date.now() - startedAt) / 1000);
+  return (
+    <p
+      className="text-xs font-medium text-center text-base-content/55 dark:text-base-content/75"
+      aria-live="polite"
+    >
+      <span className="tabular-nums font-semibold">{formatClock(seconds)}</span>
+      {" · "}
+      {seconds < 60
+        ? "Usually 20 to 60 seconds."
+        : "Still working. It stops and tells you if Gemini doesn't answer within 2½ minutes."}
+    </p>
+  );
+}
 
 function PlanForm({
   initial,
@@ -131,11 +154,7 @@ function PlanForm({
           )}
         </button>
       </div>
-      {generating && (
-        <p className="text-xs font-medium text-center text-base-content/55 dark:text-base-content/75">
-          This usually takes under a minute.
-        </p>
-      )}
+      {generating && <Waiting />}
     </form>
   );
 }
@@ -190,6 +209,7 @@ function ReviseForm({
           "Update plan"
         )}
       </button>
+      {generating && <Waiting />}
     </form>
   );
 }
@@ -215,7 +235,10 @@ function GoalProgress({
   return (
     <div className="mt-1.5 flex flex-col gap-1">
       <p className="text-sm font-bold">
-        <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]">Goal</span> {e.goal}
+        <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]">
+          Goal
+        </span>{" "}
+        {e.goal}
       </p>
       {showBar && (
         <div className="flex items-center gap-2">
@@ -299,7 +322,9 @@ function PlanView({
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
                 {i === next && (
-                  <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)] font-bold">Up next · </span>
+                  <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)] font-bold">
+                    Up next ·{" "}
+                  </span>
                 )}
                 {s.day} · {s.duration_minutes} min
               </p>

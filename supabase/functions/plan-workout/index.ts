@@ -12,6 +12,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 // the free tier still covers.
 const DEFAULT_MODEL = "gemini-3.8-flash";
 const DAILY_PLAN_LIMIT = 20;
+// Edge Functions are cut off at 150 seconds, so give up on Gemini before that
+// and send a clear error instead of a dropped connection.
+const GEMINI_TIMEOUT_MS = 120_000;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -282,6 +285,7 @@ Deno.serve(async (req) => {
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
       method: "POST",
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM }] },
@@ -301,11 +305,14 @@ Deno.serve(async (req) => {
         },
       }),
     },
-  ).catch((err) => {
+  ).catch((err: Error) => {
     console.error(err);
-    return null;
+    return err;
   });
-  if (!res) return json({ error: "ai_failed" }, 502);
+  if (res instanceof Error)
+    return res.name === "TimeoutError"
+      ? json({ error: "ai_timeout" }, 504)
+      : json({ error: "ai_failed" }, 502);
   const result: GeminiResponse | null = await res.json().catch(() => null);
   if (!res.ok) {
     console.error(res.status, JSON.stringify(result));
