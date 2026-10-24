@@ -16,7 +16,6 @@ jobs:
     env:
       # Read from secrets first, falling back to repository variables.
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN || vars.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD || vars.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_REFERENCE_ID || vars.SUPABASE_REFERENCE_ID }}
     steps:
       - name: 📥 Checkout code
@@ -28,7 +27,7 @@ jobs:
       - name: 🔗 Link project
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
       - name: 🗄️ Run database migrations
-        run: supabase db push
+        run: supabase db push --linked
       - name: ⚡ Deploy edge functions
         run: |
           if [ -d supabase/functions ] && [ -n "$(ls -A supabase/functions)" ]; then
