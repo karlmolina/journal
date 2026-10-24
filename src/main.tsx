@@ -8,6 +8,7 @@ import Journal from "./pages/Journal";
 import Workouts from "./pages/Workouts";
 import Invites from "./pages/Invites";
 import MembersOnly from "./components/MembersOnly";
+import RememberPage from "./components/RememberPage";
 import "./index.css";
 import { AuthProvider } from "./context/AuthProvider";
 import Root from "./components/ThemeRoot";
@@ -24,6 +25,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <AuthProvider>
         <Root>
+          <RememberPage />
           <Routes>
             <Route path="/" element={<App />} />
             <Route path="/signin" element={<SignIn />} />

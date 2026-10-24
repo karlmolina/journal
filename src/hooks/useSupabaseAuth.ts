@@ -21,6 +21,8 @@ function writeCachedUser(user: User | null) {
       localStorage.removeItem(USER_CACHE_KEY);
       // TopBar's copy of the profile photo.
       localStorage.removeItem("journal_photo");
+      // useLastPage's saved page, so the next person starts on the journal.
+      localStorage.removeItem("journal_last_page");
     }
   } catch {
     // Ignore quota / private mode errors; the cache is only a convenience.
