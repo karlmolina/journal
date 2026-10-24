@@ -14,16 +14,18 @@ For CI deploys, set the `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` 
 
 ## AI workout planning
 
-The Plan tab calls the `plan-workout` Edge Function (`supabase/functions/plan-workout`), which asks Claude for a weekly plan using your goals, current injuries and recent workouts. The Anthropic API key stays server-side as a Supabase secret:
+The Plan tab calls the `plan-workout` Edge Function (`supabase/functions/plan-workout`), which asks Gemini for a weekly plan using your goals, current injuries and recent workouts. The Gemini API key stays server-side as a Supabase secret:
 
 ```sh
 supabase login
 supabase link --project-ref <your-project-ref>
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+supabase secrets set GEMINI_API_KEY=...
+# Optional; defaults to gemini-2.5-pro
+supabase secrets set GEMINI_MODEL=gemini-3.8-flash
 supabase functions deploy plan-workout
 ```
 
-Create the key at https://console.anthropic.com/settings/keys. Without it the Plan tab shows "AI planning isn't set up yet".
+Create the key at https://aistudio.google.com/apikey. Without it the Plan tab shows "AI planning isn't set up yet". On the free tier Google may use prompts to improve its products, and daily request limits are low.
 
 ## Migrating from Firestore
 

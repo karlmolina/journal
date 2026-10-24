@@ -60,7 +60,7 @@ function PlanForm({
       <div>
         <h2 className="font-bold">Plan my training</h2>
         <p className="text-sm font-medium text-base-content/55">
-          Claude reads your injuries and recent workouts, then writes a weekly
+          Gemini reads your injuries and recent workouts, then writes a weekly
           plan around them.
         </p>
       </div>
@@ -163,7 +163,7 @@ function ReviseForm({
       <div>
         <h2 className="font-bold">Change this plan</h2>
         <p className="text-sm font-medium text-base-content/55">
-          Tell Claude what to change. It keeps the rest, and your current
+          Tell Gemini what to change. It keeps the rest, and your current
           version stays under earlier plans.
         </p>
       </div>

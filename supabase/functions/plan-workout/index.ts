@@ -1,13 +1,13 @@
-// Writes a workout plan with Claude from the person's goals, injuries and
+// Writes a workout plan with Gemini from the person's goals, injuries and
 // recent training, and saves it to workout_plans. Runs as a Supabase Edge
-// Function so the Anthropic API key never reaches the browser.
+// Function so the Gemini API key never reaches the browser.
 //
-// Needs the ANTHROPIC_API_KEY secret:
-//   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-import Anthropic from "npm:@anthropic-ai/sdk@0.136.0";
+// Needs the GEMINI_API_KEY secret (from Google AI Studio):
+//   supabase secrets set GEMINI_API_KEY=...
+// GEMINI_MODEL optionally picks another model, e.g. gemini-3.8-flash.
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 
-const MODEL = "claude-opus-5-5";
+const DEFAULT_MODEL = "gemini-2.5-pro";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -59,11 +59,11 @@ const PLAN_SCHEMA = {
                 name: { type: "string" },
                 sets: { type: "integer" },
                 reps: { type: "string" },
-                weight: { anyOf: [{ type: "number" }, { type: "null" }] },
+                weight: { type: ["number", "null"] },
                 rest_seconds: { type: "integer" },
                 notes: { type: "string" },
                 goal: { type: "string" },
-                goal_weight: { anyOf: [{ type: "number" }, { type: "null" }] },
+                goal_weight: { type: ["number", "null"] },
                 progression: { type: "string" },
               },
             },
@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) return json({ error: "missing_api_key" }, 503);
 
   // Act as the signed-in person so row-level security applies to every query.
@@ -234,45 +234,70 @@ Deno.serve(async (req) => {
     ? `Change my plan like this:\n\n${revising.instruction}`
     : "Write my weekly plan.";
 
-  const client = new Anthropic({ apiKey });
-  let message;
-  try {
-    message = await client.beta.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      output_config: {
-        effort: "medium",
-        format: { type: "json_schema", schema: PLAN_SCHEMA },
-      },
-      // If the model declines, let the API retry on a fallback model.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      system: SYSTEM,
-      messages: [
-        {
-          role: "user",
-          content: `Here is everything the app knows about me, as JSON:\n\n${JSON.stringify(context, null, 2)}\n\n${ask}`,
+  const model = Deno.env.get("GEMINI_MODEL") || DEFAULT_MODEL;
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `Here is everything the app knows about me, as JSON:\n\n${JSON.stringify(context, null, 2)}\n\n${ask}`,
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseJsonSchema: PLAN_SCHEMA,
         },
-      ],
-    });
-  } catch (err) {
+      }),
+    },
+  ).catch((err) => {
     console.error(err);
-    if (err instanceof Anthropic.AuthenticationError)
+    return null;
+  });
+  if (!res) return json({ error: "ai_failed" }, 502);
+  // deno-lint-ignore no-explicit-any
+  const result: any = await res.json().catch(() => null);
+  if (!res.ok) {
+    console.error(res.status, JSON.stringify(result));
+    const status = result?.error?.status;
+    if (res.status === 429) return json({ error: "rate_limited" }, 429);
+    if (
+      res.status === 401 ||
+      res.status === 403 ||
+      /API key/i.test(result?.error?.message ?? "")
+    )
       return json({ error: "bad_api_key" }, 503);
-    if (err instanceof Anthropic.RateLimitError)
-      return json({ error: "rate_limited" }, 429);
-    return json({ error: "claude_failed" }, 502);
+    if (res.status === 404 || status === "NOT_FOUND")
+      return json({ error: "model_unavailable" }, 503);
+    return json({ error: "ai_failed" }, 502);
   }
 
-  if (message.stop_reason === "refusal")
+  const candidate = result?.candidates?.[0];
+  if (
+    result?.promptFeedback?.blockReason ||
+    candidate?.finishReason === "SAFETY"
+  )
     return json({ error: "declined" }, 422);
-  const text = message.content.find((b) => b.type === "text");
+  // Skip thought summaries; the plan is in the answer parts.
+  const text = (candidate?.content?.parts ?? [])
+    .filter((p: { thought?: boolean; text?: string }) => !p.thought && p.text)
+    .map((p: { text: string }) => p.text)
+    .join("");
   let plan: Plan;
   try {
-    plan = JSON.parse(text && "text" in text ? text.text : "");
+    plan = JSON.parse(text);
+    if (!Array.isArray(plan.sessions)) throw new Error("no sessions");
   } catch {
-    console.error("Unparseable plan", message.stop_reason);
-    return json({ error: "claude_failed" }, 502);
+    console.error("Unparseable plan", candidate?.finishReason);
+    return json({ error: "ai_failed" }, 502);
   }
 
   const { data, error } = await supabase
@@ -286,7 +311,7 @@ Deno.serve(async (req) => {
       minutes_per_session: minutes,
       equipment,
       plan,
-      model: message.model,
+      model: result.modelVersion ?? model,
       revised_from: revising?.id ?? null,
       instruction: revising?.instruction ?? null,
     })

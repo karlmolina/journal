@@ -208,7 +208,7 @@ export default function Session() {
                 to="/workouts/plan"
                 className="mt-2 text-sm font-bold text-primary hover:underline"
               >
-                Or have Claude plan your week
+                Or have AI plan your week
               </Link>
             </section>
           )}
