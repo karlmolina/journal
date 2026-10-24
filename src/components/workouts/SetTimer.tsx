@@ -18,7 +18,7 @@ const fieldClass =
 // the exercise that follows straight on in a superset.
 // Rest counts up from when a set is stopped (`Rest.since`) until the next
 // one starts, and that time is saved with the next set. `target` is the
-// planned rest; there's a chime when it's reached.
+// planned rest; the phone buzzes when it's reached.
 interface Rest {
   since: number;
   target: number;
@@ -75,32 +75,9 @@ function readSaved(key: string, workoutId: string): Phase {
   return { phase: "ready" };
 }
 
-// Browsers only play sound after a tap, so the context is created on one.
-let audio: AudioContext | null = null;
-function unlockAudio() {
-  try {
-    audio ??= new AudioContext();
-    if (audio.state === "suspended") audio.resume();
-  } catch {
-    // No sound then; the vibration and the screen still say rest is over.
-  }
-}
-
+// A buzz when the planned rest is up (no sound); the screen shows it too.
 function restTargetAlert() {
   navigator.vibrate?.([200, 100, 200]);
-  if (!audio) return;
-  const t = audio.currentTime;
-  for (let i = 0; i < 3; i++) {
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.0001, t + i * 0.3);
-    gain.gain.exponentialRampToValueAtTime(0.3, t + i * 0.3 + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.3 + 0.2);
-    osc.connect(gain).connect(audio.destination);
-    osc.start(t + i * 0.3);
-    osc.stop(t + i * 0.3 + 0.22);
-  }
 }
 
 const seconds = (ms: number) => Math.max(0, Math.round(ms / 1000));
@@ -256,7 +233,7 @@ export default function SetTimer({
   const now = Date.now();
   const rested = rest ? seconds(now - rest.since) : 0;
 
-  // Chime once when the planned rest is up; the clock keeps counting.
+  // Buzz once when the planned rest is up; the clock keeps counting.
   const restDue = !!rest && !rest.alerted && rested >= rest.target;
   useEffect(() => {
     if (!restDue) return;
@@ -275,7 +252,6 @@ export default function SetTimer({
 
   const startSet = () => {
     if (!name.trim()) return;
-    unlockAudio();
     setState({
       phase: "running",
       exercise: name.trim(),
