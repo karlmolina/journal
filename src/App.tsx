@@ -2,13 +2,17 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
+import { readLastPage } from "./hooks/useLastPage";
 
 export default function App() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading) navigate(user ? "/journal" : "/signin");
+    if (!loading)
+      navigate(user ? (readLastPage() ?? "/journal") : "/signin", {
+        replace: true,
+      });
   }, [user, loading, navigate]);
 
   return (
