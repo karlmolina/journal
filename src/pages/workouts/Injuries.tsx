@@ -8,7 +8,7 @@ import useInjuries, { today, type Side } from "../../hooks/useInjuries";
 import { placeKey, placeLabel } from "../../functions/bodyRegions";
 
 const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none transition focus:bg-base-content/12 placeholder:text-base-content/45";
+  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none transition focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 
 interface Place {
   region: string;
@@ -55,7 +55,7 @@ function NewInjuryForm({
         autoFocus
       />
       <label className="flex items-center justify-between gap-3">
-        <span className="text-xs font-semibold tracking-wide text-base-content/55">
+        <span className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
           Started
         </span>
         <input
@@ -214,7 +214,7 @@ export default function Injuries() {
               </div>
             )
           ) : (
-            <p className="text-sm font-medium text-center text-base-content/55">
+            <p className="text-sm font-medium text-center text-base-content/55 dark:text-base-content/75">
               Tap where it hurts to add an injury.
             </p>
           )}
@@ -222,19 +222,19 @@ export default function Injuries() {
       </section>
 
       {loading && injuries.length === 0 && (
-        <div className="flex justify-center py-4 text-base-content/40">
+        <div className="flex justify-center py-4 text-base-content/40 dark:text-base-content/70">
           <span className="loading loading-spinner loading-md"></span>
         </div>
       )}
 
       {place && atPlace.length === 0 && !adding && (
-        <p className="text-sm font-medium text-center text-base-content/55 py-2">
+        <p className="text-sm font-medium text-center text-base-content/55 dark:text-base-content/75 py-2">
           No current injuries here.
         </p>
       )}
 
       {cards.length > 0 && !place && (
-        <h2 className="mt-3 ml-1 text-sm font-bold tracking-wide text-base-content/60">
+        <h2 className="mt-3 ml-1 text-sm font-bold tracking-wide text-base-content/60 dark:text-base-content/80">
           Current injuries
         </h2>
       )}

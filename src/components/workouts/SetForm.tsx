@@ -6,7 +6,7 @@ import { formatClock, parseClock } from "../../functions/formatDuration";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 
 const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45";
+  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 
 const text = (n: number | null | undefined) => (n == null ? "" : String(n));
 

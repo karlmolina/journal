@@ -16,7 +16,7 @@ export default function Chip({ selected, onClick, children }: ChipProps) {
       className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-bold transition active:scale-95 ${
         selected
           ? "bg-primary text-primary-content"
-          : "bg-base-content/8 text-base-content/70 hover:text-base-content"
+          : "bg-base-content/8 text-base-content/70 dark:text-base-content/80 hover:text-base-content dark:hover:text-base-content"
       }`}
     >
       {children}

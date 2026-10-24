@@ -59,7 +59,7 @@ export default function BarChart({
                 y={y(t)}
                 textAnchor="end"
                 dominantBaseline="middle"
-                className="fill-base-content/55 text-[11px] font-semibold tabular-nums"
+                className="fill-base-content/55 dark:fill-base-content/75 text-[11px] font-semibold tabular-nums"
               >
                 {t}
               </text>
@@ -89,7 +89,7 @@ export default function BarChart({
                     x={cx}
                     y={height - 6}
                     textAnchor="middle"
-                    className="fill-base-content/55 text-[11px] font-semibold"
+                    className="fill-base-content/55 dark:fill-base-content/75 text-[11px] font-semibold"
                   >
                     {b.label}
                   </text>

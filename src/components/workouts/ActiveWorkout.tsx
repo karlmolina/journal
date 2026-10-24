@@ -76,8 +76,8 @@ function SupersetLink({
         type="button"
         className={`rounded-full px-2.5 py-0.5 text-xs font-bold transition cursor-pointer ${
           linked
-            ? "bg-primary/15 text-primary"
-            : "text-base-content/40 hover:text-base-content/70 hover:bg-base-content/6"
+            ? "bg-primary/15 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]"
+            : "text-base-content/40 dark:text-base-content/70 hover:text-base-content/70 dark:hover:text-base-content/90 hover:bg-base-content/6"
         }`}
         onClick={onToggle}
         aria-pressed={linked}
@@ -133,7 +133,7 @@ function PlanChecklist({
                 className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                   complete
                     ? "bg-primary text-primary-content"
-                    : "bg-base-content/10 text-base-content/60"
+                    : "bg-base-content/10 text-base-content/60 dark:text-base-content/80"
                 }`}
                 aria-hidden="true"
               >
@@ -141,11 +141,11 @@ function PlanChecklist({
               </span>
               <span className="flex-1 min-w-0">
                 <span
-                  className={`block font-bold truncate ${complete ? "text-base-content/50 line-through" : ""}`}
+                  className={`block font-bold truncate ${complete ? "text-base-content/50 dark:text-base-content/75 line-through" : ""}`}
                 >
                   {e.name}
                 </span>
-                <span className="block text-xs font-semibold text-base-content/55 tabular-nums">
+                <span className="block text-xs font-semibold text-base-content/55 dark:text-base-content/75 tabular-nums">
                   {describeTarget(e)}
                   {e.rest_seconds > 0 &&
                     (!group
@@ -154,7 +154,7 @@ function PlanChecklist({
                         ` · then rest ${e.rest_seconds}s`)}
                 </span>
               </span>
-              <span className="text-sm font-bold tabular-nums text-base-content/60">
+              <span className="text-sm font-bold tabular-nums text-base-content/60 dark:text-base-content/80">
                 {Math.min(done, e.sets)}/{e.sets}
               </span>
             </button>
@@ -300,7 +300,7 @@ export default function ActiveWorkout({
       <section
         className={`${cardClass} flex flex-col items-center text-center`}
       >
-        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70">
+        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
           {paused ? "Paused" : "In progress"} · started {started}
         </p>
         <p
@@ -316,7 +316,7 @@ export default function ActiveWorkout({
         {finishing ? (
           <div className="w-full flex flex-col gap-2 mt-1">
             <textarea
-              className="w-full resize-none rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none focus:bg-base-content/12 placeholder:text-base-content/45 text-left"
+              className="w-full resize-none rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65 text-left"
               rows={2}
               placeholder="How did it go? (optional)"
               value={notes}
@@ -362,7 +362,7 @@ export default function ActiveWorkout({
 
       {planned && (
         <section className={cardClass}>
-          <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70">
+          <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
             {planned.planTitle} · {planned.session.day}
           </p>
           <h2 className="font-bold">{planned.session.focus}</h2>
@@ -385,7 +385,7 @@ export default function ActiveWorkout({
             }
           />
           {auto === null && exercises.length > 0 && (
-            <p className="mt-2 text-sm font-bold text-center text-primary">
+            <p className="mt-2 text-sm font-bold text-center text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]">
               Every planned set is done. Nice work.
             </p>
           )}
@@ -435,7 +435,7 @@ export default function ActiveWorkout({
       <div className="flex justify-center pb-6">
         {confirmDiscard ? (
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <span className="text-base-content/60">Delete this workout?</span>
+            <span className="text-base-content/60 dark:text-base-content/80">Delete this workout?</span>
             <button
               type="button"
               className="btn btn-sm btn-error rounded-full font-bold"
@@ -454,7 +454,7 @@ export default function ActiveWorkout({
         ) : (
           <button
             type="button"
-            className="btn btn-sm btn-ghost rounded-full font-semibold text-base-content/55"
+            className="btn btn-sm btn-ghost rounded-full font-semibold text-base-content/55 dark:text-base-content/75"
             onClick={() => setConfirmDiscard(true)}
           >
             Discard workout

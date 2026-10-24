@@ -49,7 +49,7 @@ export default function WorkoutHistoryCard({
         <div className="flex items-center justify-between gap-3">
           <time
             dateTime={workout.started_at}
-            className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70"
+            className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75"
           >
             {formatDay(workout.started_at)}
           </time>
@@ -63,14 +63,14 @@ export default function WorkoutHistoryCard({
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`shrink-0 text-base-content/40 transition-transform ${open ? "rotate-180" : ""}`}
+            className={`shrink-0 text-base-content/40 dark:text-base-content/70 transition-transform ${open ? "rotate-180" : ""}`}
           >
             <path d="m6 9 6 6 6-6" />
           </svg>
         </div>
         <p className="mt-1 text-lg font-bold">
           {formatDuration(elapsedSeconds(workout))}
-          <span className="font-semibold text-base-content/55 dark:text-base-content/70">
+          <span className="font-semibold text-base-content/55 dark:text-base-content/75">
             {" "}
             · {setCount} {setCount === 1 ? "set" : "sets"}
           </span>
@@ -96,7 +96,7 @@ export default function WorkoutHistoryCard({
               onUpdate={onUpdateSet}
             />
           ) : (
-            <p className="text-sm font-medium text-base-content/55">
+            <p className="text-sm font-medium text-base-content/55 dark:text-base-content/75">
               No sets logged.
             </p>
           )}
@@ -121,7 +121,7 @@ export default function WorkoutHistoryCard({
             ) : (
               <button
                 type="button"
-                className="btn btn-sm btn-ghost rounded-full font-semibold text-base-content/55"
+                className="btn btn-sm btn-ghost rounded-full font-semibold text-base-content/55 dark:text-base-content/75"
                 onClick={() => setConfirmDelete(true)}
               >
                 Delete

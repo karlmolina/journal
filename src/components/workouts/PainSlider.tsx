@@ -23,7 +23,7 @@ export default function PainSlider({ value, onChange }: PainSliderProps) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between">
-        <span className="text-xs font-semibold tracking-wide text-base-content/55">
+        <span className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
           Pain today
         </span>
         <span className={`font-bold tabular-nums ${painText(value)}`}>

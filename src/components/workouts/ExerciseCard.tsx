@@ -57,12 +57,12 @@ export default function ExerciseCard({
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`mt-1.5 shrink-0 text-base-content/40 transition-transform ${open ? "rotate-180" : ""}`}
+            className={`mt-1.5 shrink-0 text-base-content/40 dark:text-base-content/70 transition-transform ${open ? "rotate-180" : ""}`}
           >
             <path d="m6 9 6 6 6-6" />
           </svg>
         </div>
-        <p className="text-sm font-semibold text-base-content/55 dark:text-base-content/70">
+        <p className="text-sm font-semibold text-base-content/55 dark:text-base-content/75">
           {meta}
         </p>
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -71,8 +71,8 @@ export default function ExerciseCard({
               key={p}
               className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                 p === "healing"
-                  ? "bg-secondary/15 text-secondary"
-                  : "bg-primary/15 text-primary"
+                  ? "bg-secondary/15 text-secondary dark:text-[color-mix(in_oklab,var(--color-secondary),white_45%)]"
+                  : "bg-primary/15 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]"
               }`}
             >
               {p === "healing" ? "Healing" : "Prevention"}
@@ -81,13 +81,13 @@ export default function ExerciseCard({
           {exercise.body_regions.map((r) => (
             <span
               key={r}
-              className="rounded-full bg-base-content/8 px-2 py-0.5 text-xs font-semibold text-base-content/70"
+              className="rounded-full bg-base-content/8 px-2 py-0.5 text-xs font-semibold text-base-content/70 dark:text-base-content/80"
             >
               {regionLabel(r)}
             </span>
           ))}
           {exercise.user_id && (
-            <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-bold text-accent">
+            <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-bold text-accent dark:text-[color-mix(in_oklab,var(--color-accent),white_45%)]">
               Yours
             </span>
           )}
@@ -132,7 +132,7 @@ export default function ExerciseCard({
               ) : (
                 <button
                   type="button"
-                  className="btn btn-sm btn-ghost rounded-full font-semibold text-base-content/55"
+                  className="btn btn-sm btn-ghost rounded-full font-semibold text-base-content/55 dark:text-base-content/75"
                   onClick={() => setConfirmDelete(true)}
                 >
                   Delete

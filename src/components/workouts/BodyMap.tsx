@@ -172,7 +172,7 @@ function Figure({ view, marked, selected, onSelect }: FigureProps) {
         <span className="rounded-full bg-base-content/10 px-3 py-0.5 text-xs font-extrabold uppercase tracking-widest">
           {view === "front" ? "Front" : "Back"}
         </span>
-        <span className="mt-0.5 text-[11px] font-semibold text-base-content/50">
+        <span className="mt-0.5 text-[11px] font-semibold text-base-content/50 dark:text-base-content/75">
           {view === "front" ? "Facing you" : "From behind"}
         </span>
       </figcaption>
@@ -237,7 +237,7 @@ function Figure({ view, marked, selected, onSelect }: FigureProps) {
             x={pair === "a" ? 38 : 162}
             y={366}
             textAnchor="middle"
-            className="fill-base-content/45 text-[13px] font-bold pointer-events-none"
+            className="fill-base-content/45 dark:fill-base-content/75 text-[13px] font-bold pointer-events-none"
             aria-hidden="true"
           >
             {sideOf({ region: "", pair, shape: DECOR[0] }, view) === "right"

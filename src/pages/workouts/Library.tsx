@@ -79,14 +79,14 @@ export default function Library() {
           strokeWidth="2.25"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="shrink-0 text-base-content/50"
+          className="shrink-0 text-base-content/50 dark:text-base-content/75"
         >
           <circle cx="11" cy="11" r="7" />
           <path d="m21 21-4.3-4.3" />
         </svg>
         <input
           type="search"
-          className="flex-1 min-w-0 bg-transparent outline-none font-medium placeholder:text-base-content/50"
+          className="flex-1 min-w-0 bg-transparent outline-none font-medium placeholder:text-base-content/50 dark:placeholder:text-base-content/65"
           placeholder="Search exercises"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -121,7 +121,7 @@ export default function Library() {
       </div>
 
       {loading && exercises.length === 0 && (
-        <div className="flex justify-center py-4 text-base-content/40">
+        <div className="flex justify-center py-4 text-base-content/40 dark:text-base-content/70">
           <span className="loading loading-spinner loading-md"></span>
         </div>
       )}
@@ -129,7 +129,7 @@ export default function Library() {
       {!loading && shown.length === 0 && (
         <div className="py-8 text-center">
           <p className="text-lg font-bold">No exercises match</p>
-          <p className="text-sm font-medium text-base-content/55">
+          <p className="text-sm font-medium text-base-content/55 dark:text-base-content/75">
             Try another area or search, or add your own below.
           </p>
         </div>
@@ -161,7 +161,7 @@ export default function Library() {
         </button>
       )}
 
-      <p className="text-xs font-medium text-base-content/50 text-center px-4">
+      <p className="text-xs font-medium text-base-content/50 dark:text-base-content/75 text-center px-4">
         General guidance, not medical advice. Stop if an exercise causes sharp
         pain, and see a physical therapist for an injury that isn't improving.
       </p>

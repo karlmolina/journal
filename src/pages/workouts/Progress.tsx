@@ -34,7 +34,7 @@ function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex-1 rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-3">
       <p className="text-2xl font-extrabold tabular-nums">{value}</p>
-      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70">
+      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
         {label}
       </p>
     </div>
@@ -43,7 +43,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 
 function Empty({ text }: { text: string }) {
   return (
-    <p className="py-6 text-center text-sm font-medium text-base-content/55">
+    <p className="py-6 text-center text-sm font-medium text-base-content/55 dark:text-base-content/75">
       {text}
     </p>
   );
@@ -237,7 +237,7 @@ export default function Progress() {
       <section className={cardClass}>
         <div className="flex items-baseline justify-between gap-3 mb-2">
           <h2 className="font-bold">Workouts per week</h2>
-          <span className="text-xs font-semibold text-base-content/55">
+          <span className="text-xs font-semibold text-base-content/55 dark:text-base-content/75">
             {avg.toFixed(1).replace(/\.0$/, "")} a week lately
           </span>
         </div>
@@ -277,7 +277,7 @@ export default function Progress() {
             </select>
             {series && (
               <>
-                <p className="mt-3 mb-1 text-xs font-semibold tracking-wide text-base-content/55">
+                <p className="mt-3 mb-1 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
                   {series.title}
                 </p>
                 <LineChart
@@ -311,7 +311,7 @@ export default function Progress() {
                 </option>
               ))}
             </select>
-            <p className="mt-3 mb-1 text-xs font-semibold tracking-wide text-base-content/55">
+            <p className="mt-3 mb-1 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
               Pain, 0 to 10
             </p>
             <LineChart

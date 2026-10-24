@@ -35,13 +35,13 @@ function UpNext({
   const session = sessions[index];
   return (
     <section className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-5 sm:px-5 flex flex-col gap-1">
-      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/70">
+      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
         {index === next ? "Up next" : "From your plan"} · {plan.plan.title}
       </p>
       <p className="text-lg font-bold leading-snug">
         {session.day}: {session.focus}
       </p>
-      <p className="text-sm font-medium text-base-content/60">
+      <p className="text-sm font-medium text-base-content/60 dark:text-base-content/80">
         {session.exercises.length}{" "}
         {session.exercises.length === 1 ? "exercise" : "exercises"} · about{" "}
         {session.duration_minutes} min
@@ -235,7 +235,7 @@ export default function Session() {
           ) : (
             <section className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-8 flex flex-col items-center text-center gap-1">
               <p className="text-lg font-bold">Ready to train?</p>
-              <p className="text-sm font-medium text-base-content/55 mb-4">
+              <p className="text-sm font-medium text-base-content/55 dark:text-base-content/75 mb-4">
                 The stopwatch starts as soon as you tap.
               </p>
               <button
@@ -247,7 +247,7 @@ export default function Session() {
               </button>
               <Link
                 to="/workouts/plan"
-                className="mt-2 text-sm font-bold text-primary hover:underline"
+                className="mt-2 text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)] hover:underline"
               >
                 Or have AI plan your week
               </Link>
@@ -255,7 +255,7 @@ export default function Session() {
           )}
 
           {history.length > 0 && (
-            <h2 className="mt-8 mb-3 ml-1 text-sm font-bold tracking-wide text-base-content/60">
+            <h2 className="mt-8 mb-3 ml-1 text-sm font-bold tracking-wide text-base-content/60 dark:text-base-content/80">
               Past workouts
             </h2>
           )}
@@ -272,7 +272,7 @@ export default function Session() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-4 text-base-content/40">
+            <div className="flex justify-center py-4 text-base-content/40 dark:text-base-content/70">
               <span className="loading loading-spinner loading-md"></span>
             </div>
           ) : (

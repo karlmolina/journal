@@ -8,7 +8,7 @@ import type {
 } from "../../hooks/useExercises";
 
 const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45";
+  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 
 const CATEGORIES: { key: ExerciseCategory; label: string }[] = [
   { key: "strength", label: "Strength" },
@@ -55,7 +55,7 @@ export default function NewExerciseForm({
     if (saved) onCancel();
   };
 
-  const label = "text-xs font-semibold tracking-wide text-base-content/55";
+  const label = "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
 
   return (
     <form

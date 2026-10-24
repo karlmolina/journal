@@ -8,7 +8,7 @@ import SetForm from "./SetForm";
 function RestNote({ seconds }: { seconds: number | null }) {
   if (seconds == null) return null;
   return (
-    <span className="ml-2 text-xs font-semibold text-base-content/50 dark:text-base-content/65">
+    <span className="ml-2 text-xs font-semibold text-base-content/50 dark:text-base-content/75">
       after {formatClock(seconds)} rest
     </span>
   );
@@ -57,13 +57,13 @@ export default function SetList({
                     key={set.id}
                     className="flex items-center gap-3 min-h-8 font-medium text-base-content/80 dark:text-[color-mix(in_oklab,var(--color-base-content),white_30%)]"
                   >
-                    <span className="w-14 shrink-0 text-xs font-semibold tracking-wide text-base-content/50 dark:text-base-content/65">
+                    <span className="w-14 shrink-0 text-xs font-semibold tracking-wide text-base-content/50 dark:text-base-content/75">
                       {labels[i]}
                     </span>
                     {onUpdate ? (
                       <button
                         type="button"
-                        className="flex-1 text-left tabular-nums cursor-pointer hover:text-base-content"
+                        className="flex-1 text-left tabular-nums cursor-pointer hover:text-base-content dark:hover:text-base-content"
                         onClick={() => setEditingId(set.id)}
                         aria-label={`Edit ${labels[i].toLowerCase()} of ${name}: ${describeSet(set)}`}
                       >
@@ -79,7 +79,7 @@ export default function SetList({
                     {onUpdate && (
                       <button
                         type="button"
-                        className="btn btn-ghost btn-circle btn-xs text-base-content/50"
+                        className="btn btn-ghost btn-circle btn-xs text-base-content/50 dark:text-base-content/75"
                         onClick={() => setEditingId(set.id)}
                         aria-hidden="true"
                         tabIndex={-1}
@@ -103,7 +103,7 @@ export default function SetList({
                     {onRemove && (
                       <button
                         type="button"
-                        className="btn btn-ghost btn-circle btn-xs text-base-content/50"
+                        className="btn btn-ghost btn-circle btn-xs text-base-content/50 dark:text-base-content/75"
                         onClick={() => onRemove(set)}
                         aria-label={`Delete ${labels[i].toLowerCase()} of ${name}`}
                       >
