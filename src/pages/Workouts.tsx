@@ -9,6 +9,7 @@ const TABS = [
   { to: "/workouts/library", label: "Library" },
   { to: "/workouts/injuries", label: "Injuries" },
   { to: "/workouts/progress", label: "Progress" },
+  { to: "/workouts/plan", label: "Plan" },
 ];
 
 // Shell for the workouts section: the top bar, its own tabs, and the page.
@@ -23,14 +24,14 @@ export default function Workouts() {
         }
         onSignOut={() => signOut(user?.id)}
       />
-      <nav className="flex gap-1 overflow-x-auto scrollbar-none mb-3 -mx-2 px-2 sm:mx-0 sm:px-0">
+      <nav className="flex gap-0.5 sm:gap-1 overflow-x-auto scrollbar-none mb-3 -mx-2 px-2 sm:mx-0 sm:px-0">
         {TABS.map(({ to, label, end }) => (
           <NavLink
             key={to}
             to={to}
             end={end}
             className={({ isActive }) =>
-              `shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition ${
+              `shrink-0 rounded-full px-2.5 sm:px-4 py-1.5 text-sm font-bold transition ${
                 isActive
                   ? "bg-base-content text-base-100"
                   : "text-base-content/60 hover:bg-base-content/8 hover:text-base-content"
