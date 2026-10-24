@@ -136,6 +136,14 @@ Deno.serve(async (req) => {
   } = await supabase.auth.getUser();
   if (!user) return json({ error: "not_signed_in" }, 401);
 
+  // Only invited members get plans, and the check comes before any Gemini call.
+  const { data: member, error: memberError } = await supabase.rpc("is_member");
+  if (memberError) {
+    console.error(memberError);
+    return json({ error: "load_failed" }, 500);
+  }
+  if (!member) return json({ error: "not_a_member" }, 403);
+
   const body: Body = await req.json().catch(() => ({}));
 
   let goals: string | undefined;

@@ -64,6 +64,7 @@ const MESSAGES: Record<string, string> = {
     "Your Gemini key can't use this model. Set GEMINI_MODEL to another one, like gemini-3.8-flash.",
   declined: "Gemini couldn't write a plan for that. Try rewording your goals.",
   not_signed_in: "Your session expired. Sign in again and retry.",
+  not_a_member: "Redeem an invite code to use AI planning.",
   plan_not_found: "That plan was deleted. Pick another one.",
 };
 
