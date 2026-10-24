@@ -78,6 +78,53 @@ const BACK: Part[] = [
   ...limbs("hamstring", "calf"),
 ];
 
+// Drawn over the clickable parts (and ignoring clicks) so each view reads at
+// a glance: a face and navel on the front; hair, spine and shoulder blades on
+// the back.
+function Landmarks({ view }: { view: "front" | "back" }) {
+  const line = "fill-none stroke-base-content/35 stroke-[1.5]";
+  return view === "front" ? (
+    <g className="pointer-events-none" aria-hidden="true">
+      <path
+        d="M83 22 Q100 4 117 22 Q100 14 83 22 Z"
+        className="fill-base-content/25"
+      />
+      <ellipse
+        cx={93}
+        cy={29}
+        rx={2.2}
+        ry={2.6}
+        className="fill-base-content/45"
+      />
+      <ellipse
+        cx={107}
+        cy={29}
+        rx={2.2}
+        ry={2.6}
+        className="fill-base-content/45"
+      />
+      <path d="M100 32 L98 38 L101 38" className={line} strokeLinecap="round" />
+      <path d="M94 43 Q100 47 106 43" className={line} strokeLinecap="round" />
+      <path d="M100 78 L100 104" className={line} strokeLinecap="round" />
+      <circle cx={100} cy={148} r={2} className="fill-base-content/35" />
+    </g>
+  ) : (
+    <g className="pointer-events-none" aria-hidden="true">
+      <path
+        d="M81 31 Q80 6 100 7 Q120 6 119 31 Q119 46 112 50 L88 50 Q81 46 81 31 Z"
+        className="fill-base-content/25"
+      />
+      <path d="M100 72 L100 162" className={line} strokeDasharray="3 3" />
+      <path d="M86 80 Q82 92 90 104" className={line} strokeLinecap="round" />
+      <path
+        d="M114 80 Q118 92 110 104"
+        className={line}
+        strokeLinecap="round"
+      />
+    </g>
+  );
+}
+
 // Facing you, the person's right is on your left; from behind, on your right.
 const sideOf = (part: Part, view: "front" | "back"): Side =>
   !part.pair
@@ -118,7 +165,15 @@ interface FigureProps {
 function Figure({ view, marked, selected, onSelect }: FigureProps) {
   const parts = view === "front" ? FRONT : BACK;
   return (
-    <figure className="flex-1 flex flex-col items-center">
+    <figure className="flex-1 flex flex-col items-center gap-1.5">
+      <figcaption className="flex flex-col items-center">
+        <span className="rounded-full bg-base-content/10 px-3 py-0.5 text-xs font-extrabold uppercase tracking-widest">
+          {view === "front" ? "Front" : "Back"}
+        </span>
+        <span className="mt-0.5 text-[11px] font-semibold text-base-content/50">
+          {view === "front" ? "Facing you" : "From behind"}
+        </span>
+      </figcaption>
       <svg
         viewBox="30 0 140 372"
         className="w-full max-w-44"
@@ -164,10 +219,23 @@ function Figure({ view, marked, selected, onSelect }: FigureProps) {
             </g>
           );
         })}
+        <Landmarks view={view} />
+        {/* Which of the person's sides is which in this view. */}
+        {(["a", "b"] as const).map((pair) => (
+          <text
+            key={pair}
+            x={pair === "a" ? 38 : 162}
+            y={366}
+            textAnchor="middle"
+            className="fill-base-content/45 text-[13px] font-bold pointer-events-none"
+            aria-hidden="true"
+          >
+            {sideOf({ region: "", pair, shape: DECOR[0] }, view) === "right"
+              ? "R"
+              : "L"}
+          </text>
+        ))}
       </svg>
-      <figcaption className="text-xs font-bold tracking-wide text-base-content/55">
-        {view === "front" ? "Front" : "Back"}
-      </figcaption>
     </figure>
   );
 }
@@ -182,6 +250,10 @@ export default function BodyMap(props: BodyMapProps) {
   return (
     <div className="flex gap-2">
       <Figure view="front" {...props} />
+      <div
+        className="w-px self-stretch bg-base-content/10"
+        aria-hidden="true"
+      />
       <Figure view="back" {...props} />
     </div>
   );
