@@ -37,6 +37,9 @@ interface ActiveWorkoutProps {
   isUnilateral: (exercise: string) => boolean;
   // The library entry for an exercise, for its description.
   lookup: (exercise: string) => Exercise | undefined;
+  // Your own note on an exercise.
+  noteFor: (exercise: string) => string | undefined;
+  onSaveNote: (exercise: string, note: string) => void;
   onPause: () => void;
   onResume: () => void;
   onFinish: (notes: string) => void;
@@ -113,6 +116,8 @@ export default function ActiveWorkout({
   prefillFor,
   isUnilateral,
   lookup,
+  noteFor,
+  onSaveNote,
   initialExercise,
   onPause,
   onResume,
@@ -283,6 +288,8 @@ export default function ActiveWorkout({
           restFor={restFor}
           sideFor={sideFor}
           lookup={lookup}
+          noteFor={noteFor}
+          onSaveNote={onSaveNote}
           onSave={handleSave}
         />
       </section>

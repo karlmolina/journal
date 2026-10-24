@@ -7,6 +7,7 @@ import { sideLabel } from "../../functions/planProgress";
 import SetForm from "./SetForm";
 import ExerciseInput from "./ExerciseInput";
 import ExerciseHowTo from "./ExerciseHowTo";
+import ExerciseNote from "./ExerciseNote";
 
 const fieldClass =
   "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45";
@@ -90,6 +91,8 @@ interface SetTimerProps {
   sideFor: (exercise: string) => Side | null;
   // The library entry for an exercise, to show how it's done.
   lookup?: (exercise: string) => Exercise | undefined;
+  noteFor?: (exercise: string) => string | undefined;
+  onSaveNote?: (exercise: string, note: string) => void;
   onSave: (set: SetInput) => void;
 }
 
@@ -104,6 +107,8 @@ export default function SetTimer({
   restFor,
   sideFor,
   lookup,
+  noteFor,
+  onSaveNote,
   onSave,
 }: SetTimerProps) {
   const [state, setState] = useState<Phase>(() =>
@@ -180,8 +185,15 @@ export default function SetTimer({
         {target && (
           <p className="text-sm font-semibold text-base-content/60">{target}</p>
         )}
-        <div className="w-full mt-2">
+        <div className="w-full mt-2 flex flex-col gap-2 text-left">
           <ExerciseHowTo exercise={lookup?.(state.exercise)} />
+          {onSaveNote && (
+            <ExerciseNote
+              key={state.exercise}
+              note={noteFor?.(state.exercise)}
+              onSave={(note) => onSaveNote(state.exercise, note)}
+            />
+          )}
         </div>
         <p
           className="my-2 text-5xl font-extrabold tracking-tight tabular-nums"
@@ -318,6 +330,13 @@ export default function SetTimer({
         </p>
       )}
       <ExerciseHowTo exercise={lookup?.(name)} />
+      {onSaveNote && name.trim() && (
+        <ExerciseNote
+          key={name.trim().toLowerCase()}
+          note={noteFor?.(name)}
+          onSave={(note) => onSaveNote(name, note)}
+        />
+      )}
       <button
         type="button"
         className="btn btn-primary btn-lg rounded-full font-bold active:scale-[0.98] transition"
