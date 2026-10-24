@@ -58,6 +58,7 @@ const PLAN_SCHEMA = {
                 "goal",
                 "goal_weight",
                 "progression",
+                "unilateral",
               ],
               properties: {
                 name: { type: "string" },
@@ -69,6 +70,7 @@ const PLAN_SCHEMA = {
                 goal: { type: "string" },
                 goal_weight: { type: ["number", "null"] },
                 progression: { type: "string" },
+                unilateral: { type: "boolean" },
               },
             },
           },
@@ -83,7 +85,7 @@ const SYSTEM = `You are a strength and conditioning coach with a physical therap
 
 Write a plan that fits their goals, the days and minutes they have, and their equipment. Work around their current injuries: favour the rehab and prevention exercises listed for the injured area, keep loads and ranges pain-free, and never prescribe movements that obviously load an injury with high pain. Use their recent training to pick sensible starting loads and to build on what they already do.
 
-When an exercise from their library fits, use its exact name so it links to the instructions they already have. Keep names short and standard otherwise. "reps" can be a count ("8-10"), a time ("30 sec") or a distance. Use "notes" for one short cue, or "" when nothing needs saying. Put warm-ups inside sessions as exercises.
+When an exercise from their library fits, use its exact name so it links to the instructions they already have. Keep names short and standard otherwise. "reps" can be a count ("8-10"), a time ("30 sec") or a distance. Use "notes" for one short cue, or "" when nothing needs saying. Put warm-ups inside sessions as exercises. Set "unilateral" to true for exercises done one arm or one leg at a time (like single-leg Romanian deadlifts, split squats or one-arm rows); the app then has them do each set as a left side and a right side, so "sets" and "reps" are per side. Library exercises marked unilateral are done that way.
 
 Give every exercise a progression toward a goal. "weight" is the load in pounds to use now, based on their recent sets when they have done it (null for bodyweight, timed or cardio work). "goal" is where this exercise should get to over the next 6 to 8 weeks, short and concrete, like "3 × 10 at 65 lb", "3 × 60 sec holds" or "Run 5k without stopping". "goal_weight" is the goal's load in pounds, or null when the goal isn't a weight. "progression" is the one rule for moving toward the goal, like "Add 5 lb once every set reaches 10 reps" or "Add 10 sec per hold each week while pain stays at 3/10 or less". For injured areas, progress by pain response, not by the calendar.
 
@@ -206,12 +208,14 @@ Deno.serve(async (req) => {
     supabase
       .from("workouts")
       .select(
-        "started_at, workout_sets (exercise_name, reps, weight, duration_seconds)",
+        "started_at, workout_sets (exercise_name, reps, weight, duration_seconds, side)",
       )
       .not("ended_at", "is", null)
       .gte("started_at", since)
       .order("started_at"),
-    supabase.from("exercises").select("name, purposes, body_regions, dosage"),
+    supabase
+      .from("exercises")
+      .select("name, purposes, body_regions, dosage, unilateral"),
   ]);
   const failed = injuriesRes.error ?? workoutsRes.error ?? exercisesRes.error;
   if (failed) {
@@ -244,6 +248,7 @@ Deno.serve(async (req) => {
         s.weight !== null && `${s.weight} lb`,
         s.reps !== null && `${s.reps} reps`,
         s.duration_seconds !== null && `${s.duration_seconds} sec`,
+        s.side && `${s.side} side`,
       ]
         .filter(Boolean)
         .join(" × ");

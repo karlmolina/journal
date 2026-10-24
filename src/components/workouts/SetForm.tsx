@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import ExerciseInput from "./ExerciseInput";
-import type { SetInput } from "../../hooks/useWorkouts";
+import Chip from "../Chip";
+import type { SetInput, Side } from "../../hooks/useWorkouts";
 import { formatClock, parseClock } from "../../functions/formatDuration";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 
@@ -33,6 +34,8 @@ export default function SetForm({
   const [time, setTime] = useState(
     initial?.duration_seconds ? formatClock(initial.duration_seconds) : "",
   );
+  // Only one-side-at-a-time sets have a side, and it can be corrected here.
+  const [side, setSide] = useState<Side | null>(initial?.side ?? null);
 
   const parsedReps = /^\s*[1-9]\d*\s*$/.test(reps) ? Number(reps) : null;
   const parsedWeight = /^\s*\d+(\.\d+)?\s*$/.test(weight)
@@ -58,6 +61,7 @@ export default function SetForm({
       reps: parsedReps,
       weight: parsedWeight,
       duration_seconds: parsedTime,
+      side,
     });
   };
 
@@ -69,6 +73,15 @@ export default function SetForm({
         onChange={setExercise}
         suggestions={suggestions}
       />
+      {side && (
+        <div className="flex gap-1.5" aria-label="Side">
+          {(["left", "right"] as const).map((s) => (
+            <Chip key={s} selected={side === s} onClick={() => setSide(s)}>
+              {s === "left" ? "Left" : "Right"}
+            </Chip>
+          ))}
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-2">
         <input
           className={fieldClass}

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../supabase";
 
+export type Side = "left" | "right";
+
 export interface WorkoutSet {
   id: string;
   workout_id: string;
@@ -10,6 +12,8 @@ export interface WorkoutSet {
   reps: number | null;
   weight: number | null;
   duration_seconds: number | null;
+  // Which side, for exercises done one side at a time.
+  side: Side | null;
   created_at: string;
 }
 
@@ -33,7 +37,12 @@ export interface PlanSessionRef {
 
 export type NewSet = Pick<
   WorkoutSet,
-  "exercise_name" | "exercise_id" | "reps" | "weight" | "duration_seconds"
+  | "exercise_name"
+  | "exercise_id"
+  | "reps"
+  | "weight"
+  | "duration_seconds"
+  | "side"
 >;
 
 // What the set form collects; the library link is filled in from the name.
@@ -42,7 +51,7 @@ export type SetInput = Omit<NewSet, "exercise_id">;
 const CACHE_KEY = "workouts";
 const HISTORY_LIMIT = 20;
 const SELECT =
-  "id, started_at, paused_at, paused_seconds, ended_at, notes, plan_id, plan_session, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, created_at)";
+  "id, started_at, paused_at, paused_seconds, ended_at, notes, plan_id, plan_session, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, side, created_at)";
 
 // Stopwatch time: wall time since the start, minus time spent paused.
 export function elapsedSeconds(w: Workout, now = Date.now()) {
@@ -63,7 +72,11 @@ const pauseLength = (w: Workout, now: number) =>
 const normalize = (w: Workout): Workout => ({
   ...w,
   workout_sets: [...w.workout_sets]
-    .map((s) => ({ ...s, weight: s.weight === null ? null : Number(s.weight) }))
+    .map((s) => ({
+      ...s,
+      weight: s.weight === null ? null : Number(s.weight),
+      side: s.side ?? null,
+    }))
     .sort((a, b) => a.created_at.localeCompare(b.created_at)),
 });
 

@@ -23,7 +23,11 @@ export default function ExerciseCard({
 }: ExerciseCardProps) {
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const meta = [CATEGORY_LABELS[exercise.category], exercise.dosage]
+  const meta = [
+    CATEGORY_LABELS[exercise.category],
+    exercise.unilateral && "One side at a time",
+    exercise.dosage,
+  ]
     .filter(Boolean)
     .join(" · ");
 

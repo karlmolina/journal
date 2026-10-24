@@ -125,15 +125,40 @@ export default function Session() {
   );
 
   // The plan session the running workout follows, if it still exists.
+  // Plans that don't say whether an exercise is one side at a time take it
+  // from the library.
   const planned = useMemo((): PlannedWorkout | undefined => {
     const plan = active?.plan_id
       ? plans.find((p) => p.id === active.plan_id)
       : undefined;
     const session = plan?.plan.sessions[active?.plan_session ?? -1];
     return plan && session
-      ? { planTitle: plan.plan.title, session }
+      ? {
+          planTitle: plan.plan.title,
+          session: {
+            ...session,
+            exercises: session.exercises.map((e) => ({
+              ...e,
+              unilateral:
+                e.unilateral ??
+                byLowerName.get(e.name.trim().toLowerCase())?.unilateral ??
+                false,
+            })),
+          },
+        }
       : undefined;
-  }, [active, plans]);
+  }, [active, plans, byLowerName]);
+
+  const isUnilateral = useCallback(
+    (name: string) => {
+      const k = name.trim().toLowerCase();
+      const target = planned?.session.exercises.find(
+        (e) => e.name.trim().toLowerCase() === k,
+      );
+      return target?.unilateral ?? byLowerName.get(k)?.unilateral ?? false;
+    },
+    [planned, byLowerName],
+  );
 
   // Reps from the plan, weight from the last time you did it.
   const prefillFor = useCallback(
@@ -163,6 +188,7 @@ export default function Session() {
           planned={planned}
           timerKey={`set_timer_${userId}`}
           prefillFor={prefillFor}
+          isUnilateral={isUnilateral}
           initialExercise={initialExercise}
           onPause={pause}
           onResume={resume}

@@ -1,5 +1,5 @@
 import type { WorkoutPlan, PlannedExercise } from "../hooks/useWorkoutPlans";
-import type { Workout, WorkoutSet } from "../hooks/useWorkouts";
+import type { Side, Workout, WorkoutSet } from "../hooks/useWorkouts";
 import { WEIGHT_UNIT } from "./workoutSets";
 
 const key = (name: string) => name.trim().toLowerCase();
@@ -55,10 +55,31 @@ export function lastSetOf(
   return undefined;
 }
 
+const setsOf = (name: string, sets: WorkoutSet[]) => {
+  const k = key(name);
+  return sets.filter((s) => key(s.exercise_name) === k);
+};
+
+// A one-side-at-a-time set counts once both its left and right are done.
+// Sets logged without a side count whole.
 export function setsDone(exercise: PlannedExercise, sets: WorkoutSet[]) {
-  const k = key(exercise.name);
-  return sets.filter((s) => key(s.exercise_name) === k).length;
+  const mine = setsOf(exercise.name, sets);
+  if (!exercise.unilateral) return mine.length;
+  const left = mine.filter((s) => s.side === "left").length;
+  const right = mine.filter((s) => s.side === "right").length;
+  return mine.length - left - right + Math.min(left, right);
 }
+
+// The side to do next: left first, then whichever side is behind.
+export function nextSide(name: string, sets: WorkoutSet[]): Side {
+  const mine = setsOf(name, sets);
+  const left = mine.filter((s) => s.side === "left").length;
+  const right = mine.filter((s) => s.side === "right").length;
+  return left <= right ? "left" : "right";
+}
+
+export const sideLabel = (side: Side) =>
+  side === "left" ? "Left side" : "Right side";
 
 // The first planned exercise that still has sets to do.
 export function currentExerciseIndex(
@@ -69,9 +90,9 @@ export function currentExerciseIndex(
   return i === -1 ? null : i;
 }
 
-// "3 × 8-10 · 45 lb"
+// "3 × 8-10 · 45 lb", or "3 × 8-10 each side"
 export function describeTarget(e: PlannedExercise) {
-  return `${e.sets} × ${e.reps}${e.weight != null ? ` · ${e.weight} ${WEIGHT_UNIT}` : ""}`;
+  return `${e.sets} × ${e.reps}${e.unilateral ? " each side" : ""}${e.weight != null ? ` · ${e.weight} ${WEIGHT_UNIT}` : ""}`;
 }
 
 // The heaviest weight logged for an exercise, if any.

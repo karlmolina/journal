@@ -7,7 +7,9 @@ import { formatClock } from "../../functions/formatDuration";
 import {
   currentExerciseIndex,
   describeTarget,
+  nextSide,
   setsDone,
+  sideLabel,
 } from "../../functions/planProgress";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 import SetList from "./SetList";
@@ -30,6 +32,8 @@ interface ActiveWorkoutProps {
   suggestions: string[];
   timerKey: string;
   prefillFor: (exercise: string) => Partial<SetInput>;
+  // Whether an exercise is done one side at a time.
+  isUnilateral: (exercise: string) => boolean;
   onPause: () => void;
   onResume: () => void;
   onFinish: (notes: string) => void;
@@ -104,6 +108,7 @@ export default function ActiveWorkout({
   suggestions,
   timerKey,
   prefillFor,
+  isUnilateral,
   initialExercise,
   onPause,
   onResume,
@@ -125,7 +130,17 @@ export default function ActiveWorkout({
     selectedIndex !== null ? exercises[selectedIndex] : undefined;
   const target =
     selected &&
-    `Set ${Math.min(setsDone(selected, sets) + 1, selected.sets)} of ${selected.sets} · ${selected.reps}${selected.weight != null ? ` at ${selected.weight} ${WEIGHT_UNIT}` : ""}`;
+    [
+      `Set ${Math.min(setsDone(selected, sets) + 1, selected.sets)} of ${selected.sets}`,
+      selected.unilateral && sideLabel(nextSide(selected.name, sets)),
+      `${selected.reps}${selected.weight != null ? ` at ${selected.weight} ${WEIGHT_UNIT}` : ""}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+  // One-side-at-a-time exercises alternate, starting with the left.
+  const sideFor = (name: string) =>
+    name.trim() && isUnilateral(name) ? nextSide(name, sets) : null;
 
   const restFor = (name: string) => {
     const e = exercises.find(
@@ -140,7 +155,7 @@ export default function ActiveWorkout({
     if (
       selected &&
       set.exercise_name.toLowerCase() === selected.name.toLowerCase() &&
-      setsDone(selected, sets) + 1 >= selected.sets
+      setsDone(selected, [...sets, set as WorkoutSet]) >= selected.sets
     )
       setPicked(null);
   };
@@ -262,6 +277,7 @@ export default function ActiveWorkout({
           suggestions={suggestions}
           prefillFor={prefillFor}
           restFor={restFor}
+          sideFor={sideFor}
           onSave={handleSave}
         />
       </section>
