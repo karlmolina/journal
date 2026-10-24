@@ -76,7 +76,7 @@ function SupersetLink({
         type="button"
         className={`rounded-full px-2.5 py-0.5 text-xs font-bold transition cursor-pointer ${
           linked
-            ? "bg-primary/15 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]"
+            ? "bg-primary/15 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]"
             : "text-base-content/40 dark:text-base-content/70 hover:text-base-content/70 dark:hover:text-base-content/90 hover:bg-base-content/6"
         }`}
         onClick={onToggle}
@@ -385,7 +385,7 @@ export default function ActiveWorkout({
             }
           />
           {auto === null && exercises.length > 0 && (
-            <p className="mt-2 text-sm font-bold text-center text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]">
+            <p className="mt-2 text-sm font-bold text-center text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
               Every planned set is done. Nice work.
             </p>
           )}

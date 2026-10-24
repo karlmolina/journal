@@ -247,7 +247,7 @@ export default function Session() {
               </button>
               <Link
                 to="/workouts/plan"
-                className="mt-2 text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)] hover:underline"
+                className="mt-2 text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] hover:underline"
               >
                 Or have AI plan your week
               </Link>

@@ -123,7 +123,7 @@ function SupersetControl({
 }) {
   const [adding, setAdding] = useState(false);
   const [partner, setPartner] = useState("");
-  const linkClass = "btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]";
+  const linkClass = "btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]";
 
   if (partners?.length)
     return (
@@ -333,7 +333,7 @@ export default function SetTimer({
       <div className="flex flex-col items-center text-center">
         <p className="font-bold">{state.exercise}</p>
         {state.side && (
-          <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]">
+          <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
             {sideLabel(state.side)}
           </p>
         )}
@@ -406,7 +406,7 @@ export default function SetTimer({
           Rest
         </p>
         <p
-          className={`my-1 text-5xl font-extrabold tracking-tight tabular-nums ${rested >= goal ? "text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]" : ""}`}
+          className={`my-1 text-5xl font-extrabold tracking-tight tabular-nums ${rested >= goal ? "text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]" : ""}`}
           role="timer"
         >
           {formatClock(rested)}

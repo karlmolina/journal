@@ -33,7 +33,7 @@ function PainTrend({ checkins }: { checkins: Checkin[] }) {
   return (
     <svg
       viewBox="-4 0 308 60"
-      className="w-full h-14 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]"
+      className="w-full h-14 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]"
       role="img"
       aria-label={`Pain over the last 30 days, from ${points[0].pain} to ${points[points.length - 1].pain}`}
     >
@@ -199,7 +199,7 @@ export default function InjuryCard({
       <div className="flex flex-wrap items-center gap-1 -mx-2">
         <Link
           to={`/workouts/library?region=${libraryRegion(injury.region)}&purpose=healing`}
-          className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_45%)]"
+          className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]"
         >
           Exercises
         </Link>
