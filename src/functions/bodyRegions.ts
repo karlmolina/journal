@@ -18,6 +18,8 @@ export const BODY_REGIONS = [
   { key: "knee", label: "Knee" },
   { key: "calf", label: "Calf" },
   { key: "ankle_foot", label: "Ankle & foot" },
+  // Body map only; the library files mid-back exercises under upper back.
+  { key: "mid_back", label: "Mid back" },
 ] as const;
 
 export type BodyRegion = (typeof BODY_REGIONS)[number]["key"];
@@ -27,6 +29,10 @@ const LABELS = new Map<string, string>(
 );
 
 export const regionLabel = (key: string) => LABELS.get(key) ?? key;
+
+// The library region to suggest exercises from for an injury's region.
+export const libraryRegion = (key: string) =>
+  key === "mid_back" ? "upper_back" : key;
 
 export const placeKey = (region: string, side: Side) => `${region}:${side}`;
 

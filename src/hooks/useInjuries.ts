@@ -182,7 +182,9 @@ export default function useInjuries(userId?: string) {
   const updateInjury = useCallback(
     async (
       injuryId: string,
-      changes: Partial<Pick<Injury, "healed_on" | "name" | "notes">>,
+      changes: Partial<
+        Pick<Injury, "healed_on" | "name" | "notes" | "region" | "side">
+      >,
     ) => {
       const injury = latest.current.find((i) => i.id === injuryId);
       if (!injury) return;
