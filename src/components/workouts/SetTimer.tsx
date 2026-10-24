@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
+import type { Exercise } from "../../hooks/useExercises";
 import useTick from "../../hooks/useTick";
 import { formatClock } from "../../functions/formatDuration";
 import { sideLabel } from "../../functions/planProgress";
 import SetForm from "./SetForm";
 import ExerciseInput from "./ExerciseInput";
+import ExerciseHowTo from "./ExerciseHowTo";
 
 const fieldClass =
   "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45";
@@ -86,6 +88,8 @@ interface SetTimerProps {
   restFor: (exercise: string) => number;
   // The side to do next for one-side-at-a-time exercises, otherwise null.
   sideFor: (exercise: string) => Side | null;
+  // The library entry for an exercise, to show how it's done.
+  lookup?: (exercise: string) => Exercise | undefined;
   onSave: (set: SetInput) => void;
 }
 
@@ -99,6 +103,7 @@ export default function SetTimer({
   prefillFor,
   restFor,
   sideFor,
+  lookup,
   onSave,
 }: SetTimerProps) {
   const [state, setState] = useState<Phase>(() =>
@@ -175,6 +180,9 @@ export default function SetTimer({
         {target && (
           <p className="text-sm font-semibold text-base-content/60">{target}</p>
         )}
+        <div className="w-full mt-2">
+          <ExerciseHowTo exercise={lookup?.(state.exercise)} />
+        </div>
         <p
           className="my-2 text-5xl font-extrabold tracking-tight tabular-nums"
           role="timer"
@@ -309,6 +317,7 @@ export default function SetTimer({
           {[target, notes].filter(Boolean).join(" · ")}
         </p>
       )}
+      <ExerciseHowTo exercise={lookup?.(name)} />
       <button
         type="button"
         className="btn btn-primary btn-lg rounded-full font-bold active:scale-[0.98] transition"

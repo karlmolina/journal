@@ -160,6 +160,11 @@ export default function Session() {
     [planned, byLowerName],
   );
 
+  const lookup = useCallback(
+    (name: string) => byLowerName.get(name.trim().toLowerCase()),
+    [byLowerName],
+  );
+
   // Reps from the plan, weight from the last time you did it.
   const prefillFor = useCallback(
     (name: string): Partial<SetInput> => {
@@ -189,6 +194,7 @@ export default function Session() {
           timerKey={`set_timer_${userId}`}
           prefillFor={prefillFor}
           isUnilateral={isUnilateral}
+          lookup={lookup}
           initialExercise={initialExercise}
           onPause={pause}
           onResume={resume}
