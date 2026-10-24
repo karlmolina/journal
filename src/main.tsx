@@ -6,6 +6,8 @@ import App from "./App";
 import SignIn from "./pages/SignIn";
 import Journal from "./pages/Journal";
 import Workouts from "./pages/Workouts";
+import Invites from "./pages/Invites";
+import MembersOnly from "./components/MembersOnly";
 import "./index.css";
 import { AuthProvider } from "./context/AuthProvider";
 import Root from "./components/ThemeRoot";
@@ -25,14 +27,36 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Routes>
             <Route path="/" element={<App />} />
             <Route path="/signin" element={<SignIn />} />
-            <Route path="/journal" element={<Journal />} />
-            <Route path="/workouts" element={<Workouts />}>
+            <Route
+              path="/journal"
+              element={
+                <MembersOnly>
+                  <Journal />
+                </MembersOnly>
+              }
+            />
+            <Route
+              path="/workouts"
+              element={
+                <MembersOnly>
+                  <Workouts />
+                </MembersOnly>
+              }
+            >
               <Route index element={<Session />} />
               <Route path="library" element={<Library />} />
               <Route path="injuries" element={<Injuries />} />
               <Route path="progress" element={<Progress />} />
               <Route path="plan" element={<Plan />} />
             </Route>
+            <Route
+              path="/invites"
+              element={
+                <MembersOnly admin>
+                  <Invites />
+                </MembersOnly>
+              }
+            />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Root>

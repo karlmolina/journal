@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { themeChange } from "theme-change";
+import { useAuth } from "../context/AuthContext";
 
 interface TopBarProps {
   userPhoto?: string | null;
@@ -175,6 +176,7 @@ function SectionTabs() {
 
 export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
   const photo = useCachedPhoto(userPhoto);
+  const { membership } = useAuth();
 
   // TopBar mounts after ThemeRoot (e.g. once auth/data finishes loading), so
   // bind the theme buttons here too.
@@ -261,6 +263,11 @@ export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
             tabIndex={0}
             className="menu dropdown-content bg-base-100 rounded-2xl mt-2 w-52 p-1.5 shadow-lg border border-base-content/10 font-medium"
           >
+            {membership?.admin && (
+              <li>
+                <Link to="/invites">Invite codes</Link>
+              </li>
+            )}
             <li>
               <button onClick={onSignOut}>Sign out</button>
             </li>
