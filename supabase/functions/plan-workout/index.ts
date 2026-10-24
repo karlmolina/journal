@@ -281,6 +281,7 @@ Deno.serve(async (req) => {
     : "Write my weekly plan.";
 
   const model = Deno.env.get("GEMINI_MODEL") || DEFAULT_MODEL;
+  const startedAt = Date.now();
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
@@ -294,7 +295,7 @@ Deno.serve(async (req) => {
             role: "user",
             parts: [
               {
-                text: `Here is everything the app knows about me, as JSON:\n\n${JSON.stringify(context, null, 2)}\n\n${ask}`,
+                text: `Here is everything the app knows about me, as JSON:\n\n${JSON.stringify(context)}\n\n${ask}`,
               },
             ],
           },
@@ -302,11 +303,16 @@ Deno.serve(async (req) => {
         generationConfig: {
           responseMimeType: "application/json",
           responseJsonSchema: PLAN_SCHEMA,
+          // Gemini 3 thinks hard by default, which pushed a full week's plan
+          // past the 150 second limit. Older models don't take this setting.
+          ...(model.startsWith("gemini-3") && {
+            thinkingConfig: { thinkingLevel: "low" },
+          }),
         },
       }),
     },
   ).catch((err: Error) => {
-    console.error(err);
+    console.error(model, `${Date.now() - startedAt} ms`, err);
     return err;
   });
   if (res instanceof Error)
@@ -314,6 +320,12 @@ Deno.serve(async (req) => {
       ? json({ error: "ai_timeout" }, 504)
       : json({ error: "ai_failed" }, 502);
   const result: GeminiResponse | null = await res.json().catch(() => null);
+  console.log(
+    model,
+    res.status,
+    result?.candidates?.[0]?.finishReason,
+    `${Date.now() - startedAt} ms`,
+  );
   if (!res.ok) {
     console.error(res.status, JSON.stringify(result));
     const status = result?.error?.status;
