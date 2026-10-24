@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { SetInput, Workout, WorkoutSet } from "../../hooks/useWorkouts";
 import { elapsedSeconds } from "../../hooks/useWorkouts";
 import type { PlannedSession } from "../../hooks/useWorkoutPlans";
+import type { Exercise } from "../../hooks/useExercises";
 import useTick from "../../hooks/useTick";
 import { formatClock } from "../../functions/formatDuration";
 import {
@@ -44,6 +45,11 @@ interface ActiveWorkoutProps {
   prefillFor: (exercise: string) => Partial<SetInput>;
   // Whether an exercise is done one side at a time.
   isUnilateral: (exercise: string) => boolean;
+  // The library entry for an exercise, for its description.
+  lookup: (exercise: string) => Exercise | undefined;
+  // Your own note on an exercise.
+  noteFor: (exercise: string) => string | undefined;
+  onSaveNote: (exercise: string, note: string) => void;
   onPause: () => void;
   onResume: () => void;
   onFinish: (notes: string) => void;
@@ -166,6 +172,9 @@ export default function ActiveWorkout({
   timerKey,
   prefillFor,
   isUnilateral,
+  lookup,
+  noteFor,
+  onSaveNote,
   initialExercise,
   onPause,
   onResume,
@@ -405,6 +414,9 @@ export default function ActiveWorkout({
           onLeaveSuperset={(name) =>
             onSupersetsChange(leaveSuperset(supersets, name))
           }
+          lookup={lookup}
+          noteFor={noteFor}
+          onSaveNote={onSaveNote}
           onSave={handleSave}
         />
       </section>
