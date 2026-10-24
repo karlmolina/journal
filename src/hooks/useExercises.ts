@@ -20,16 +20,24 @@ export interface Exercise {
   equipment: string | null;
   description: string | null;
   steps: string[];
+  // Done one side at a time, so workouts alternate left and right sets.
+  unilateral: boolean;
 }
 
 export type NewExercise = Pick<
   Exercise,
-  "name" | "category" | "purposes" | "body_regions" | "dosage" | "description"
+  | "name"
+  | "category"
+  | "purposes"
+  | "body_regions"
+  | "dosage"
+  | "description"
+  | "unilateral"
 >;
 
 const CACHE_KEY = "exercises";
 const SELECT =
-  "id, user_id, name, category, purposes, body_regions, dosage, equipment, description, steps";
+  "id, user_id, name, category, purposes, body_regions, dosage, equipment, description, steps, unilateral";
 
 const byName = (a: Exercise, b: Exercise) => a.name.localeCompare(b.name);
 

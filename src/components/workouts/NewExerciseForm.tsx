@@ -34,6 +34,7 @@ export default function NewExerciseForm({
   const [purposes, setPurposes] = useState<ExercisePurpose[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
   const [dosage, setDosage] = useState("");
+  const [unilateral, setUnilateral] = useState(false);
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -47,6 +48,7 @@ export default function NewExerciseForm({
       purposes,
       body_regions: regions,
       dosage: dosage.trim() || null,
+      unilateral,
       description: description.trim() || null,
     });
     setSaving(false);
@@ -113,6 +115,17 @@ export default function NewExerciseForm({
               {r.label}
             </Chip>
           ))}
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <span className={label}>Sides</span>
+        <div className="flex flex-wrap gap-1.5">
+          <Chip selected={!unilateral} onClick={() => setUnilateral(false)}>
+            Both together
+          </Chip>
+          <Chip selected={unilateral} onClick={() => setUnilateral(true)}>
+            One side at a time
+          </Chip>
         </div>
       </div>
       <input

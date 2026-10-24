@@ -114,7 +114,7 @@ export default function Progress() {
     supabase
       .from("workouts")
       .select(
-        "id, started_at, paused_at, paused_seconds, ended_at, notes, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, created_at)",
+        "id, started_at, paused_at, paused_seconds, ended_at, notes, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, side, created_at)",
       )
       .not("ended_at", "is", null)
       .gte(

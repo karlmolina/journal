@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import type { SetInput } from "../../hooks/useWorkouts";
+import type { SetInput, Side } from "../../hooks/useWorkouts";
 import useTick from "../../hooks/useTick";
 import { formatClock } from "../../functions/formatDuration";
+import { sideLabel } from "../../functions/planProgress";
 import SetForm from "./SetForm";
 import ExerciseInput from "./ExerciseInput";
 
@@ -10,10 +11,21 @@ const fieldClass =
 
 // What the timer is doing. Times are epoch milliseconds so the clocks stay
 // right across reloads and while the phone is locked.
+// `side` is set for exercises done one side at a time.
 type Phase =
-  | { phase: "ready"; restOver?: boolean }
-  | { phase: "running"; exercise: string; startedAt: number }
-  | { phase: "logging"; exercise: string; seconds: number | null }
+  | { phase: "ready"; restOver?: boolean; switchTo?: Side }
+  | {
+      phase: "running";
+      exercise: string;
+      startedAt: number;
+      side?: Side | null;
+    }
+  | {
+      phase: "logging";
+      exercise: string;
+      seconds: number | null;
+      side?: Side | null;
+    }
   | { phase: "resting"; endsAt: number; total: number };
 
 interface Saved {
@@ -72,6 +84,8 @@ interface SetTimerProps {
   suggestions: string[];
   prefillFor: (exercise: string) => Partial<SetInput>;
   restFor: (exercise: string) => number;
+  // The side to do next for one-side-at-a-time exercises, otherwise null.
+  sideFor: (exercise: string) => Side | null;
   onSave: (set: SetInput) => void;
 }
 
@@ -84,6 +98,7 @@ export default function SetTimer({
   suggestions,
   prefillFor,
   restFor,
+  sideFor,
   onSave,
 }: SetTimerProps) {
   const [state, setState] = useState<Phase>(() =>
@@ -118,14 +133,26 @@ export default function SetTimer({
     setState({ phase: "ready", restOver: true });
   }, [state.phase, restLeft]);
 
+  const side = sideFor(name);
+
   const startSet = () => {
     if (!name.trim()) return;
     unlockAudio();
-    setState({ phase: "running", exercise: name.trim(), startedAt: now });
+    setState({
+      phase: "running",
+      exercise: name.trim(),
+      startedAt: now,
+      side,
+    });
   };
 
+  // After the left side, go straight to the right; rest after the right.
   const save = (set: SetInput) => {
     onSave(set);
+    if (set.side === "left") {
+      setState({ phase: "ready", switchTo: "right" });
+      return;
+    }
     const rest = restFor(set.exercise_name);
     setState(
       rest > 0
@@ -134,10 +161,17 @@ export default function SetTimer({
     );
   };
 
+  const startLabel = side ? `Start ${side} side` : "Start set";
+
   if (state.phase === "running")
     return (
       <div className="flex flex-col items-center text-center">
         <p className="font-bold">{state.exercise}</p>
+        {state.side && (
+          <p className="text-sm font-bold text-primary">
+            {sideLabel(state.side)}
+          </p>
+        )}
         {target && (
           <p className="text-sm font-semibold text-base-content/60">{target}</p>
         )}
@@ -155,6 +189,7 @@ export default function SetTimer({
               phase: "logging",
               exercise: state.exercise,
               seconds: seconds(Date.now() - state.startedAt) || null,
+              side: state.side,
             })
           }
         >
@@ -174,6 +209,7 @@ export default function SetTimer({
     return (
       <div className="flex flex-col gap-2">
         <p className="text-sm font-semibold text-base-content/60">
+          {state.side && `${sideLabel(state.side)}. `}
           {state.seconds
             ? `That set took ${formatClock(state.seconds)}. Check the numbers and save it.`
             : "Fill in the set and save it."}
@@ -184,6 +220,7 @@ export default function SetTimer({
             ...prefillFor(state.exercise),
             exercise_name: state.exercise,
             duration_seconds: state.seconds,
+            side: state.side ?? null,
           }}
           submitLabel="Save set"
           onCancel={() => setState({ phase: "ready" })}
@@ -244,7 +281,7 @@ export default function SetTimer({
           onClick={startSet}
           disabled={!name.trim()}
         >
-          Start next set
+          {side ? startLabel : "Start next set"}
         </button>
       </div>
     );
@@ -254,6 +291,11 @@ export default function SetTimer({
       {state.restOver && (
         <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold text-center">
           Rest's over. Time for the next set.
+        </p>
+      )}
+      {state.switchTo && side === state.switchTo && (
+        <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold text-center">
+          Now the {state.switchTo} side.
         </p>
       )}
       <ExerciseInput
@@ -273,13 +315,18 @@ export default function SetTimer({
         onClick={startSet}
         disabled={!name.trim()}
       >
-        Start set
+        {startLabel}
       </button>
       <button
         type="button"
         className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 self-center"
         onClick={() =>
-          setState({ phase: "logging", exercise: name.trim(), seconds: null })
+          setState({
+            phase: "logging",
+            exercise: name.trim(),
+            seconds: null,
+            side,
+          })
         }
       >
         Log a set without the timer

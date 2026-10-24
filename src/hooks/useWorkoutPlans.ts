@@ -15,6 +15,8 @@ export interface PlannedExercise {
   goal_weight?: number | null;
   // The rule for moving toward the goal.
   progression?: string;
+  // Done one side at a time: each set is a left and a right.
+  unilateral?: boolean;
 }
 
 export interface PlannedSession {
