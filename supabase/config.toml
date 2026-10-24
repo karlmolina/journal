@@ -1,0 +1,3 @@
+# Minimal config so the Supabase CLI can link and deploy from CI.
+# Everything not set here uses the CLI defaults.
+project_id = "journal"

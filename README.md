@@ -16,6 +16,21 @@ Accounts are invite-only. Anyone can sign in with Google, but they can't use the
 
 For CI deploys, set the `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` repository secrets.
 
+## AI workout planning
+
+The Plan tab calls the `plan-workout` Edge Function (`supabase/functions/plan-workout`), which asks Gemini for a weekly plan using your goals, current injuries and recent workouts. The Gemini API key stays server-side as a Supabase secret:
+
+```sh
+supabase login
+supabase link --project-ref <your-project-ref>
+supabase secrets set GEMINI_API_KEY=...
+# Optional; defaults to gemini-2.5-pro
+supabase secrets set GEMINI_MODEL=gemini-3.8-flash
+supabase functions deploy plan-workout
+```
+
+Create the key at https://aistudio.google.com/apikey. Without it the Plan tab shows "AI planning isn't set up yet". On the free tier Google may use prompts to improve its products, and daily request limits are low.
+
 ## Migrating from Firestore
 
 `scripts/migrate-firestore-to-supabase.ts` copies existing Firestore entries into Supabase, matching users by email. Download a Firebase service account key (Project settings → Service accounts), save it as `firebase-service-account.json` (gitignored), set the variables listed in `.env.example`, then:
