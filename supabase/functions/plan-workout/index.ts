@@ -4,10 +4,13 @@
 //
 // Needs the GEMINI_API_KEY secret (from Google AI Studio):
 //   supabase secrets set GEMINI_API_KEY=...
-// GEMINI_MODEL optionally picks another model, e.g. gemini-3.8-flash.
+// GEMINI_MODEL optionally picks another model, e.g. gemini-2.5-pro on a key
+// that still has access to it.
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 
-const DEFAULT_MODEL = "gemini-2.5-pro";
+// Free AI Studio keys no longer get Gemini 2.5 Pro, so the default is a model
+// the free tier still covers.
+const DEFAULT_MODEL = "gemini-3.8-flash";
 const DAILY_PLAN_LIMIT = 20;
 
 const CORS = {
@@ -300,6 +303,10 @@ Deno.serve(async (req) => {
   if (!res.ok) {
     console.error(res.status, JSON.stringify(result));
     const status = result?.error?.status;
+    // A quota of 0 means the key's tier doesn't include this model at all,
+    // which Google reports as a 429 rather than a 404.
+    if (res.status === 429 && /limit: 0\b/.test(result?.error?.message ?? ""))
+      return json({ error: "model_unavailable" }, 503);
     if (res.status === 429) return json({ error: "rate_limited" }, 429);
     if (
       res.status === 401 ||
