@@ -81,6 +81,7 @@ export default function Session() {
     resume,
     finish,
     discard,
+    setSupersets,
     removeWorkout,
     addSet,
     updateSet,
@@ -194,6 +195,7 @@ export default function Session() {
           onResume={resume}
           onFinish={finish}
           onDiscard={discard}
+          onSupersetsChange={setSupersets}
           onAddSet={handleAddSet}
           onUpdateSet={handleUpdateSet}
           onRemoveSet={removeSet}

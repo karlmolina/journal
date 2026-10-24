@@ -59,6 +59,7 @@ const PLAN_SCHEMA = {
                 "goal_weight",
                 "progression",
                 "unilateral",
+                "superset",
               ],
               properties: {
                 name: { type: "string" },
@@ -71,6 +72,7 @@ const PLAN_SCHEMA = {
                 goal_weight: { type: ["number", "null"] },
                 progression: { type: "string" },
                 unilateral: { type: "boolean" },
+                superset: { type: "string" },
               },
             },
           },
@@ -85,7 +87,7 @@ const SYSTEM = `You are a strength and conditioning coach with a physical therap
 
 Write a plan that fits their goals, the days and minutes they have, and their equipment. Work around their current injuries: favour the rehab and prevention exercises listed for the injured area, keep loads and ranges pain-free, and never prescribe movements that obviously load an injury with high pain. Use their recent training to pick sensible starting loads and to build on what they already do.
 
-When an exercise from their library fits, use its exact name so it links to the instructions they already have. Keep names short and standard otherwise. "reps" can be a count ("8-10"), a time ("30 sec") or a distance. Use "notes" for one short cue, or "" when nothing needs saying. Put warm-ups inside sessions as exercises. Set "unilateral" to true for exercises done one arm or one leg at a time (like single-leg Romanian deadlifts, split squats or one-arm rows); the app then has them do each set as a left side and a right side, so "sets" and "reps" are per side. Library exercises marked unilateral are done that way.
+When an exercise from their library fits, use its exact name so it links to the instructions they already have. Keep names short and standard otherwise. "reps" can be a count ("8-10"), a time ("30 sec") or a distance. Use "notes" for one short cue, or "" when nothing needs saying. Put warm-ups inside sessions as exercises. Set "unilateral" to true for exercises done one arm or one leg at a time (like single-leg Romanian deadlifts, split squats or one-arm rows); the app then has them do each set as a left side and a right side, so "sets" and "reps" are per side. Library exercises marked unilateral are done that way. Use supersets where they save time or suit the goal, like pairing opposing muscle groups or a strength move with a mobility drill: give each exercise in a superset the same "superset" letter ("A", then "B" for the next superset) and list them one after another; use "" for exercises not in one. The app has them do one set of each in turn with no rest between, then rest after the round, so give the exercises in a superset the same "sets" and use "rest_seconds" for the rest after the round.
 
 Give every exercise a progression toward a goal. "weight" is the load in pounds to use now, based on their recent sets when they have done it (null for bodyweight, timed or cardio work). "goal" is where this exercise should get to over the next 6 to 8 weeks, short and concrete, like "3 × 10 at 65 lb", "3 × 60 sec holds" or "Run 5k without stopping". "goal_weight" is the goal's load in pounds, or null when the goal isn't a weight. "progression" is the one rule for moving toward the goal, like "Add 5 lb once every set reaches 10 reps" or "Add 10 sec per hold each week while pain stays at 3/10 or less". For injured areas, progress by pain response, not by the calendar.
 

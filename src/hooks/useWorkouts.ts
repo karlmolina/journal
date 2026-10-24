@@ -27,6 +27,8 @@ export interface Workout {
   // The plan and session (an index into its sessions) this workout follows.
   plan_id: string | null;
   plan_session: number | null;
+  // Supersets set up during this workout; null follows the plan's.
+  supersets: string[][] | null;
   workout_sets: WorkoutSet[];
 }
 
@@ -51,7 +53,7 @@ export type SetInput = Omit<NewSet, "exercise_id">;
 const CACHE_KEY = "workouts";
 const HISTORY_LIMIT = 20;
 const SELECT =
-  "id, started_at, paused_at, paused_seconds, ended_at, notes, plan_id, plan_session, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, side, created_at)";
+  "id, started_at, paused_at, paused_seconds, ended_at, notes, plan_id, plan_session, supersets, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, side, created_at)";
 
 // Stopwatch time: wall time since the start, minus time spent paused.
 export function elapsedSeconds(w: Workout, now = Date.now()) {
@@ -71,6 +73,7 @@ const pauseLength = (w: Workout, now: number) =>
 // Postgres returns numerics as strings; normalize so the UI can do math.
 const normalize = (w: Workout): Workout => ({
   ...w,
+  supersets: w.supersets ?? null,
   workout_sets: [...w.workout_sets]
     .map((s) => ({
       ...s,
@@ -210,6 +213,7 @@ export default function useWorkouts(userId?: string) {
         notes: null,
         plan_id: planned?.plan_id ?? null,
         plan_session: planned?.plan_session ?? null,
+        supersets: null,
         workout_sets: [],
       };
       setActive(workout);
@@ -265,6 +269,12 @@ export default function useWorkouts(userId?: string) {
         "Couldn't finish the workout.",
       );
     },
+    [updateActive],
+  );
+
+  const setSupersets = useCallback(
+    (supersets: string[][]) =>
+      updateActive({ supersets }, "Couldn't save the superset."),
     [updateActive],
   );
 
@@ -391,6 +401,7 @@ export default function useWorkouts(userId?: string) {
     resume,
     finish,
     discard,
+    setSupersets,
     removeWorkout,
     addSet,
     updateSet,
