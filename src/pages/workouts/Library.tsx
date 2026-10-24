@@ -6,6 +6,7 @@ import ExerciseCard from "../../components/workouts/ExerciseCard";
 import NewExerciseForm from "../../components/workouts/NewExerciseForm";
 import { useAuth } from "../../context/AuthContext";
 import useExercises, { type ExercisePurpose } from "../../hooks/useExercises";
+import useExerciseNotes from "../../hooks/useExerciseNotes";
 import { BODY_REGIONS } from "../../functions/bodyRegions";
 
 const PURPOSES: { key: ExercisePurpose | null; label: string }[] = [
@@ -24,6 +25,7 @@ export default function Library() {
     addExercise,
     removeExercise,
   } = useExercises(user?.id);
+  const notes = useExerciseNotes(user?.id);
   const navigate = useNavigate();
   // Filters live in the URL so other pages (e.g. the body map) can link here.
   const [params, setParams] = useSearchParams();
@@ -62,6 +64,9 @@ export default function Library() {
   return (
     <div className="flex flex-col gap-3 pb-6">
       {error && <ErrorBanner message={error} onDismiss={dismissError} />}
+      {notes.error && (
+        <ErrorBanner message={notes.error} onDismiss={notes.dismissError} />
+      )}
 
       <label className="flex items-center gap-2 h-12 rounded-3xl bg-base-content/8 px-4 focus-within:bg-base-content/10">
         <svg
@@ -135,6 +140,8 @@ export default function Library() {
           key={e.id}
           exercise={e}
           onLog={() => navigate("/workouts", { state: { exercise: e.name } })}
+          note={notes.noteFor(e.name)}
+          onSaveNote={(note) => notes.saveNote(e.name, note)}
           onDelete={e.user_id ? () => removeExercise(e) : undefined}
         />
       ))}
