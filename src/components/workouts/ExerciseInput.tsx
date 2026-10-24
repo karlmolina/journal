@@ -22,14 +22,19 @@ export default function ExerciseInput({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
+  // Until something is typed, the list shows the most recent exercises
+  // whatever is in the field; after that it searches.
+  const [typed, setTyped] = useState(false);
 
   const query = value.trim().toLowerCase();
-  const matches = suggestions
-    .filter((name) => {
-      const n = name.toLowerCase();
-      return n !== query && n.includes(query);
-    })
-    .slice(0, MAX_MATCHES);
+  const matches = (
+    typed
+      ? suggestions.filter((name) => {
+          const n = name.toLowerCase();
+          return n !== query && n.includes(query);
+        })
+      : suggestions
+  ).slice(0, MAX_MATCHES);
   const showList = open && matches.length > 0;
 
   // The keyboard opens after focus and shrinks the visual viewport, so keep
@@ -47,32 +52,72 @@ export default function ExerciseInput({
   const pick = (name: string) => {
     onChange(name);
     setOpen(false);
+    setTyped(false);
     // Drop the keyboard so the rest of the form is visible again.
     inputRef.current?.blur();
   };
 
+  const clear = () => {
+    onChange("");
+    setTyped(false);
+    setOpen(true);
+    inputRef.current?.focus();
+  };
+
   return (
     <div ref={wrapperRef} className="flex flex-col gap-1 scroll-my-3">
-      <input
-        ref={inputRef}
-        className={className}
-        placeholder="Exercise, like Goblet squat"
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setOpen(false);
-        }}
-        aria-label="Exercise"
-        aria-autocomplete="list"
-        aria-expanded={showList}
-        autoCapitalize="words"
-        autoComplete="off"
-      />
+      <div className="relative">
+        <input
+          ref={inputRef}
+          className={className}
+          // Room for the clear button.
+          style={value ? { paddingRight: "2.75rem" } : undefined}
+          placeholder="Exercise, like Goblet squat"
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setTyped(true);
+            setOpen(true);
+          }}
+          onFocus={() => {
+            setTyped(false);
+            setOpen(true);
+          }}
+          // Reopens the list after Escape without leaving the field.
+          onClick={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setOpen(false);
+          }}
+          aria-label="Exercise"
+          aria-autocomplete="list"
+          aria-expanded={showList}
+          autoCapitalize="words"
+          autoComplete="off"
+        />
+        {value && (
+          <button
+            type="button"
+            aria-label="Clear exercise"
+            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-base-content/45 hover:text-base-content"
+            // Keep focus in the input, as with the suggestions.
+            onPointerDown={(e) => e.preventDefault()}
+            onClick={clear}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              className="size-5"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM7.53 6.47a.75.75 0 0 0-1.06 1.06L8.94 10l-2.47 2.47a.75.75 0 1 0 1.06 1.06L10 11.06l2.47 2.47a.75.75 0 1 0 1.06-1.06L11.06 10l2.47-2.47a.75.75 0 0 0-1.06-1.06L10 8.94 7.53 6.47Z"
+              />
+            </svg>
+          </button>
+        )}
+      </div>
       {showList && (
         <ul
           role="listbox"
