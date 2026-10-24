@@ -440,7 +440,8 @@ export default function SetTimer({
       <ExerciseHowTo exercise={lookup?.(name)} />
       {onSaveNote && name.trim() && (
         <ExerciseNote
-          key={name.trim().toLowerCase()}
+          // Prefixed: the superset control below is keyed by the name too.
+          key={`note:${name.trim().toLowerCase()}`}
           note={noteFor?.(name)}
           onSave={(note) => onSaveNote(name, note)}
         />
