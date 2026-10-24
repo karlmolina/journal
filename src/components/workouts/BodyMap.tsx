@@ -72,8 +72,10 @@ const FRONT: Part[] = [
 
 const BACK: Part[] = [
   { region: "neck", shape: rect(90, 51, 20, 16, 6) },
-  { region: "upper_back", shape: rect(76, 70, 48, 44, 14) },
-  { region: "lower_back", shape: rect(79, 117, 42, 48, 12) },
+  // The back is split into upper, mid and lower, each with a left and right.
+  ...paired("upper_back", rect(76, 70, 23, 30, 9)),
+  ...paired("mid_back", rect(78, 103, 21, 30, 8)),
+  ...paired("lower_back", rect(79, 136, 20, 29, 8)),
   ...paired("glute", rect(78, 168, 21, 25, 10)),
   ...limbs("hamstring", "calf"),
 ];
@@ -115,9 +117,9 @@ function Landmarks({ view }: { view: "front" | "back" }) {
         className="fill-base-content/25"
       />
       <path d="M100 72 L100 162" className={line} strokeDasharray="3 3" />
-      <path d="M86 80 Q82 92 90 104" className={line} strokeLinecap="round" />
+      <path d="M87 76 Q84 86 91 96" className={line} strokeLinecap="round" />
       <path
-        d="M114 80 Q118 92 110 104"
+        d="M113 76 Q116 86 109 96"
         className={line}
         strokeLinecap="round"
       />
@@ -188,8 +190,16 @@ function Figure({ view, marked, selected, onSelect }: FigureProps) {
           const key = placeKey(part.region, side);
           const label = placeLabel(part.region, side);
           const isSelected = selected === key;
-          const fill = marked.has(key)
-            ? painFill(marked.get(key)!)
+          // Injuries logged before a region was split into sides (center)
+          // light up both sides until they're moved.
+          const centerKey = placeKey(part.region, "center");
+          const markKey = marked.has(key)
+            ? key
+            : part.pair && marked.has(centerKey)
+              ? centerKey
+              : null;
+          const fill = markKey
+            ? painFill(marked.get(markKey)!)
             : "fill-base-content/15 hover:fill-primary/40";
           return (
             <g

@@ -109,6 +109,8 @@ export default function Injuries() {
   const [place, setPlace] = useState<Place | null>(null);
   const [adding, setAdding] = useState(false);
   const [showHealed, setShowHealed] = useState(false);
+  // The injury being moved to a different spot, picked on the body map.
+  const [moving, setMoving] = useState<(typeof injuries)[number] | null>(null);
 
   const active = injuries.filter((i) => !i.healed_on);
   const healed = injuries.filter((i) => i.healed_on);
@@ -127,12 +129,24 @@ export default function Injuries() {
   }, [injuries]);
 
   const selectedKey = place ? placeKey(place.region, place.side) : null;
+  // A side of a split region also shows injuries logged on its center.
   const atPlace = place
-    ? active.filter((i) => placeKey(i.region, i.side) === selectedKey)
+    ? active.filter(
+        (i) =>
+          placeKey(i.region, i.side) === selectedKey ||
+          (i.region === place.region && i.side === "center"),
+      )
     : [];
   const cards = place ? atPlace : active;
 
   const select = (region: string, side: Side) => {
+    if (moving) {
+      updateInjury(moving.id, { region, side });
+      setMoving(null);
+      setPlace({ region, side });
+      setAdding(false);
+      return;
+    }
     const same = selectedKey === placeKey(region, side);
     setPlace(same ? null : { region, side });
     setAdding(false);
@@ -146,6 +160,11 @@ export default function Injuries() {
       onHealed={() => updateInjury(i.id, { healed_on: today() })}
       onReopen={() => updateInjury(i.id, { healed_on: null })}
       onDelete={() => removeInjury(i.id)}
+      onMove={() => {
+        setMoving(i);
+        setAdding(false);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }}
     />
   );
 
@@ -156,7 +175,21 @@ export default function Injuries() {
       <section className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-3 pt-4 pb-3">
         <BodyMap marked={marked} selected={selectedKey} onSelect={select} />
         <div className="mt-3 px-1">
-          {place ? (
+          {moving ? (
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-primary/12 px-3 py-2">
+              <p className="text-sm font-bold">
+                Tap the right spot for{" "}
+                {moving.name ?? placeLabel(moving.region, moving.side)}.
+              </p>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm rounded-full font-bold"
+                onClick={() => setMoving(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : place ? (
             adding ? (
               <NewInjuryForm
                 place={place}

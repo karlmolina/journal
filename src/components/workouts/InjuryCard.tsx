@@ -2,7 +2,11 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Checkin, Injury } from "../../hooks/useInjuries";
 import { today } from "../../hooks/useInjuries";
-import { painText, placeLabel } from "../../functions/bodyRegions";
+import {
+  libraryRegion,
+  painText,
+  placeLabel,
+} from "../../functions/bodyRegions";
 import PainSlider from "./PainSlider";
 
 const DAY_MS = 86_400_000;
@@ -68,6 +72,8 @@ interface InjuryCardProps {
   onHealed: () => void;
   onReopen: () => void;
   onDelete: () => void;
+  // Starts picking a new spot on the body map for this injury.
+  onMove: () => void;
 }
 
 export default function InjuryCard({
@@ -76,6 +82,7 @@ export default function InjuryCard({
   onHealed,
   onReopen,
   onDelete,
+  onMove,
 }: InjuryCardProps) {
   const checkins = injury.injury_checkins;
   const last = checkins.at(-1);
@@ -191,7 +198,7 @@ export default function InjuryCard({
 
       <div className="flex flex-wrap items-center gap-1 -mx-2">
         <Link
-          to={`/workouts/library?region=${injury.region}&purpose=healing`}
+          to={`/workouts/library?region=${libraryRegion(injury.region)}&purpose=healing`}
           className="btn btn-ghost btn-sm rounded-full font-bold text-primary"
         >
           Exercises
@@ -230,6 +237,15 @@ export default function InjuryCard({
                 onClick={() => setConfirmDelete(true)}
               >
                 Delete
+              </button>
+            )}
+            {!healed && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60"
+                onClick={onMove}
+              >
+                Move
               </button>
             )}
             <button
