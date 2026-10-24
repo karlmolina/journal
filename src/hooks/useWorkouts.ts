@@ -14,6 +14,8 @@ export interface WorkoutSet {
   duration_seconds: number | null;
   // Which side, for exercises done one side at a time.
   side: Side | null;
+  // Rest taken before this set, timed by the guided set timer.
+  rest_seconds: number | null;
   created_at: string;
 }
 
@@ -45,7 +47,8 @@ export type NewSet = Pick<
   | "weight"
   | "duration_seconds"
   | "side"
->;
+> &
+  Partial<Pick<WorkoutSet, "rest_seconds">>;
 
 // What the set form collects; the library link is filled in from the name.
 export type SetInput = Omit<NewSet, "exercise_id">;
@@ -53,7 +56,7 @@ export type SetInput = Omit<NewSet, "exercise_id">;
 const CACHE_KEY = "workouts";
 const HISTORY_LIMIT = 20;
 const SELECT =
-  "id, started_at, paused_at, paused_seconds, ended_at, notes, plan_id, plan_session, supersets, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, side, created_at)";
+  "id, started_at, paused_at, paused_seconds, ended_at, notes, plan_id, plan_session, supersets, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, side, rest_seconds, created_at)";
 
 // Stopwatch time: wall time since the start, minus time spent paused.
 export function elapsedSeconds(w: Workout, now = Date.now()) {
@@ -79,6 +82,7 @@ const normalize = (w: Workout): Workout => ({
       ...s,
       weight: s.weight === null ? null : Number(s.weight),
       side: s.side ?? null,
+      rest_seconds: s.rest_seconds ?? null,
     }))
     .sort((a, b) => a.created_at.localeCompare(b.created_at)),
 });
@@ -322,6 +326,7 @@ export default function useWorkouts(userId?: string) {
       const w = state.current.active;
       if (!w) return;
       const row: WorkoutSet = {
+        rest_seconds: null,
         ...set,
         id: crypto.randomUUID(),
         workout_id: w.id,

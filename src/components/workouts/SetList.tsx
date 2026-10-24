@@ -1,7 +1,18 @@
 import { useState } from "react";
 import type { SetInput, WorkoutSet } from "../../hooks/useWorkouts";
 import { describeSet, groupSets, setLabels } from "../../functions/workoutSets";
+import { formatClock } from "../../functions/formatDuration";
 import SetForm from "./SetForm";
+
+// The rest timed before a set, shown after what was done.
+function RestNote({ seconds }: { seconds: number | null }) {
+  if (seconds == null) return null;
+  return (
+    <span className="ml-2 text-xs font-semibold text-base-content/50 dark:text-base-content/65">
+      after {formatClock(seconds)} rest
+    </span>
+  );
+}
 
 interface SetListProps {
   sets: WorkoutSet[];
@@ -57,10 +68,12 @@ export default function SetList({
                         aria-label={`Edit ${labels[i].toLowerCase()} of ${name}: ${describeSet(set)}`}
                       >
                         {describeSet(set)}
+                        <RestNote seconds={set.rest_seconds} />
                       </button>
                     ) : (
                       <span className="flex-1 tabular-nums">
                         {describeSet(set)}
+                        <RestNote seconds={set.rest_seconds} />
                       </span>
                     )}
                     {onUpdate && (
