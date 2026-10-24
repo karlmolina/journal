@@ -17,6 +17,8 @@ export interface PlannedExercise {
   progression?: string;
   // Done one side at a time: each set is a left and a right.
   unilateral?: boolean;
+  // Exercises sharing a letter ("A") are a superset; "" or missing is none.
+  superset?: string;
 }
 
 export interface PlannedSession {

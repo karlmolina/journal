@@ -323,10 +323,20 @@ function PlanView({
             {s.exercises.map((e, j) => (
               <li key={j} className="flex items-start gap-3 py-2">
                 <div className="flex-1 min-w-0">
+                  {e.superset?.trim() && (
+                    <p className="text-xs font-bold text-primary">
+                      Superset {e.superset.trim().toUpperCase()}
+                    </p>
+                  )}
                   <p className="font-bold">{e.name}</p>
                   <p className="text-sm font-semibold text-base-content/60 tabular-nums">
                     {describeTarget(e)}
-                    {e.rest_seconds > 0 && ` · rest ${e.rest_seconds}s`}
+                    {e.rest_seconds > 0 &&
+                      (!e.superset?.trim()
+                        ? ` · rest ${e.rest_seconds}s`
+                        : s.exercises[j + 1]?.superset?.trim().toUpperCase() !==
+                            e.superset.trim().toUpperCase() &&
+                          ` · then rest ${e.rest_seconds}s`)}
                   </p>
                   {e.notes && (
                     <p className="text-sm font-medium text-base-content/70">

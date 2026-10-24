@@ -14,9 +14,15 @@ const fieldClass =
 
 // What the timer is doing. Times are epoch milliseconds so the clocks stay
 // right across reloads and while the phone is locked.
-// `side` is set for exercises done one side at a time.
+// `side` is set for exercises done one side at a time. `supersetNext` is
+// the exercise that follows straight on in a superset.
 type Phase =
-  | { phase: "ready"; restOver?: boolean; switchTo?: Side }
+  | {
+      phase: "ready";
+      restOver?: boolean;
+      switchTo?: Side;
+      supersetNext?: string;
+    }
   | {
       phase: "running";
       exercise: string;
@@ -86,14 +92,100 @@ interface SetTimerProps {
   notes?: string;
   suggestions: string[];
   prefillFor: (exercise: string) => Partial<SetInput>;
-  restFor: (exercise: string) => number;
+  // Rest after a set, and the exercise to do next when it's in a superset.
+  afterSet: (set: SetInput) => { rest: number; next?: string };
   // The side to do next for one-side-at-a-time exercises, otherwise null.
   sideFor: (exercise: string) => Side | null;
+  // The other exercises in this one's superset, if it's in one.
+  supersetWith: (exercise: string) => string[] | undefined;
+  onSuperset: (exercise: string, partner: string) => void;
+  onLeaveSuperset: (exercise: string) => void;
   // The library entry for an exercise, to show how it's done.
   lookup?: (exercise: string) => Exercise | undefined;
   noteFor?: (exercise: string) => string | undefined;
   onSaveNote?: (exercise: string, note: string) => void;
   onSave: (set: SetInput) => void;
+}
+
+// Pairs the current exercise with another one, or shows what it's paired with.
+function SupersetControl({
+  exercise,
+  partners,
+  suggestions,
+  onSuperset,
+  onLeave,
+}: {
+  exercise: string;
+  partners?: string[];
+  suggestions: string[];
+  onSuperset: (partner: string) => void;
+  onLeave: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [partner, setPartner] = useState("");
+  const linkClass = "btn btn-ghost btn-xs rounded-full font-bold text-primary";
+
+  if (partners?.length)
+    return (
+      <div className="flex items-center justify-center gap-1 text-sm font-semibold text-base-content/60">
+        <span className="truncate">Superset with {partners.join(", ")}</span>
+        <button type="button" className={linkClass} onClick={onLeave}>
+          Remove
+        </button>
+      </div>
+    );
+
+  if (!adding)
+    return (
+      <button
+        type="button"
+        className={`${linkClass} self-center`}
+        onClick={() => setAdding(true)}
+        disabled={!exercise}
+      >
+        + Superset with another exercise
+      </button>
+    );
+
+  const add = () => {
+    const name = partner.trim();
+    if (!name || name.toLowerCase() === exercise.toLowerCase()) return;
+    onSuperset(name);
+    setPartner("");
+    setAdding(false);
+  };
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-base-content/5 p-2">
+      <p className="text-sm font-semibold text-base-content/60 px-1">
+        Do a set of each in turn, then rest.
+      </p>
+      <ExerciseInput
+        className={fieldClass}
+        value={partner}
+        onChange={setPartner}
+        suggestions={suggestions.filter(
+          (n) => n.toLowerCase() !== exercise.toLowerCase(),
+        )}
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm rounded-full font-bold flex-1"
+          onClick={() => setAdding(false)}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary btn-sm rounded-full font-bold flex-1"
+          onClick={add}
+          disabled={!partner.trim()}
+        >
+          Pair up
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function SetTimer({
@@ -104,8 +196,11 @@ export default function SetTimer({
   notes,
   suggestions,
   prefillFor,
-  restFor,
+  afterSet,
   sideFor,
+  supersetWith,
+  onSuperset,
+  onLeaveSuperset,
   lookup,
   noteFor,
   onSaveNote,
@@ -157,17 +252,25 @@ export default function SetTimer({
   };
 
   // After the left side, go straight to the right; rest after the right.
+  // In a superset, go straight to the next exercise and rest after the round.
   const save = (set: SetInput) => {
     onSave(set);
     if (set.side === "left") {
       setState({ phase: "ready", switchTo: "right" });
       return;
     }
-    const rest = restFor(set.exercise_name);
+    const { rest, next } = afterSet(set);
+    if (next) setName(next);
     setState(
       rest > 0
         ? { phase: "resting", endsAt: Date.now() + rest * 1000, total: rest }
-        : { phase: "ready" },
+        : {
+            phase: "ready",
+            supersetNext:
+              next && next.toLowerCase() !== set.exercise_name.toLowerCase()
+                ? next
+                : undefined,
+          },
     );
   };
 
@@ -318,6 +421,11 @@ export default function SetTimer({
           Now the {state.switchTo} side.
         </p>
       )}
+      {state.supersetNext && name === state.supersetNext && (
+        <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold text-center">
+          Superset: straight on to {state.supersetNext}, no rest.
+        </p>
+      )}
       <ExerciseInput
         className={fieldClass}
         value={name}
@@ -345,6 +453,14 @@ export default function SetTimer({
       >
         {startLabel}
       </button>
+      <SupersetControl
+        key={name.trim().toLowerCase()}
+        exercise={name.trim()}
+        partners={name.trim() ? supersetWith(name) : undefined}
+        suggestions={suggestions}
+        onSuperset={(partner) => onSuperset(name.trim(), partner)}
+        onLeave={() => onLeaveSuperset(name.trim())}
+      />
       <button
         type="button"
         className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 self-center"

@@ -13,6 +13,16 @@ import {
   sideLabel,
 } from "../../functions/planProgress";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
+import {
+  countSets,
+  joinSupersets,
+  leaveSuperset,
+  nextInSuperset,
+  planSupersets,
+  splitSuperset,
+  supersetOf,
+  type Supersets,
+} from "../../functions/supersets";
 import SetList from "./SetList";
 import SetTimer from "./SetTimer";
 
@@ -44,30 +54,73 @@ interface ActiveWorkoutProps {
   onResume: () => void;
   onFinish: (notes: string) => void;
   onDiscard: () => void;
+  onSupersetsChange: (supersets: Supersets) => void;
   initialExercise?: string;
   onAddSet: (set: SetInput) => void;
   onUpdateSet: (set: WorkoutSet, changes: SetInput) => void;
   onRemoveSet: (set: WorkoutSet) => void;
 }
 
+// Between two planned exercises: whether they're a superset, and a tap to
+// pair them up or split them.
+function SupersetLink({
+  linked,
+  onToggle,
+}: {
+  linked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex justify-center -my-0.5">
+      <button
+        type="button"
+        className={`rounded-full px-2.5 py-0.5 text-xs font-bold transition cursor-pointer ${
+          linked
+            ? "bg-primary/15 text-primary"
+            : "text-base-content/40 hover:text-base-content/70 hover:bg-base-content/6"
+        }`}
+        onClick={onToggle}
+        aria-pressed={linked}
+      >
+        {linked ? "Superset · tap to split" : "+ Superset"}
+      </button>
+    </div>
+  );
+}
+
 function PlanChecklist({
   session,
   sets,
+  supersets,
   selected,
   onSelect,
+  onLink,
 }: {
   session: PlannedSession;
   sets: WorkoutSet[];
+  supersets: Supersets;
   selected: number | null;
   onSelect: (i: number) => void;
+  onLink: (i: number, linked: boolean) => void;
 }) {
+  const exercises = session.exercises;
+  const groupOf = (i: number) =>
+    exercises[i] && supersetOf(exercises[i].name, supersets);
   return (
     <ol className="mt-2 flex flex-col gap-1">
-      {session.exercises.map((e, i) => {
+      {exercises.map((e, i) => {
         const done = setsDone(e, sets);
         const complete = done >= e.sets;
+        const group = groupOf(i);
+        const linked = i > 0 && !!group && group === groupOf(i - 1);
         return (
-          <li key={i}>
+          <li key={i} className="flex flex-col gap-1">
+            {i > 0 && (
+              <SupersetLink
+                linked={linked}
+                onToggle={() => onLink(i, linked)}
+              />
+            )}
             <button
               type="button"
               className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition cursor-pointer ${
@@ -94,7 +147,11 @@ function PlanChecklist({
                 </span>
                 <span className="block text-xs font-semibold text-base-content/55 tabular-nums">
                   {describeTarget(e)}
-                  {e.rest_seconds > 0 && ` · rest ${e.rest_seconds}s`}
+                  {e.rest_seconds > 0 &&
+                    (!group
+                      ? ` · rest ${e.rest_seconds}s`
+                      : groupOf(i + 1) !== group &&
+                        ` · then rest ${e.rest_seconds}s`)}
                 </span>
               </span>
               <span className="text-sm font-bold tabular-nums text-base-content/60">
@@ -123,6 +180,7 @@ export default function ActiveWorkout({
   onResume,
   onFinish,
   onDiscard,
+  onSupersetsChange,
   onAddSet,
   onUpdateSet,
   onRemoveSet,
@@ -131,9 +189,36 @@ export default function ActiveWorkout({
   useTick(!paused);
   const sets = workout.workout_sets;
   const exercises = planned?.session.exercises ?? [];
-  // The exercise picked in the checklist; otherwise the first unfinished one.
+  const supersets = workout.supersets ?? planSupersets(exercises);
+  const indexOf = (name: string) =>
+    exercises.findIndex(
+      (e) => e.name.trim().toLowerCase() === name.trim().toLowerCase(),
+    );
+  const done = (name: string, all = sets) =>
+    countSets(name, isUnilateral(name), all);
+  // Planned exercises have a number of sets; anything else goes on and on.
+  const targetOf = (name: string) => exercises[indexOf(name)]?.sets ?? Infinity;
+
+  // The exercise picked in the checklist; otherwise the next one in the
+  // superset just done, or the first unfinished one.
   const [picked, setPicked] = useState<number | null>(null);
-  const auto = currentExerciseIndex(exercises, sets);
+  const auto = (() => {
+    const last = sets.at(-1);
+    const group = last && supersetOf(last.exercise_name, supersets);
+    if (last && group) {
+      // A left side is followed by the right before moving on.
+      const i =
+        last.side === "left" && nextSide(last.exercise_name, sets) === "right"
+          ? indexOf(last.exercise_name)
+          : indexOf(
+              nextInSuperset(last.exercise_name, group, done, targetOf).next ??
+                "",
+            );
+      if (i !== -1 && setsDone(exercises[i], sets) < exercises[i].sets)
+        return i;
+    }
+    return currentExerciseIndex(exercises, sets);
+  })();
   const selectedIndex = picked ?? auto;
   const selected =
     selectedIndex !== null ? exercises[selectedIndex] : undefined;
@@ -152,16 +237,39 @@ export default function ActiveWorkout({
     name.trim() && isUnilateral(name) ? nextSide(name, sets) : null;
 
   const restFor = (name: string) => {
-    const e = exercises.find(
-      (x) => x.name.trim().toLowerCase() === name.trim().toLowerCase(),
-    );
+    const e = exercises[indexOf(name)];
     return e ? e.rest_seconds : DEFAULT_REST;
   };
 
+  // In a superset the next exercise follows with no rest, and the rest comes
+  // after the round (the longest any of its exercises asks for).
+  const afterSet = (set: SetInput) => {
+    const group = supersetOf(set.exercise_name, supersets);
+    if (!group) return { rest: restFor(set.exercise_name) };
+    const all = [...sets, set as WorkoutSet];
+    const { next, rest } = nextInSuperset(
+      set.exercise_name,
+      group,
+      (n) => done(n, all),
+      targetOf,
+    );
+    return {
+      rest: rest ? Math.max(...group.map(restFor)) : 0,
+      next: next ?? undefined,
+    };
+  };
+
+  const supersetWith = (name: string) =>
+    supersetOf(name, supersets)?.filter(
+      (n) => n.trim().toLowerCase() !== name.trim().toLowerCase(),
+    );
+
   const handleSave = (set: SetInput) => {
     onAddSet(set);
-    // Once the picked exercise has all its sets, go back to following the plan.
-    if (
+    // Once the picked exercise has all its sets, or it's in a superset, go
+    // back to following the plan, which moves through the superset.
+    if (supersetOf(set.exercise_name, supersets)) setPicked(null);
+    else if (
       selected &&
       set.exercise_name.toLowerCase() === selected.name.toLowerCase() &&
       setsDone(selected, [...sets, set as WorkoutSet]) >= selected.sets
@@ -261,8 +369,20 @@ export default function ActiveWorkout({
           <PlanChecklist
             session={planned.session}
             sets={sets}
+            supersets={supersets}
             selected={selectedIndex}
             onSelect={setPicked}
+            onLink={(i, linked) =>
+              onSupersetsChange(
+                linked
+                  ? splitSuperset(supersets, exercises[i].name)
+                  : joinSupersets(
+                      supersets,
+                      exercises[i - 1].name,
+                      exercises[i].name,
+                    ),
+              )
+            }
           />
           {auto === null && exercises.length > 0 && (
             <p className="mt-2 text-sm font-bold text-center text-primary">
@@ -285,8 +405,15 @@ export default function ActiveWorkout({
           }
           suggestions={suggestions}
           prefillFor={prefillFor}
-          restFor={restFor}
+          afterSet={afterSet}
           sideFor={sideFor}
+          supersetWith={supersetWith}
+          onSuperset={(name, partner) =>
+            onSupersetsChange(joinSupersets(supersets, name, partner))
+          }
+          onLeaveSuperset={(name) =>
+            onSupersetsChange(leaveSuperset(supersets, name))
+          }
           lookup={lookup}
           noteFor={noteFor}
           onSaveNote={onSaveNote}
