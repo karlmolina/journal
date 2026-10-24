@@ -1,8 +1,9 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import type { SetInput } from "../../hooks/useWorkouts";
 import useTick from "../../hooks/useTick";
 import { formatClock } from "../../functions/formatDuration";
 import SetForm from "./SetForm";
+import ExerciseInput from "./ExerciseInput";
 
 const fieldClass =
   "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45";
@@ -85,7 +86,6 @@ export default function SetTimer({
   restFor,
   onSave,
 }: SetTimerProps) {
-  const listId = useId();
   const [state, setState] = useState<Phase>(() =>
     readSaved(storageKey, workoutId),
   );
@@ -256,20 +256,12 @@ export default function SetTimer({
           Rest's over. Time for the next set.
         </p>
       )}
-      <input
+      <ExerciseInput
         className={fieldClass}
-        list={listId}
-        placeholder="Exercise, like Goblet squat"
         value={name}
-        onChange={(e) => setName(e.target.value)}
-        aria-label="Exercise"
-        autoCapitalize="words"
+        onChange={setName}
+        suggestions={suggestions}
       />
-      <datalist id={listId}>
-        {suggestions.map((n) => (
-          <option key={n} value={n} />
-        ))}
-      </datalist>
       {(target || notes) && (
         <p className="text-sm font-semibold text-base-content/60">
           {[target, notes].filter(Boolean).join(" · ")}

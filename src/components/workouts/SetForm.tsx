@@ -1,4 +1,5 @@
-import React, { useId, useState } from "react";
+import React, { useState } from "react";
+import ExerciseInput from "./ExerciseInput";
 import type { SetInput } from "../../hooks/useWorkouts";
 import { formatClock, parseClock } from "../../functions/formatDuration";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
@@ -26,7 +27,6 @@ export default function SetForm({
   onCancel,
   onAdd,
 }: SetFormProps) {
-  const listId = useId();
   const [exercise, setExercise] = useState(initial?.exercise_name ?? "");
   const [reps, setReps] = useState(text(initial?.reps));
   const [weight, setWeight] = useState(text(initial?.weight));
@@ -63,20 +63,12 @@ export default function SetForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-      <input
+      <ExerciseInput
         className={fieldClass}
-        list={listId}
-        placeholder="Exercise, like Goblet squat"
         value={exercise}
-        onChange={(e) => setExercise(e.target.value)}
-        aria-label="Exercise"
-        autoCapitalize="words"
+        onChange={setExercise}
+        suggestions={suggestions}
       />
-      <datalist id={listId}>
-        {suggestions.map((name) => (
-          <option key={name} value={name} />
-        ))}
-      </datalist>
       <div className="grid grid-cols-3 gap-2">
         <input
           className={fieldClass}
