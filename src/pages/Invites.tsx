@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 import { readUserCache, writeUserCache } from "../functions/userCache";
+import { isDeleted, queueDelete } from "../functions/undoDelete";
 
 interface InviteCode {
   code: string;
@@ -38,8 +39,11 @@ export default function Invites() {
       setError("Couldn't load invite codes.");
       return;
     }
-    setCodes(data);
-    if (userId) writeUserCache(CACHE_KEY, userId, data);
+    const fresh = (data as InviteCode[]).filter(
+      (c) => !isDeleted("invite_codes", c.code),
+    );
+    setCodes(fresh);
+    if (userId) writeUserCache(CACHE_KEY, userId, fresh);
   }, [userId]);
 
   useEffect(() => {
@@ -70,18 +74,27 @@ export default function Invites() {
     setCreating(false);
   };
 
-  const revoke = async (code: string) => {
-    // Gone from the list right away; the reload below puts it back on failure.
+  // Gone from the list right away; revoked once the Undo toast closes, and
+  // the reload puts it back on undo or failure.
+  const revoke = (code: string) => {
     setCodes((prev) => prev?.filter((c) => c.code !== code) ?? prev);
     setError(null);
-    const { error } = await supabase.rpc("revoke_invite_code", {
-      invite_code: code,
+    queueDelete({
+      message: "Invite code revoked",
+      rows: [`invite_codes:${code}`],
+      commit: async () => {
+        const res = await supabase.rpc("revoke_invite_code", {
+          invite_code: code,
+        });
+        if (!res.error) load();
+        return res;
+      },
+      undo: load,
+      onError: (error) => {
+        console.error(error);
+        setError("Couldn't revoke that code.");
+      },
     });
-    if (error) {
-      console.error(error);
-      setError("Couldn't revoke that code.");
-    }
-    await load();
   };
 
   return (

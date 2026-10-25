@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
+import { flushDeletes, notDeleted, queueDelete } from "../functions/undoDelete";
 
 export type Side = "left" | "right";
 
@@ -75,10 +76,12 @@ const pauseLength = (w: Workout, now: number) =>
     : 0;
 
 // Postgres returns numerics as strings; normalize so the UI can do math.
+// Sets waiting behind an Undo toast stay out, like the deleted set itself.
 const normalize = (w: Workout): Workout => ({
   ...w,
   supersets: w.supersets ?? null,
-  workout_sets: [...w.workout_sets]
+  workout_sets: w.workout_sets
+    .filter(notDeleted("workout_sets"))
     .map((s) => ({
       ...s,
       weight: s.weight === null ? null : Number(s.weight),
@@ -145,8 +148,12 @@ export default function useWorkouts(userId?: string) {
       fail("Couldn't load your workouts.", activeRes.error ?? historyRes.error);
       return;
     }
-    setActive(activeRes.data ? normalize(activeRes.data as Workout) : null);
-    setHistory((historyRes.data as Workout[]).map(normalize));
+    const fresh = (rows: Workout[]) =>
+      rows.filter(notDeleted("workouts")).map(normalize);
+    setActive(
+      fresh(activeRes.data ? [activeRes.data as Workout] : [])[0] ?? null,
+    );
+    setHistory(fresh(historyRes.data as Workout[]));
     setHasMore(historyRes.data.length === HISTORY_LIMIT);
   }, [userId, fail]);
 
@@ -167,7 +174,10 @@ export default function useWorkouts(userId?: string) {
       .limit(HISTORY_LIMIT);
     setLoading(false);
     if (error) return fail("Couldn't load older workouts.", error);
-    setHistory((prev) => [...prev, ...(data as Workout[]).map(normalize)]);
+    setHistory((prev) => [
+      ...prev,
+      ...(data as Workout[]).filter(notDeleted("workouts")).map(normalize),
+    ]);
     setHasMore(data.length === HISTORY_LIMIT);
   }, [fail]);
 
@@ -211,6 +221,9 @@ export default function useWorkouts(userId?: string) {
       };
       setActive(workout);
       setError(null);
+      // A just-discarded workout still holds the one active slot until its
+      // delete goes out.
+      await flushDeletes();
       const { error } = await supabase.from("workouts").insert({
         id: workout.id,
         started_at: workout.started_at,
@@ -271,31 +284,43 @@ export default function useWorkouts(userId?: string) {
     [updateActive],
   );
 
-  const discard = useCallback(async () => {
+  // Deletes wait behind an Undo toast; undo (or a failed delete) puts the
+  // workout back where it was.
+  const discard = useCallback(() => {
     const prev = state.current.active;
     if (!prev) return;
     setActive(null);
     setError(null);
-    const { error } = await supabase
-      .from("workouts")
-      .delete()
-      .eq("id", prev.id);
-    if (error) {
-      setActive(prev);
-      fail("Couldn't discard the workout.", error);
-    }
+    queueDelete({
+      message: "Workout deleted",
+      rows: [`workouts:${prev.id}`],
+      commit: () => supabase.from("workouts").delete().eq("id", prev.id),
+      undo: () => setActive((w) => w ?? prev),
+      onError: (error) => fail("Couldn't discard the workout.", error),
+    });
   }, [fail]);
 
   const removeWorkout = useCallback(
-    async (id: string) => {
+    (id: string) => {
       const prev = state.current.history;
+      const workout = prev.find((w) => w.id === id);
+      if (!workout) return;
       setHistory(prev.filter((w) => w.id !== id));
       setError(null);
-      const { error } = await supabase.from("workouts").delete().eq("id", id);
-      if (error) {
-        setHistory(prev);
-        fail("Couldn't delete the workout.", error);
-      }
+      queueDelete({
+        message: "Workout deleted",
+        rows: [`workouts:${id}`],
+        commit: () => supabase.from("workouts").delete().eq("id", id),
+        undo: () =>
+          setHistory((h) =>
+            h.some((w) => w.id === id)
+              ? h
+              : [...h, workout].sort((a, b) =>
+                  b.started_at.localeCompare(a.started_at),
+                ),
+          ),
+        onError: (error) => fail("Couldn't delete the workout.", error),
+      });
     },
     [fail],
   );
@@ -344,21 +369,23 @@ export default function useWorkouts(userId?: string) {
   );
 
   const removeSet = useCallback(
-    async (set: WorkoutSet) => {
+    (set: WorkoutSet) => {
       setSets(set.workout_id, (sets) => sets.filter((s) => s.id !== set.id));
       setError(null);
-      const { error } = await supabase
-        .from("workout_sets")
-        .delete()
-        .eq("id", set.id);
-      if (error) {
-        setSets(set.workout_id, (sets) =>
-          [...sets, set].sort((a, b) =>
-            a.created_at.localeCompare(b.created_at),
+      queueDelete({
+        message: "Set deleted",
+        rows: [`workout_sets:${set.id}`],
+        commit: () => supabase.from("workout_sets").delete().eq("id", set.id),
+        undo: () =>
+          setSets(set.workout_id, (sets) =>
+            sets.some((s) => s.id === set.id)
+              ? sets
+              : [...sets, set].sort((a, b) =>
+                  a.created_at.localeCompare(b.created_at),
+                ),
           ),
-        );
-        fail("Couldn't delete that set.", error);
-      }
+        onError: (error) => fail("Couldn't delete that set.", error),
+      });
     },
     [fail],
   );

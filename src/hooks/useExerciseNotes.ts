@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
+import { notDeleted, queueDelete } from "../functions/undoDelete";
 
 // One of your own dated notes on an exercise, optionally about an injury.
 export interface ExerciseNoteEntry {
@@ -59,7 +60,9 @@ export default function useExerciseNotes(userId?: string) {
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) return fail("Couldn't load your exercise notes.", error);
-        setEntries(data as ExerciseNoteEntry[]);
+        setEntries(
+          (data as ExerciseNoteEntry[]).filter(notDeleted("exercise_notes")),
+        );
       });
     return () => {
       cancelled = true;
@@ -141,18 +144,23 @@ export default function useExerciseNotes(userId?: string) {
   );
 
   const removeNote = useCallback(
-    async (id: string) => {
-      const prev = latest.current;
-      setEntries(prev.filter((e) => e.id !== id));
+    (id: string) => {
+      const entry = latest.current.find((e) => e.id === id);
+      if (!entry) return;
+      setEntries((prev) => prev.filter((e) => e.id !== id));
       setError(null);
-      const { error } = await supabase
-        .from("exercise_notes")
-        .delete()
-        .eq("id", id);
-      if (error) {
-        setEntries(prev);
-        fail("Couldn't delete that note.", error);
-      }
+      queueDelete({
+        message: "Note deleted",
+        rows: [`exercise_notes:${id}`],
+        commit: () => supabase.from("exercise_notes").delete().eq("id", id),
+        undo: () =>
+          setEntries((prev) =>
+            prev.some((e) => e.id === id)
+              ? prev
+              : [...prev, entry].sort(newestFirst),
+          ),
+        onError: (error) => fail("Couldn't delete that note.", error),
+      });
     },
     [fail],
   );
