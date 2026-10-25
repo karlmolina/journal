@@ -305,6 +305,17 @@ export default function SetTimer({
     });
   };
 
+  // The exercise a set leads straight into, with no rest, in a superset.
+  const supersetNext = (set: SetInput) => {
+    if (set.side === "left") return undefined;
+    const { rest: target, next } = afterSet(set);
+    return target === 0 &&
+      next &&
+      next.toLowerCase() !== set.exercise_name.toLowerCase()
+      ? next
+      : undefined;
+  };
+
   const save = (input: SetInput) => {
     if (state.phase !== "logging") return;
     const set = { ...input, rest_seconds: state.restSeconds ?? null };
@@ -315,6 +326,19 @@ export default function SetTimer({
     }
     const { rest: target, next } = afterSet(set);
     if (next) setName(next);
+    // In a superset with no rest before the next exercise, its set starts
+    // right away.
+    const straightOn = supersetNext(set);
+    if (straightOn) {
+      setState({
+        phase: "running",
+        exercise: straightOn,
+        startedAt: Date.now(),
+        side: sideFor(straightOn),
+        restSeconds: null,
+      });
+      return;
+    }
     setState(
       target > 0
         ? {
@@ -393,7 +417,14 @@ export default function SetTimer({
       </div>
     );
 
-  if (state.phase === "logging")
+  if (state.phase === "logging") {
+    const straightOn = supersetNext({
+      exercise_name: state.exercise,
+      reps: null,
+      weight: null,
+      duration_seconds: null,
+      side: state.side ?? null,
+    });
     return (
       <div className="flex flex-col gap-2">
         {restClock}
@@ -402,6 +433,7 @@ export default function SetTimer({
           {state.seconds
             ? `That set took ${formatClock(state.seconds)}. Check the numbers and save it.`
             : "Fill in the set and save it."}
+          {straightOn && ` Saving starts ${straightOn} right away.`}
         </p>
         <SetForm
           suggestions={suggestions}
@@ -411,12 +443,13 @@ export default function SetTimer({
             duration_seconds: state.seconds,
             side: state.side ?? null,
           }}
-          submitLabel="Save set"
+          submitLabel={straightOn ? "Save and start next" : "Save set"}
           onCancel={() => setState({ phase: "ready", rest: state.rest })}
           onAdd={save}
         />
       </div>
     );
+  }
 
   if (state.phase === "resting") {
     const goal = state.rest.target;
