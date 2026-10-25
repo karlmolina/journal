@@ -5,6 +5,7 @@ import PainSlider from "../../components/workouts/PainSlider";
 import ErrorBanner from "../../components/ErrorBanner";
 import { useAuth } from "../../context/AuthContext";
 import useInjuries, { today, type Side } from "../../hooks/useInjuries";
+import useExerciseNotes from "../../hooks/useExerciseNotes";
 import { placeKey, placeLabel } from "../../functions/bodyRegions";
 
 const fieldClass =
@@ -106,6 +107,7 @@ export default function Injuries() {
     updateInjury,
     removeInjury,
   } = useInjuries(user?.id);
+  const { notesForInjury } = useExerciseNotes(user?.id);
   const [place, setPlace] = useState<Place | null>(null);
   const [adding, setAdding] = useState(false);
   const [showHealed, setShowHealed] = useState(false);
@@ -156,6 +158,7 @@ export default function Injuries() {
     <InjuryCard
       key={i.id}
       injury={i}
+      exerciseNotes={notesForInjury(i.id)}
       onCheckIn={(pain, notes) => checkIn(i.id, pain, notes)}
       onHealed={() => updateInjury(i.id, { healed_on: today() })}
       onReopen={() => updateInjury(i.id, { healed_on: null })}

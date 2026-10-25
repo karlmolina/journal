@@ -3,6 +3,7 @@ import type { SetInput, Workout, WorkoutSet } from "../../hooks/useWorkouts";
 import { elapsedSeconds } from "../../hooks/useWorkouts";
 import type { PlannedSession } from "../../hooks/useWorkoutPlans";
 import type { Exercise } from "../../hooks/useExercises";
+import type { ExerciseNotesProps } from "./ExerciseNote";
 import useClock from "../../hooks/useClock";
 import { formatClock } from "../../functions/formatDuration";
 import {
@@ -47,9 +48,8 @@ interface ActiveWorkoutProps {
   isUnilateral: (exercise: string) => boolean;
   // The library entry for an exercise, for its description.
   lookup: (exercise: string) => Exercise | undefined;
-  // Your own note on an exercise.
-  noteFor: (exercise: string) => string | undefined;
-  onSaveNote: (exercise: string, note: string) => void;
+  // Your own notes on exercises.
+  exerciseNotes: ExerciseNotesProps;
   onPause: () => void;
   onResume: () => void;
   onFinish: (notes: string) => void;
@@ -181,8 +181,7 @@ export default function ActiveWorkout({
   prefillFor,
   isUnilateral,
   lookup,
-  noteFor,
-  onSaveNote,
+  exerciseNotes,
   initialExercise,
   onPause,
   onResume,
@@ -427,8 +426,7 @@ export default function ActiveWorkout({
             onSupersetsChange(leaveSuperset(supersets, name))
           }
           lookup={lookup}
-          noteFor={noteFor}
-          onSaveNote={onSaveNote}
+          exerciseNotes={exerciseNotes}
           onSave={handleSave}
         />
       </section>

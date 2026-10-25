@@ -1,69 +1,249 @@
 import { useState } from "react";
+import type {
+  ExerciseNoteEntry,
+  ExerciseNotes,
+} from "../../hooks/useExerciseNotes";
+import type { Injury } from "../../hooks/useInjuries";
+import { libraryRegion, placeLabel } from "../../functions/bodyRegions";
+import { formatNoteTime } from "../../functions/noteTime";
 
-interface ExerciseNoteProps {
-  note?: string;
-  onSave: (note: string) => void;
+// What a page passes down for showing and adding exercise notes.
+export interface ExerciseNotesProps {
+  notes: ExerciseNotes;
+  injuries: Injury[];
 }
 
-// Your own note on an exercise, edited in place.
-export default function ExerciseNote({ note, onSave }: ExerciseNoteProps) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
+interface ExerciseNoteProps extends ExerciseNotesProps {
+  exercise: string;
+  // The exercise's body regions, to suggest which injury a note is about.
+  regions: string[];
+}
 
-  if (editing)
-    return (
-      <div className="flex flex-col gap-1.5">
-        <textarea
-          className="w-full resize-none rounded-xl bg-base-content/8 px-3 py-2 text-sm font-medium outline-none focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65"
-          rows={3}
-          placeholder="A cue that helps, a weight that felt right…"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          autoFocus
-        />
-        <div className="flex justify-end gap-2">
+// Notes shown before "Show all".
+const SHOWN = 2;
+
+const accentText =
+  "text-accent dark:text-[color-mix(in_oklab,var(--color-accent),white_45%)]";
+
+const injuryLabel = (i: Injury) => {
+  const place = placeLabel(i.region, i.side);
+  return i.name ? `${place} · ${i.name}` : place;
+};
+
+function NoteForm({
+  initial,
+  injuries,
+  initialInjury,
+  saveLabel,
+  onSave,
+  onCancel,
+  onDelete,
+}: {
+  initial: string;
+  injuries: Injury[];
+  initialInjury: string | null;
+  saveLabel: string;
+  onSave: (note: string, injuryId: string | null) => void;
+  onCancel: () => void;
+  onDelete?: () => void;
+}) {
+  const [draft, setDraft] = useState(initial);
+  const [injuryId, setInjuryId] = useState(initialInjury);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const chip = (selected: boolean) =>
+    `rounded-full px-2.5 py-1 text-xs font-bold cursor-pointer ${
+      selected
+        ? "bg-accent/20 text-accent dark:text-[color-mix(in_oklab,var(--color-accent),white_45%)]"
+        : "bg-base-content/8 text-base-content/65 dark:text-base-content/80"
+    }`;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <textarea
+        className="w-full resize-none rounded-xl bg-base-content/8 px-3 py-2 text-sm font-medium outline-none focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65"
+        rows={3}
+        placeholder="A cue that helps, a weight that felt right, how it felt…"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        autoFocus
+      />
+      {injuries.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-semibold text-base-content/55 dark:text-base-content/75">
+            About an injury?
+          </span>
           <button
             type="button"
-            className="btn btn-sm btn-ghost rounded-full font-bold"
-            onClick={() => setEditing(false)}
+            className={chip(injuryId === null)}
+            onClick={() => setInjuryId(null)}
+            aria-pressed={injuryId === null}
           >
-            Cancel
+            No
           </button>
-          <button
-            type="button"
-            className="btn btn-sm btn-primary rounded-full font-bold"
-            onClick={() => {
-              onSave(draft);
-              setEditing(false);
-            }}
-          >
-            Save note
-          </button>
+          {injuries.map((i) => (
+            <button
+              key={i.id}
+              type="button"
+              className={chip(injuryId === i.id)}
+              onClick={() => setInjuryId(i.id)}
+              aria-pressed={injuryId === i.id}
+            >
+              {injuryLabel(i)}
+            </button>
+          ))}
         </div>
+      )}
+      <div className="flex justify-end gap-2">
+        {onDelete &&
+          (confirmDelete ? (
+            <button
+              type="button"
+              className="btn btn-sm btn-error rounded-full font-bold mr-auto"
+              onClick={onDelete}
+            >
+              Delete note
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mr-auto"
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete
+            </button>
+          ))}
+        <button
+          type="button"
+          className="btn btn-sm btn-ghost rounded-full font-bold"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-primary rounded-full font-bold"
+          onClick={() => onSave(draft, injuryId)}
+          disabled={!draft.trim()}
+        >
+          {saveLabel}
+        </button>
       </div>
+    </div>
+  );
+}
+
+// Your own dated notes on an exercise, newest first, with a form to add one.
+export default function ExerciseNote({
+  exercise,
+  regions,
+  notes,
+  injuries,
+}: ExerciseNoteProps) {
+  // "new", a note's id, or null when not editing.
+  const [editing, setEditing] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const entries = notes.notesFor(exercise);
+  const active = injuries.filter((i) => !i.healed_on);
+  const byId = new Map(injuries.map((i) => [i.id, i]));
+  // An injury in one of the exercise's areas is probably what a note is about.
+  const suggested =
+    active.find(
+      (i) =>
+        regions.includes(i.region) || regions.includes(libraryRegion(i.region)),
+    )?.id ?? null;
+
+  if (editing === "new")
+    return (
+      <NoteForm
+        initial=""
+        injuries={active}
+        initialInjury={suggested}
+        saveLabel="Save note"
+        onSave={(note, injuryId) => {
+          notes.addNote(exercise, note, injuryId);
+          setEditing(null);
+        }}
+        onCancel={() => setEditing(null)}
+      />
     );
 
-  const edit = () => {
-    setDraft(note ?? "");
-    setEditing(true);
-  };
-
-  return note ? (
-    <button
-      type="button"
-      className="w-full rounded-xl bg-accent/10 px-3 py-2 text-left text-sm font-medium cursor-pointer"
-      onClick={edit}
-    >
-      <span className="block text-xs font-bold text-accent dark:text-[color-mix(in_oklab,var(--color-accent),white_45%)]">Your note</span>
-      <span className="whitespace-pre-wrap">{note}</span>
-    </button>
-  ) : (
+  const add = (
     <button
       type="button"
       className="self-start text-xs font-bold text-base-content/55 dark:text-base-content/75 cursor-pointer"
-      onClick={edit}
+      onClick={() => setEditing("new")}
     >
-      + Add your own note
+      {entries.length ? "+ Add a note" : "+ Add your own note"}
     </button>
+  );
+  if (entries.length === 0) return add;
+
+  const shown = showAll ? entries : entries.slice(0, SHOWN);
+  const renderEntry = (e: ExerciseNoteEntry) => {
+    if (editing === e.id) {
+      const linked = e.injury_id ? byId.get(e.injury_id) : undefined;
+      return (
+        <li key={e.id}>
+          <NoteForm
+            initial={e.note}
+            // Keep a healed injury the note is already linked to on offer.
+            injuries={linked && linked.healed_on ? [...active, linked] : active}
+            initialInjury={e.injury_id}
+            saveLabel="Save"
+            onSave={(note, injuryId) => {
+              notes.updateNote(e.id, { note, injury_id: injuryId });
+              setEditing(null);
+            }}
+            onCancel={() => setEditing(null)}
+            onDelete={() => {
+              notes.removeNote(e.id);
+              setEditing(null);
+            }}
+          />
+        </li>
+      );
+    }
+    const injury = e.injury_id ? byId.get(e.injury_id) : undefined;
+    return (
+      <li key={e.id}>
+        <button
+          type="button"
+          className="w-full text-left cursor-pointer"
+          onClick={() => setEditing(e.id)}
+        >
+          <span className="block text-xs font-semibold text-base-content/55 dark:text-base-content/75">
+            {formatNoteTime(e.created_at)}
+            {injury && (
+              <span className={`font-bold ${accentText}`}>
+                {" "}
+                · {injuryLabel(injury)}
+              </span>
+            )}
+          </span>
+          <span className="whitespace-pre-wrap">{e.note}</span>
+        </button>
+      </li>
+    );
+  };
+
+  return (
+    <div className="w-full rounded-xl bg-accent/10 px-3 py-2 text-left text-sm font-medium flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className={`text-xs font-bold ${accentText}`}>
+          {entries.length === 1 ? "Your note" : "Your notes"}
+        </span>
+        {add}
+      </div>
+      <ol className="flex flex-col gap-2">{shown.map(renderEntry)}</ol>
+      {entries.length > SHOWN && (
+        <button
+          type="button"
+          className="self-start text-xs font-bold text-base-content/55 dark:text-base-content/75 cursor-pointer"
+          onClick={() => setShowAll(!showAll)}
+        >
+          {showAll ? "Show fewer" : `Show all ${entries.length}`}
+        </button>
+      )}
+    </div>
   );
 }

@@ -1,118 +1,190 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabase";
 
-// Your own notes on exercises, by lowercased exercise name.
-export type ExerciseNotes = Record<string, string>;
+// One of your own dated notes on an exercise, optionally about an injury.
+export interface ExerciseNoteEntry {
+  id: string;
+  // Lowercased exercise name, the same way sets are matched to exercises.
+  exercise_key: string;
+  exercise_name: string;
+  note: string;
+  injury_id: string | null;
+  created_at: string;
+}
 
-const CACHE_KEY = "exercise_notes";
+export type NoteChanges = Partial<
+  Pick<ExerciseNoteEntry, "note" | "injury_id">
+>;
+
+const CACHE_KEY = "exercise_note_entries";
+const SELECT = "id, exercise_key, exercise_name, note, injury_id, created_at";
 
 export const noteKey = (exercise: string) => exercise.trim().toLowerCase();
 
-function readCache(userId: string): ExerciseNotes {
+const newestFirst = (a: ExerciseNoteEntry, b: ExerciseNoteEntry) =>
+  b.created_at.localeCompare(a.created_at);
+
+function readCache(userId: string): ExerciseNoteEntry[] {
   try {
-    return JSON.parse(localStorage.getItem(`${CACHE_KEY}_${userId}`) ?? "{}");
+    return JSON.parse(localStorage.getItem(`${CACHE_KEY}_${userId}`) ?? "[]");
   } catch {
-    return {};
+    return [];
   }
 }
 
-function writeCache(userId: string, notes: ExerciseNotes) {
+function writeCache(userId: string, entries: ExerciseNoteEntry[]) {
   try {
-    localStorage.setItem(`${CACHE_KEY}_${userId}`, JSON.stringify(notes));
+    localStorage.setItem(`${CACHE_KEY}_${userId}`, JSON.stringify(entries));
   } catch {
     // Ignore quota / private mode errors; the cache is only a convenience.
   }
 }
 
 export default function useExerciseNotes(userId?: string) {
-  const [notes, setNotes] = useState<ExerciseNotes>(() =>
-    userId ? readCache(userId) : {},
+  // Newest first.
+  const [entries, setEntries] = useState<ExerciseNoteEntry[]>(() =>
+    userId ? readCache(userId) : [],
   );
   const [error, setError] = useState<string | null>(null);
+
+  const latest = useRef(entries);
+  useEffect(() => {
+    latest.current = entries;
+    if (userId) writeCache(userId, entries);
+  }, [userId, entries]);
+
+  const fail = useCallback((message: string, err: unknown) => {
+    console.error(err);
+    setError(message);
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     supabase
       .from("exercise_notes")
-      .select("exercise_key, note")
+      .select(SELECT)
+      .order("created_at", { ascending: false })
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error) {
-          console.error(error);
-          setError("Couldn't load your exercise notes.");
-          return;
-        }
-        const next = Object.fromEntries(
-          data.map((n) => [n.exercise_key as string, n.note as string]),
-        );
-        setNotes(next);
-        writeCache(userId, next);
+        if (error) return fail("Couldn't load your exercise notes.", error);
+        setEntries(data as ExerciseNoteEntry[]);
       });
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, fail]);
 
-  const update = useCallback(
-    (fn: (prev: ExerciseNotes) => ExerciseNotes) =>
-      setNotes((prev) => {
-        const next = fn(prev);
-        if (userId) writeCache(userId, next);
-        return next;
-      }),
-    [userId],
-  );
+  const byExercise = useMemo(() => {
+    const map = new Map<string, ExerciseNoteEntry[]>();
+    for (const e of entries) {
+      const list = map.get(e.exercise_key);
+      if (list) list.push(e);
+      else map.set(e.exercise_key, [e]);
+    }
+    return map;
+  }, [entries]);
 
-  // Saves the note for an exercise; an empty note deletes it.
-  const saveNote = useCallback(
-    async (exercise: string, note: string) => {
+  const byInjury = useMemo(() => {
+    const map = new Map<string, ExerciseNoteEntry[]>();
+    for (const e of entries) {
+      if (!e.injury_id) continue;
+      const list = map.get(e.injury_id);
+      if (list) list.push(e);
+      else map.set(e.injury_id, [e]);
+    }
+    return map;
+  }, [entries]);
+
+  const addNote = useCallback(
+    async (exercise: string, note: string, injuryId: string | null) => {
       const key = noteKey(exercise);
-      if (!userId || !key) return;
       const text = note.trim();
-      const before = notes[key];
-      update((prev) => {
-        const next = { ...prev };
-        if (text) next[key] = text;
-        else delete next[key];
-        return next;
-      });
+      if (!userId || !key || !text) return;
+      const entry: ExerciseNoteEntry = {
+        id: crypto.randomUUID(),
+        exercise_key: key,
+        exercise_name: exercise.trim(),
+        note: text,
+        injury_id: injuryId,
+        created_at: new Date().toISOString(),
+      };
+      setEntries((prev) => [entry, ...prev]);
       setError(null);
-      const { error } = text
-        ? await supabase.from("exercise_notes").upsert({
-            user_id: userId,
-            exercise_key: key,
-            note: text,
-            updated_at: new Date().toISOString(),
-          })
-        : await supabase
-            .from("exercise_notes")
-            .delete()
-            .eq("user_id", userId)
-            .eq("exercise_key", key);
+      const { error } = await supabase
+        .from("exercise_notes")
+        .insert({ ...entry, user_id: userId, updated_at: entry.created_at });
       if (error) {
-        console.error(error);
-        update((prev) => {
-          const next = { ...prev };
-          if (before) next[key] = before;
-          else delete next[key];
-          return next;
-        });
-        setError("Couldn't save that note.");
+        setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+        fail("Couldn't save that note.", error);
       }
     },
-    [userId, notes, update],
+    [userId, fail],
   );
 
-  const noteFor = useCallback(
-    (exercise: string) => notes[noteKey(exercise)],
-    [notes],
+  const updateNote = useCallback(
+    async (id: string, changes: NoteChanges) => {
+      const before = latest.current.find((e) => e.id === id);
+      if (!before) return;
+      const next =
+        changes.note === undefined
+          ? changes
+          : { ...changes, note: changes.note.trim() };
+      if (next.note === "") return;
+      const replace = (entry: ExerciseNoteEntry) =>
+        setEntries((prev) =>
+          prev.map((e) => (e.id === id ? entry : e)).sort(newestFirst),
+        );
+      replace({ ...before, ...next });
+      setError(null);
+      const { error } = await supabase
+        .from("exercise_notes")
+        .update({ ...next, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) {
+        replace(before);
+        fail("Couldn't save that note.", error);
+      }
+    },
+    [fail],
+  );
+
+  const removeNote = useCallback(
+    async (id: string) => {
+      const prev = latest.current;
+      setEntries(prev.filter((e) => e.id !== id));
+      setError(null);
+      const { error } = await supabase
+        .from("exercise_notes")
+        .delete()
+        .eq("id", id);
+      if (error) {
+        setEntries(prev);
+        fail("Couldn't delete that note.", error);
+      }
+    },
+    [fail],
+  );
+
+  // Newest first.
+  const notesFor = useCallback(
+    (exercise: string) => byExercise.get(noteKey(exercise)) ?? [],
+    [byExercise],
+  );
+  const notesForInjury = useCallback(
+    (injuryId: string) => byInjury.get(injuryId) ?? [],
+    [byInjury],
   );
 
   return {
-    noteFor,
-    saveNote,
+    notesFor,
+    notesForInjury,
+    addNote,
+    updateNote,
+    removeNote,
     error,
     dismissError: () => setError(null),
   };
 }
+
+export type ExerciseNotes = ReturnType<typeof useExerciseNotes>;
