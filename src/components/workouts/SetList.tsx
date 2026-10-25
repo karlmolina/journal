@@ -54,6 +54,9 @@ interface SetListProps {
   // The body parts an exercise works, main one first, shown under its name
   // in the dense header so it lines up with the workout's body-part summary.
   bodyPartsOf?: (exerciseName: string) => string[];
+  // The latest exercise on top and its latest set first, for a workout in
+  // progress. Set numbers still count up from the first set.
+  newestFirst?: boolean;
 }
 
 // What a set did, in the dense row: the load, then its time when it has one.
@@ -84,13 +87,27 @@ export default function SetList({
   dense = false,
   supersetTags,
   bodyPartsOf,
+  newestFirst = false,
 }: SetListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const groups = groupSets(sets).map(({ name, sets }) => ({
+    name,
+    sets,
+    labels: setLabels(sets),
+  }));
+  if (newestFirst) {
+    const order = new Map(sets.map((s, i) => [s.id, i]));
+    const latest = (g: { sets: WorkoutSet[] }) => order.get(g.sets.at(-1)!.id)!;
+    groups.sort((a, b) => latest(b) - latest(a));
+    for (const g of groups) {
+      g.sets = [...g.sets].reverse();
+      g.labels = [...g.labels].reverse();
+    }
+  }
 
   return (
     <div className={`flex flex-col ${dense ? "gap-3" : "gap-4"}`}>
-      {groupSets(sets).map(({ name, sets }) => {
-        const labels = setLabels(sets);
+      {groups.map(({ name, sets, labels }) => {
         const tag = supersetTags?.get(name.trim().toLowerCase());
         // The library entry, so you can see or change what it works.
         const exerciseId = sets.find((s) => s.exercise_id)?.exercise_id;
