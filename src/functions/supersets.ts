@@ -53,6 +53,13 @@ export const leaveSuperset = (groups: Supersets, name: string) =>
     .map((g) => g.filter((n) => !same(n, name)))
     .filter((g) => g.length > 1);
 
+// Puts `to` in place of `from` wherever it's in a superset.
+export const renameInSupersets = (
+  groups: Supersets,
+  from: string,
+  to: string,
+) => groups.map((g) => g.map((n) => (same(n, from) ? to : n)));
+
 // Sets of an exercise done so far, where a left and a right make one set.
 // Sets logged without a side count whole.
 export function countSets(

@@ -19,6 +19,7 @@ import useWorkoutPlans, { type WorkoutPlan } from "../../hooks/useWorkoutPlans";
 import { guessBodyParts } from "../../functions/bodyPartScores";
 import { planSupersets, type Supersets } from "../../functions/supersets";
 import {
+  applyPlanChanges,
   lastSetOf,
   nextSessionIndex,
   plannedReps,
@@ -87,6 +88,7 @@ export default function Session() {
     finish,
     discard,
     setSupersets,
+    setPlanChanges,
     removeWorkout,
     addSet,
     updateSet,
@@ -144,8 +146,8 @@ export default function Session() {
     [updateSet, linkExercise],
   );
 
-  // The plan session the running workout follows, if it still exists.
-  // Plans that don't say whether an exercise is one side at a time take it
+  // The plan session the running workout follows, if it still exists, with
+  // the exercises swapped or ended in this workout. Plans that don't say whether an exercise is one side at a time take it
   // from the library.
   const planned = useMemo((): PlannedWorkout | undefined => {
     const plan = active?.plan_id
@@ -157,7 +159,10 @@ export default function Session() {
           planTitle: plan.plan.title,
           session: {
             ...session,
-            exercises: session.exercises.map((e) => ({
+            exercises: applyPlanChanges(
+              session.exercises,
+              active?.plan_changes ?? null,
+            ).map((e) => ({
               ...e,
               unilateral:
                 e.unilateral ??
@@ -209,7 +214,9 @@ export default function Session() {
         ? plans.find((p) => p.id === w.plan_id)
         : undefined;
       const session = plan?.plan.sessions[w.plan_session ?? -1];
-      return session ? planSupersets(session.exercises) : [];
+      return session
+        ? planSupersets(applyPlanChanges(session.exercises, w.plan_changes))
+        : [];
     },
     [plans],
   );
@@ -249,6 +256,7 @@ export default function Session() {
           onFinish={finish}
           onDiscard={discard}
           onSupersetsChange={setSupersets}
+          onPlanChange={setPlanChanges}
           onAddSet={handleAddSet}
           onUpdateSet={handleUpdateSet}
           onRemoveSets={removeSets}
