@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Chip from "../../components/Chip";
 import ErrorBanner from "../../components/ErrorBanner";
+import SupersetGroup from "../../components/workouts/SupersetGroup";
+import SupersetTag from "../../components/workouts/SupersetTag";
 import { useAuth } from "../../context/AuthContext";
 import useWorkoutPlans, {
   type PlannedExercise,
@@ -381,6 +383,22 @@ function GoalProgress({
   );
 }
 
+// A plan exercise's superset letter, if it's in one.
+const letterOf = (e: PlannedExercise) =>
+  e.superset?.trim().toUpperCase() || undefined;
+
+// Exercises in a row that share a superset letter, kept together.
+function runsOf(exercises: PlannedExercise[]) {
+  const runs: { letter?: string; indices: number[] }[] = [];
+  exercises.forEach((e, j) => {
+    const last = runs.at(-1);
+    if (last && letterOf(e) && last.letter === letterOf(e))
+      last.indices.push(j);
+    else runs.push({ letter: letterOf(e), indices: [j] });
+  });
+  return runs;
+}
+
 function PlanView({
   plan,
   next,
@@ -427,73 +445,104 @@ function PlanView({
         )}
       </section>
 
-      {sessions.map((s, i) => (
-        <section key={i} className={cardClass}>
-          <div className="flex items-start gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-                {i === next && (
-                  <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] font-bold">
-                    Up next ·{" "}
-                  </span>
+      {sessions.map((s, i) => {
+        const exerciseRow = (j: number) => {
+          const e = s.exercises[j];
+          return (
+            <div key={j} className="flex items-start gap-3 py-2">
+              <div className="flex-1 min-w-0">
+                <p className="flex items-baseline gap-2 font-bold">
+                  {letterOf(e) && (
+                    <SupersetTag
+                      letter={`${letterOf(e)}${
+                        s.exercises
+                          .slice(0, j + 1)
+                          .filter((x) => letterOf(x) === letterOf(e)).length
+                      }`}
+                    />
+                  )}
+                  {e.name}
+                </p>
+                <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
+                  {describeTarget(e)}
+                  {!letterOf(e) &&
+                    e.rest_seconds > 0 &&
+                    ` · rest ${e.rest_seconds}s`}
+                </p>
+                {e.notes && (
+                  <p className="text-sm font-medium text-base-content/70 dark:text-base-content/80">
+                    {e.notes}
+                  </p>
                 )}
-                {s.day} · {s.duration_minutes} min
-              </p>
-              <h3 className="text-lg font-bold leading-snug">{s.focus}</h3>
-            </div>
-            {!inProgress && (
+                <GoalProgress exercise={e} workouts={workouts} />
+              </div>
               <button
                 type="button"
-                className={`btn btn-sm rounded-full font-bold ${
-                  i === next
-                    ? "btn-primary"
-                    : "bg-base-content/8 border-0 shadow-none"
-                }`}
-                onClick={() => onStart(i)}
+                className="btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] mt-0.5"
+                onClick={() => onLog(e.name)}
+                aria-label={`Log ${e.name}`}
               >
-                Start
+                Log
               </button>
-            )}
-          </div>
-          <ol className="mt-2 flex flex-col divide-y divide-base-content/8">
-            {s.exercises.map((e, j) => (
-              <li key={j} className="flex items-start gap-3 py-2">
-                <div className="flex-1 min-w-0">
-                  {e.superset?.trim() && (
-                    <p className="text-xs font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
-                      Superset {e.superset.trim().toUpperCase()}
-                    </p>
+            </div>
+          );
+        };
+        return (
+          <section key={i} className={cardClass}>
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+                  {i === next && (
+                    <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] font-bold">
+                      Up next ·{" "}
+                    </span>
                   )}
-                  <p className="font-bold">{e.name}</p>
-                  <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
-                    {describeTarget(e)}
-                    {e.rest_seconds > 0 &&
-                      (!e.superset?.trim()
-                        ? ` · rest ${e.rest_seconds}s`
-                        : s.exercises[j + 1]?.superset?.trim().toUpperCase() !==
-                            e.superset.trim().toUpperCase() &&
-                          ` · then rest ${e.rest_seconds}s`)}
-                  </p>
-                  {e.notes && (
-                    <p className="text-sm font-medium text-base-content/70 dark:text-base-content/80">
-                      {e.notes}
-                    </p>
-                  )}
-                  <GoalProgress exercise={e} workouts={workouts} />
-                </div>
+                  {s.day} · {s.duration_minutes} min
+                </p>
+                <h3 className="text-lg font-bold leading-snug">{s.focus}</h3>
+              </div>
+              {!inProgress && (
                 <button
                   type="button"
-                  className="btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] mt-0.5"
-                  onClick={() => onLog(e.name)}
-                  aria-label={`Log ${e.name}`}
+                  className={`btn btn-sm rounded-full font-bold ${
+                    i === next
+                      ? "btn-primary"
+                      : "bg-base-content/8 border-0 shadow-none"
+                  }`}
+                  onClick={() => onStart(i)}
                 >
-                  Log
+                  Start
                 </button>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ))}
+              )}
+            </div>
+            <ol className="mt-2 flex flex-col gap-2">
+              {runsOf(s.exercises).map(({ letter, indices }) => (
+                <li key={indices[0]}>
+                  {letter ? (
+                    <SupersetGroup
+                      letter={letter}
+                      size={indices.length}
+                      progress={`${Math.max(
+                        ...indices.map((j) => s.exercises[j].sets),
+                      )} rounds`}
+                      rest={Math.max(
+                        0,
+                        ...indices.map((j) => s.exercises[j].rest_seconds),
+                      )}
+                    >
+                      <div className="flex flex-col divide-y divide-primary/15 px-2">
+                        {indices.map((j) => exerciseRow(j))}
+                      </div>
+                    </SupersetGroup>
+                  ) : (
+                    exerciseRow(indices[0])
+                  )}
+                </li>
+              ))}
+            </ol>
+          </section>
+        );
+      })}
     </div>
   );
 }

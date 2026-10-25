@@ -96,3 +96,21 @@ export function nextInSuperset(
   const fewest = Math.min(...open.map((n) => done(n)));
   return { next: open.find((n) => done(n) === fewest)!, rest: true };
 }
+
+// The superset letter ("A", "B", … in the order they come up in `names`) and
+// place in it ("A2") of the exercise at `index`, or undefined for one that's
+// not in a superset.
+export function supersetTag(names: string[], index: number, groups: Supersets) {
+  const group = supersetOf(names[index] ?? "", groups);
+  if (!group) return undefined;
+  const seen: string[][] = [];
+  for (const n of names) {
+    const g = supersetOf(n, groups);
+    if (g && !seen.includes(g)) seen.push(g);
+  }
+  const letter = String.fromCharCode(65 + seen.indexOf(group));
+  const place = names
+    .slice(0, index + 1)
+    .filter((n) => supersetOf(n, [group])).length;
+  return { letter, tag: `${letter}${place}` };
+}
