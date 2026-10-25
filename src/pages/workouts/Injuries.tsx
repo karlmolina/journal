@@ -139,7 +139,8 @@ export default function Injuries() {
           (i.region === place.region && i.side === "center"),
       )
     : [];
-  const cards = place ? atPlace : active;
+  // The rest stay listed below the selected place's injuries.
+  const others = place ? active.filter((i) => !atPlace.includes(i)) : active;
 
   const select = (region: string, side: Side) => {
     if (moving) {
@@ -236,14 +237,16 @@ export default function Injuries() {
         </p>
       )}
 
-      {cards.length > 0 && !place && (
+      {atPlace.map(renderCard)}
+
+      {others.length > 0 && (
         <h2 className="mt-3 ml-1 text-sm font-bold tracking-wide text-base-content/60 dark:text-base-content/80">
-          Current injuries
+          {place ? "Other injuries" : "Current injuries"}
         </h2>
       )}
-      {cards.map(renderCard)}
+      {others.map(renderCard)}
 
-      {!place && healed.length > 0 && (
+      {healed.length > 0 && (
         <>
           <button
             type="button"
