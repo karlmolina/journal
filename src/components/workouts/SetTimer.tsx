@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
-import useTick from "../../hooks/useTick";
+import { onGrid } from "../../hooks/useClock";
 import { formatClock } from "../../functions/formatDuration";
 import { sideLabel } from "../../functions/planProgress";
 import SetForm from "./SetForm";
@@ -80,11 +80,14 @@ function restTargetAlert() {
   navigator.vibrate?.([200, 100, 200]);
 }
 
-const seconds = (ms: number) => Math.max(0, Math.round(ms / 1000));
-
 interface SetTimerProps {
   workoutId: string;
   storageKey: string;
+  // The workout's clock: the current time, and when the workout started.
+  // Set and rest times count from the workout clock's ticks so all the
+  // clocks change seconds together.
+  now: number;
+  clockOrigin: number;
   // The exercise to do next, from the plan or the library.
   exercise: string;
   // A line about the target, like "Set 2 of 3 · 8-10 reps".
@@ -202,6 +205,8 @@ function SupersetControl({
 export default function SetTimer({
   workoutId,
   storageKey,
+  now,
+  clockOrigin,
   exercise,
   target,
   notes,
@@ -240,9 +245,10 @@ export default function SetTimer({
   }, [storageKey, workoutId, state]);
 
   const rest = state.phase === "running" ? undefined : state.rest;
-  useTick(state.phase === "running" || !!rest, 250);
-  const now = Date.now();
-  const rested = rest ? seconds(now - rest.since) : 0;
+  // Whole seconds from `from` to `to`, on the workout clock's ticks.
+  const since = (from: number, to = now) =>
+    Math.max(0, Math.floor((to - onGrid(from, clockOrigin)) / 1000));
+  const rested = rest ? since(rest.since) : 0;
 
   // Buzz once when the planned rest is up; the clock keeps counting.
   const restDue = !!rest && !rest.alerted && rested >= rest.target;
@@ -259,16 +265,17 @@ export default function SetTimer({
   const side = sideFor(name);
 
   // How long the rest has run, to save with the set that ends it.
-  const restUntil = (at: number) => (rest ? seconds(at - rest.since) : null);
+  const restUntil = (at: number) => (rest ? since(rest.since, at) : null);
 
   const startSet = () => {
     if (!name.trim()) return;
+    const at = Date.now();
     setState({
       phase: "running",
       exercise: name.trim(),
-      startedAt: now,
+      startedAt: at,
       side,
-      restSeconds: restUntil(now),
+      restSeconds: restUntil(at),
       rest,
     });
   };
@@ -291,7 +298,7 @@ export default function SetTimer({
     setState({
       phase: "logging",
       exercise: state.exercise,
-      seconds: seconds(at - state.startedAt) || null,
+      seconds: since(state.startedAt, at) || null,
       side: state.side,
       restSeconds: state.restSeconds,
       stoppedAt: at,
@@ -367,7 +374,7 @@ export default function SetTimer({
           className="my-2 text-5xl font-extrabold tracking-tight tabular-nums"
           role="timer"
         >
-          {formatClock(seconds(now - state.startedAt))}
+          {formatClock(since(state.startedAt))}
         </p>
         <button
           type="button"
