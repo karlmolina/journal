@@ -15,7 +15,7 @@ export default function SignIn() {
   };
 
   return (
-    <div className="flex flex-col justify-center items-center h-screen space-y-6">
+    <div className="flex flex-col justify-center items-center h-dvh space-y-6">
       <div className="text-center space-y-2 px-4">
         <h1 className="text-5xl font-extrabold tracking-tight">Journal8</h1>
         <p className="text-xl font-semibold">Journal it.</p>
