@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Exercise } from "../../hooks/useExercises";
 import { regionLabel } from "../../functions/bodyRegions";
-import ExerciseNote from "./ExerciseNote";
+import ExerciseNote, { type ExerciseNotesProps } from "./ExerciseNote";
 
 const CATEGORY_LABELS: Record<Exercise["category"], string> = {
   mobility: "Mobility",
@@ -13,9 +13,8 @@ const CATEGORY_LABELS: Record<Exercise["category"], string> = {
 interface ExerciseCardProps {
   exercise: Exercise;
   onLog: () => void;
-  // Your own note on this exercise.
-  note?: string;
-  onSaveNote: (note: string) => void;
+  // Your own notes on exercises.
+  exerciseNotes: ExerciseNotesProps;
   // Only for exercises the person added themselves.
   onDelete?: () => void;
 }
@@ -23,8 +22,7 @@ interface ExerciseCardProps {
 export default function ExerciseCard({
   exercise,
   onLog,
-  note,
-  onSaveNote,
+  exerciseNotes,
   onDelete,
 }: ExerciseCardProps) {
   const [open, setOpen] = useState(false);
@@ -109,7 +107,11 @@ export default function ExerciseCard({
               <span className="font-bold">Equipment:</span> {exercise.equipment}
             </p>
           )}
-          <ExerciseNote note={note} onSave={onSaveNote} />
+          <ExerciseNote
+            exercise={exercise.name}
+            regions={exercise.body_regions}
+            {...exerciseNotes}
+          />
           <div className="flex flex-wrap justify-end gap-2 mt-1">
             {onDelete &&
               (confirmDelete ? (

@@ -7,6 +7,7 @@ import NewExerciseForm from "../../components/workouts/NewExerciseForm";
 import { useAuth } from "../../context/AuthContext";
 import useExercises, { type ExercisePurpose } from "../../hooks/useExercises";
 import useExerciseNotes from "../../hooks/useExerciseNotes";
+import useInjuries from "../../hooks/useInjuries";
 import { BODY_REGIONS } from "../../functions/bodyRegions";
 
 const PURPOSES: { key: ExercisePurpose | null; label: string }[] = [
@@ -26,6 +27,7 @@ export default function Library() {
     removeExercise,
   } = useExercises(user?.id);
   const notes = useExerciseNotes(user?.id);
+  const { injuries } = useInjuries(user?.id);
   const navigate = useNavigate();
   // Filters live in the URL so other pages (e.g. the body map) can link here.
   const [params, setParams] = useSearchParams();
@@ -140,8 +142,7 @@ export default function Library() {
           key={e.id}
           exercise={e}
           onLog={() => navigate("/workouts", { state: { exercise: e.name } })}
-          note={notes.noteFor(e.name)}
-          onSaveNote={(note) => notes.saveNote(e.name, note)}
+          exerciseNotes={{ notes, injuries }}
           onDelete={e.user_id ? () => removeExercise(e) : undefined}
         />
       ))}

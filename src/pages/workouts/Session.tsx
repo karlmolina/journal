@@ -13,6 +13,7 @@ import useWorkouts, {
 } from "../../hooks/useWorkouts";
 import useExercises from "../../hooks/useExercises";
 import useExerciseNotes from "../../hooks/useExerciseNotes";
+import useInjuries from "../../hooks/useInjuries";
 import useWorkoutPlans, { type WorkoutPlan } from "../../hooks/useWorkoutPlans";
 import {
   lastSetOf,
@@ -91,6 +92,8 @@ export default function Session() {
   const { exercises, byLowerName } = useExercises(userId);
   const { plans } = useWorkoutPlans(userId);
   const notes = useExerciseNotes(userId);
+  const { injuries } = useInjuries(userId);
+  const exerciseNotes = { notes, injuries };
   const latestPlan = plans.find((p) => p.plan.sessions.length > 0);
   // Set by the library's "Log this exercise" button.
   const initialExercise: string | undefined = useLocation().state?.exercise;
@@ -201,8 +204,7 @@ export default function Session() {
           prefillFor={prefillFor}
           isUnilateral={isUnilateral}
           lookup={lookup}
-          noteFor={notes.noteFor}
-          onSaveNote={notes.saveNote}
+          exerciseNotes={exerciseNotes}
           initialExercise={initialExercise}
           onPause={pause}
           onResume={resume}

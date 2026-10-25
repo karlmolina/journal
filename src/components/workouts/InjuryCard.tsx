@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Checkin, Injury } from "../../hooks/useInjuries";
 import { today } from "../../hooks/useInjuries";
+import type { ExerciseNoteEntry } from "../../hooks/useExerciseNotes";
+import { noteDay } from "../../functions/noteTime";
 import {
   libraryRegion,
   painText,
@@ -68,6 +70,8 @@ function PainTrend({ checkins }: { checkins: Checkin[] }) {
 
 interface InjuryCardProps {
   injury: Injury;
+  // Exercise notes about this injury, newest first.
+  exerciseNotes: ExerciseNoteEntry[];
   onCheckIn: (pain: number, notes: string) => void;
   onHealed: () => void;
   onReopen: () => void;
@@ -78,6 +82,7 @@ interface InjuryCardProps {
 
 export default function InjuryCard({
   injury,
+  exerciseNotes,
   onCheckIn,
   onHealed,
   onReopen,
@@ -94,6 +99,28 @@ export default function InjuryCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const healed = injury.healed_on !== null;
   const first = checkins[0];
+
+  // Check-ins and exercise notes together, newest day first, each day's
+  // check-in before that day's notes.
+  const timeline = [
+    ...checkins.map((c) => ({
+      day: c.checked_on,
+      at: "",
+      checkin: c as Checkin | undefined,
+      note: undefined as ExerciseNoteEntry | undefined,
+    })),
+    ...exerciseNotes.map((n) => ({
+      day: noteDay(n.created_at),
+      at: n.created_at,
+      checkin: undefined,
+      note: n,
+    })),
+  ].sort(
+    (a, b) =>
+      b.day.localeCompare(a.day) ||
+      Number(!!a.at) - Number(!!b.at) ||
+      b.at.localeCompare(a.at),
+  );
 
   const title = placeLabel(injury.region, injury.side);
   const day = daysBetween(injury.started_on, injury.healed_on ?? today()) + 1;
@@ -176,20 +203,35 @@ export default function InjuryCard({
             <p className="font-medium whitespace-pre-wrap">{injury.notes}</p>
           )}
           <ol className="flex flex-col">
-            {[...checkins].reverse().map((c) => (
+            {timeline.map(({ day, checkin: c, note: n }) => (
               <li
-                key={c.id}
+                key={c?.id ?? n!.id}
                 className="flex gap-3 min-h-7 items-baseline text-sm font-medium"
               >
                 <span className="w-14 shrink-0 text-xs font-semibold text-base-content/55 dark:text-base-content/75">
-                  {formatDay(c.checked_on)}
+                  {formatDay(day)}
                 </span>
-                <span
-                  className={`w-10 shrink-0 font-bold tabular-nums ${painText(c.pain)}`}
-                >
-                  {c.pain}/10
-                </span>
-                <span className="text-base-content/70 dark:text-base-content/80">{c.notes}</span>
+                {c ? (
+                  <>
+                    <span
+                      className={`w-10 shrink-0 font-bold tabular-nums ${painText(c.pain)}`}
+                    >
+                      {c.pain}/10
+                    </span>
+                    <span className="text-base-content/70 dark:text-base-content/80">
+                      {c.notes}
+                    </span>
+                  </>
+                ) : (
+                  <span className="min-w-0 flex-1 rounded-lg bg-accent/10 px-2 py-1 my-0.5">
+                    <span className="block text-xs font-bold text-accent dark:text-[color-mix(in_oklab,var(--color-accent),white_45%)]">
+                      {n!.exercise_name}
+                    </span>
+                    <span className="whitespace-pre-wrap text-base-content/80 dark:text-base-content/85">
+                      {n!.note}
+                    </span>
+                  </span>
+                )}
               </li>
             ))}
           </ol>
@@ -208,7 +250,11 @@ export default function InjuryCard({
           className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60 dark:text-base-content/80"
           onClick={() => setShowMore(!showMore)}
         >
-          {showMore ? "Hide history" : "History"}
+          {showMore
+            ? "Hide history"
+            : exerciseNotes.length
+              ? `History · ${exerciseNotes.length} ${exerciseNotes.length === 1 ? "note" : "notes"}`
+              : "History"}
         </button>
         <span className="flex-1" />
         {confirmDelete ? (
