@@ -19,7 +19,7 @@ export default function MembersOnly({
 
   if (!membership)
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center h-dvh">
         <span
           className="loading loading-spinner loading-md text-base-content/40"
           aria-label="Loading"

@@ -36,7 +36,7 @@ export default function RedeemInvite() {
   };
 
   return (
-    <div className="flex flex-col justify-center items-center h-screen px-4">
+    <div className="flex flex-col justify-center items-center h-dvh px-4">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-sm flex flex-col items-center text-center gap-6"

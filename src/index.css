@@ -39,6 +39,7 @@
    and the area under the system navigation bar match the page. */
 html,
 body {
+  min-height: 100dvh;
   background-color: var(--color-base-100);
 }
 
