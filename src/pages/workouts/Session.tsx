@@ -16,6 +16,7 @@ import useExercises from "../../hooks/useExercises";
 import useExerciseNotes from "../../hooks/useExerciseNotes";
 import useInjuries from "../../hooks/useInjuries";
 import useWorkoutPlans, { type WorkoutPlan } from "../../hooks/useWorkoutPlans";
+import { guessBodyParts } from "../../functions/bodyPartScores";
 import { planSupersets, type Supersets } from "../../functions/supersets";
 import {
   lastSetOf,
@@ -202,6 +203,15 @@ export default function Session() {
     [plans],
   );
 
+  // Library body parts for an exercise, or a guess from its name.
+  const bodyPartsOf = useCallback(
+    (name: string) => {
+      const regions = lookup(name)?.body_regions ?? [];
+      return regions.length > 0 ? regions : guessBodyParts(name);
+    },
+    [lookup],
+  );
+
   return (
     <>
       {error && <ErrorBanner message={error} onDismiss={dismissError} />}
@@ -282,6 +292,7 @@ export default function Session() {
                 key={w.id}
                 workout={w}
                 supersets={supersetsOf(w)}
+                bodyPartsOf={bodyPartsOf}
                 suggestions={suggestions}
                 onUpdateSet={handleUpdateSet}
                 onDelete={() => removeWorkout(w.id)}

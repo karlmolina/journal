@@ -3,12 +3,15 @@ import type { SetInput, Workout, WorkoutSet } from "../../hooks/useWorkouts";
 import { elapsedSeconds } from "../../hooks/useWorkouts";
 import { formatDuration } from "../../functions/formatDuration";
 import SetList from "./SetList";
-import SupersetTag from "./SupersetTag";
+import {
+  bodyPartLabel,
+  bodyPartScores,
+  scoreLevel,
+} from "../../functions/bodyPartScores";
 import {
   WEIGHT_UNIT,
   groupSets,
   setCount as countSets,
-  summarizeSets,
   totalVolume,
 } from "../../functions/workoutSets";
 import type { Supersets } from "../../functions/supersets";
@@ -39,10 +42,40 @@ function supersetLetters(groups: Supersets) {
   return tags;
 }
 
+// Five bars filled by how hard a body part was hit, then the score itself
+// (sets, where a set of a secondary body part counts half).
+function ScoreMeter({ score }: { score: number }) {
+  const level = scoreLevel(score);
+  const shown = Number.isInteger(score) ? score : score.toFixed(1);
+  return (
+    <span
+      className="shrink-0 flex items-center gap-1.5"
+      aria-label={`${shown} sets, ${level} of 5`}
+    >
+      <span className="flex gap-0.5" aria-hidden="true">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <span
+            key={i}
+            className={`h-2.5 w-1.5 rounded-full ${i <= level ? "bg-primary dark:bg-[color-mix(in_oklab,var(--color-primary),white_35%)]" : "bg-base-content/12 dark:bg-base-content/20"}`}
+          />
+        ))}
+      </span>
+      <span
+        className="w-6 text-right text-xs font-semibold tabular-nums text-base-content/55 dark:text-base-content/75"
+        aria-hidden="true"
+      >
+        {shown}
+      </span>
+    </span>
+  );
+}
+
 interface WorkoutHistoryCardProps {
   workout: Workout;
   // The supersets this workout used, from the workout or its plan.
   supersets?: Supersets;
+  // The body parts an exercise works, main one first.
+  bodyPartsOf?: (exerciseName: string) => string[];
   suggestions?: string[];
   onUpdateSet?: (set: WorkoutSet, changes: SetInput) => void;
   onDelete: () => void;
@@ -51,6 +84,7 @@ interface WorkoutHistoryCardProps {
 export default function WorkoutHistoryCard({
   workout,
   supersets = [],
+  bodyPartsOf = () => [],
   suggestions,
   onUpdateSet,
   onDelete,
@@ -61,6 +95,7 @@ export default function WorkoutHistoryCard({
   const setCount = groups.reduce((n, g) => n + countSets(g.sets), 0);
   const volume = totalVolume(workout.workout_sets);
   const tags = supersetLetters(supersets);
+  const parts = bodyPartScores(workout.workout_sets, bodyPartsOf);
   const muted = "text-base-content/55 dark:text-base-content/75";
 
   return (
@@ -97,24 +132,19 @@ export default function WorkoutHistoryCard({
             <path d="m6 9 6 6 6-6" />
           </svg>
         </div>
-        {!open && groups.length > 0 && (
-          <ul className="mt-1.5 flex flex-col gap-0.5 text-sm">
-            {groups.map((g) => {
-              const tag = tags.get(g.name.trim().toLowerCase());
-              return (
-                <li key={g.name} className="flex items-baseline gap-2">
-                  {tag && <SupersetTag letter={tag} />}
-                  <span className="flex-1 min-w-0 truncate font-semibold text-base-content/85 dark:text-[color-mix(in_oklab,var(--color-base-content),white_30%)]">
-                    {g.name}
-                  </span>
-                  <span
-                    className={`shrink-0 text-xs font-semibold tabular-nums ${muted}`}
-                  >
-                    {summarizeSets(g.sets)}
-                  </span>
-                </li>
-              );
-            })}
+        {!open && parts.length > 0 && (
+          <ul
+            className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm"
+            aria-label="Body parts worked"
+          >
+            {parts.map(({ part, score }) => (
+              <li key={part} className="flex items-center gap-2 min-w-0">
+                <span className="flex-1 min-w-0 truncate font-semibold text-base-content/85 dark:text-[color-mix(in_oklab,var(--color-base-content),white_30%)]">
+                  {bodyPartLabel(part)}
+                </span>
+                <ScoreMeter score={score} />
+              </li>
+            ))}
           </ul>
         )}
         {!open && workout.notes && (
