@@ -14,11 +14,7 @@ import useExercises from "../../hooks/useExercises";
 import usePlanPreferences, {
   DEFAULT_PREFERENCES,
 } from "../../hooks/usePlanPreferences";
-import {
-  buildPlanContext,
-  buildPlanPrompt,
-  parsePlanReply,
-} from "../../functions/planPrompt";
+import { buildPlanPrompt, parsePlanReply } from "../../functions/planPrompt";
 import {
   bestWeight,
   describeTarget,
@@ -530,16 +526,14 @@ export default function Plan() {
     current?: WorkoutPlan,
     instruction?: string,
   ) =>
-    buildPlanPrompt(
-      buildPlanContext({
-        request,
-        injuries,
-        workouts: history,
-        exercises,
-        currentPlan: current?.plan,
-      }),
+    buildPlanPrompt({
+      request,
+      injuries,
+      workouts: history,
+      exercises,
+      currentPlan: current?.plan,
       instruction,
-    );
+    });
 
   // A revision keeps the plan's own goals and equipment.
   const requestFor = (p: WorkoutPlan): PlanRequest => ({
