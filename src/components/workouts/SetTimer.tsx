@@ -305,6 +305,30 @@ export default function SetTimer({
     });
   };
 
+  // Starts the right side straight after the left: one tap saves the left
+  // side with the timer's time and the usual numbers (fix them later in the
+  // set list), and starts the right side's timer.
+  const startRightSide = () => {
+    if (state.phase !== "running" || state.side !== "left") return;
+    const at = Date.now();
+    const { reps = null, weight = null } = prefillFor(state.exercise);
+    onSave({
+      exercise_name: state.exercise,
+      reps,
+      weight,
+      duration_seconds: since(state.startedAt, at) || null,
+      side: "left",
+      rest_seconds: state.restSeconds ?? null,
+    });
+    setState({
+      phase: "running",
+      exercise: state.exercise,
+      startedAt: at,
+      side: "right",
+      restSeconds: null,
+    });
+  };
+
   // The exercise a set leads straight into, with no rest, in a superset.
   const supersetNext = (set: SetInput) => {
     if (set.side === "left") return undefined;
@@ -320,8 +344,20 @@ export default function SetTimer({
     if (state.phase !== "logging") return;
     const set = { ...input, rest_seconds: state.restSeconds ?? null };
     onSave(set);
+    // After a timed left side the right side's timer starts straight away,
+    // like the next exercise in a superset.
     if (set.side === "left") {
-      setState({ phase: "ready", switchTo: "right" });
+      if (!state.stoppedAt) {
+        setState({ phase: "ready", switchTo: "right" });
+        return;
+      }
+      setState({
+        phase: "running",
+        exercise: set.exercise_name,
+        startedAt: Date.now(),
+        side: "right",
+        restSeconds: null,
+      });
       return;
     }
     const { rest: target, next } = afterSet(set);
@@ -400,13 +436,32 @@ export default function SetTimer({
         >
           {formatClock(since(state.startedAt))}
         </p>
-        <button
-          type="button"
-          className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
-          onClick={stopSet}
-        >
-          Stop set
-        </button>
+        {state.side === "left" ? (
+          <>
+            <button
+              type="button"
+              className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
+              onClick={startRightSide}
+            >
+              Start right side
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
+              onClick={stopSet}
+            >
+              Stop and fill in the left side
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
+            onClick={stopSet}
+          >
+            Stop set
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
@@ -433,7 +488,9 @@ export default function SetTimer({
           {state.seconds
             ? `That set took ${formatClock(state.seconds)}. Check the numbers and save it.`
             : "Fill in the set and save it."}
-          {straightOn && ` Saving starts ${straightOn} right away.`}
+          {state.side === "left" && state.stoppedAt
+            ? " Saving starts the right side right away."
+            : straightOn && ` Saving starts ${straightOn} right away.`}
         </p>
         <SetForm
           suggestions={suggestions}
@@ -443,7 +500,13 @@ export default function SetTimer({
             duration_seconds: state.seconds,
             side: state.side ?? null,
           }}
-          submitLabel={straightOn ? "Save and start next" : "Save set"}
+          submitLabel={
+            state.side === "left" && state.stoppedAt
+              ? "Save and start right side"
+              : straightOn
+                ? "Save and start next"
+                : "Save set"
+          }
           onCancel={() => setState({ phase: "ready", rest: state.rest })}
           onAdd={save}
         />
