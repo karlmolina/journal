@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useImperativeHandle, useState, type Ref } from "react";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
 import { onGrid } from "../../hooks/useClock";
@@ -108,53 +108,15 @@ interface SetTimerProps {
   // Your own notes on exercises.
   exerciseNotes?: ExerciseNotesProps;
   onSave: (set: SetInput) => void;
+  // Lets the workout start a set of another exercise, e.g. from Up next.
+  control?: Ref<SetTimerControl>;
+  // Whether a set is under way (running or being filled in).
+  onBusyChange?: (busy: boolean) => void;
 }
 
-// The next exercise and its target as one big tap target that starts the set.
-function StartExerciseButton({
-  exercise,
-  target,
-  notes,
-  label,
-  onStart,
-}: {
-  exercise: string;
-  target?: string;
-  notes?: string;
-  label: string;
-  onStart: () => void;
-}) {
-  if (!exercise.trim())
-    return (
-      <button
-        type="button"
-        className="btn btn-primary btn-lg rounded-full font-bold w-full"
-        disabled
-      >
-        {label}
-      </button>
-    );
-  return (
-    <button
-      type="button"
-      className="w-full rounded-3xl bg-primary text-primary-content px-5 py-6 flex flex-col items-center gap-1 text-center shadow-lg shadow-primary/25 hover:brightness-110 active:scale-[0.98] transition cursor-pointer"
-      onClick={onStart}
-    >
-      <span className="text-2xl font-extrabold leading-tight">{exercise}</span>
-      {target && (
-        <span className="text-base font-bold opacity-90">{target}</span>
-      )}
-      {notes && (
-        <span className="text-sm font-semibold opacity-80">{notes}</span>
-      )}
-      <span className="mt-3 self-stretch flex items-center justify-center gap-2 rounded-full bg-primary-content/15 py-3 text-lg font-bold">
-        <svg viewBox="0 0 24 24" className="size-5 fill-current" aria-hidden>
-          <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" />
-        </svg>
-        {label}
-      </span>
-    </button>
-  );
+export interface SetTimerControl {
+  // Starts a set of this exercise, unless one is already under way.
+  start: (exercise: string) => void;
 }
 
 // Shows what the current exercise is in a superset with, and adds more
@@ -267,6 +229,8 @@ export default function SetTimer({
   lookup,
   exerciseNotes,
   onSave,
+  control,
+  onBusyChange,
 }: SetTimerProps) {
   const [state, setState] = useState<Phase>(() =>
     readSaved(storageKey, workoutId),
@@ -313,18 +277,25 @@ export default function SetTimer({
   // How long the rest has run, to save with the set that ends it.
   const restUntil = (at: number) => (rest ? since(rest.since, at) : null);
 
-  const startSet = () => {
-    if (!name.trim()) return;
+  const busy = state.phase === "running" || state.phase === "logging";
+  useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
+
+  const startExercise = (exerciseName: string) => {
+    const n = exerciseName.trim();
+    if (!n || busy) return;
+    setName(n);
     const at = Date.now();
     setState({
       phase: "running",
-      exercise: name.trim(),
+      exercise: n,
       startedAt: at,
-      side,
+      side: sideFor(n),
       restSeconds: restUntil(at),
       rest,
     });
   };
+  const startSet = () => startExercise(name);
+  useImperativeHandle(control, () => ({ start: startExercise }));
 
   // After the left side, go straight to the right; rest after the right.
   // In a superset, go straight to the next exercise and rest after the round.
@@ -452,37 +423,49 @@ export default function SetTimer({
 
   const startLabel = side ? `Start ${side} side` : "Start set";
 
+  // The same heading while a set runs, while it's filled in and during the
+  // rest after it, so the card doesn't jump around on Stop set.
+  const header = (exerciseName: string, setSide?: Side | null) => (
+    <div className="w-full flex flex-col items-center text-center">
+      <p className="text-xl font-extrabold leading-tight">{exerciseName}</p>
+      {setSide && (
+        <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
+          {sideLabel(setSide)}
+        </p>
+      )}
+      {(target || notes) && (
+        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">
+          {[target, notes].filter(Boolean).join(" · ")}
+        </p>
+      )}
+      <div className="w-full mt-2 flex flex-col gap-2 text-left">
+        <ExerciseHowTo exercise={lookup?.(exerciseName)} />
+        {exerciseNotes && (
+          <ExerciseNote
+            key={exerciseName}
+            exercise={exerciseName}
+            regions={lookup?.(exerciseName)?.body_regions ?? []}
+            {...exerciseNotes}
+          />
+        )}
+      </div>
+    </div>
+  );
+
+  const bigClock = (seconds: number, muted = false) => (
+    <p
+      className={`my-2 text-5xl font-extrabold tracking-tight tabular-nums text-center ${muted ? "text-base-content/45 dark:text-base-content/70" : ""}`}
+      role="timer"
+    >
+      {formatClock(seconds)}
+    </p>
+  );
+
   if (state.phase === "running")
     return (
       <div className="flex flex-col items-center text-center">
-        <p className="font-bold">{state.exercise}</p>
-        {state.side && (
-          <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
-            {sideLabel(state.side)}
-          </p>
-        )}
-        {target && (
-          <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">
-            {target}
-          </p>
-        )}
-        <div className="w-full mt-2 flex flex-col gap-2 text-left">
-          <ExerciseHowTo exercise={lookup?.(state.exercise)} />
-          {exerciseNotes && (
-            <ExerciseNote
-              key={state.exercise}
-              exercise={state.exercise}
-              regions={lookup?.(state.exercise)?.body_regions ?? []}
-              {...exerciseNotes}
-            />
-          )}
-        </div>
-        <p
-          className="my-2 text-5xl font-extrabold tracking-tight tabular-nums"
-          role="timer"
-        >
-          {formatClock(since(state.startedAt))}
-        </p>
+        {header(state.exercise, state.side)}
+        {bigClock(since(state.startedAt))}
         {state.side === "left" ? (
           <>
             <button
@@ -529,11 +512,12 @@ export default function SetTimer({
     });
     return (
       <div className="flex flex-col gap-2">
+        {state.exercise && header(state.exercise, state.side)}
+        {state.seconds !== null && bigClock(state.seconds, true)}
         {restClock}
         <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">
-          {state.side && `${sideLabel(state.side)}. `}
           {state.seconds
-            ? `That set took ${formatClock(state.seconds)}. Check the numbers and save it.`
+            ? "Check the numbers and save the set."
             : "Fill in the set and save it."}
           {state.side === "left" && state.stoppedAt
             ? " Saving starts the right side right away."
@@ -541,6 +525,7 @@ export default function SetTimer({
         </p>
         <SetForm
           suggestions={suggestions}
+          hideExercise={!!state.exercise}
           initial={{
             ...prefillFor(state.exercise),
             exercise_name: state.exercise,
@@ -565,7 +550,8 @@ export default function SetTimer({
     const goal = state.rest.target;
     return (
       <div className="flex flex-col items-center text-center">
-        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+        {name.trim() && header(name.trim(), side)}
+        <p className="mt-3 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
           Rest
         </p>
         <p
@@ -585,12 +571,14 @@ export default function SetTimer({
             ? `Target ${formatClock(goal)} reached. Go when you're ready.`
             : `Target ${formatClock(goal)}`}
         </p>
-        <StartExerciseButton
-          exercise={name}
-          target={target}
-          label={side ? startLabel : "Start next set"}
-          onStart={startSet}
-        />
+        <button
+          type="button"
+          className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
+          onClick={startSet}
+          disabled={!name.trim()}
+        >
+          {side ? startLabel : "Start next set"}
+        </button>
         <button
           type="button"
           className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
@@ -626,13 +614,11 @@ export default function SetTimer({
         onChange={setName}
         suggestions={suggestions}
       />
-      <StartExerciseButton
-        exercise={name}
-        target={target}
-        notes={notes}
-        label={startLabel}
-        onStart={startSet}
-      />
+      {(target || notes) && (
+        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">
+          {[target, notes].filter(Boolean).join(" · ")}
+        </p>
+      )}
       <ExerciseHowTo exercise={lookup?.(name)} />
       {exerciseNotes && name.trim() && (
         <ExerciseNote
@@ -643,6 +629,14 @@ export default function SetTimer({
           {...exerciseNotes}
         />
       )}
+      <button
+        type="button"
+        className="btn btn-primary btn-lg rounded-full font-bold active:scale-[0.98] transition"
+        onClick={startSet}
+        disabled={!name.trim()}
+      >
+        {startLabel}
+      </button>
       <SupersetControl
         key={name.trim().toLowerCase()}
         exercise={name.trim()}
