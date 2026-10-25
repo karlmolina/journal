@@ -256,9 +256,22 @@ export default function InjuryCard({
               ? `History · ${exerciseNotes.length} ${exerciseNotes.length === 1 ? "note" : "notes"}`
               : "History"}
         </button>
-        <span className="flex-1" />
+        {/* Actions on the injury itself go on their own row. */}
+        <span className="basis-full" />
         {confirmDelete ? (
           <>
+            <p className="basis-full px-2 pb-1 text-sm font-semibold">
+              Delete {injury.name || title}
+              {checkins.length === 1
+                ? " and its check-in"
+                : checkins.length > 1
+                  ? ` and its ${checkins.length} check-ins`
+                  : ""}
+              ?
+              {exerciseNotes.length > 0 &&
+                " Your exercise notes stay, without the link to it."}
+            </p>
+            <span className="flex-1" />
             <button
               type="button"
               className="btn btn-ghost btn-sm rounded-full font-bold"
@@ -276,15 +289,14 @@ export default function InjuryCard({
           </>
         ) : (
           <>
-            {showMore && (
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60 dark:text-base-content/80"
-                onClick={() => setConfirmDelete(true)}
-              >
-                Delete
-              </button>
-            )}
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60 dark:text-base-content/80"
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete
+            </button>
+            <span className="flex-1" />
             {!healed && (
               <button
                 type="button"
