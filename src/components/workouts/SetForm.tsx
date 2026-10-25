@@ -22,16 +22,22 @@ interface SetFormProps {
   // Prefills the fields, e.g. from the plan, the set timer or the set being
   // edited.
   initial?: Partial<SetInput>;
+  // Whether an exercise is done one side at a time, to offer Left / Right.
+  isUnilateral?: (exercise: string) => boolean;
   submitLabel?: string;
   onCancel?: () => void;
+  // Editing a logged set: turn it into two, halving its time.
+  onSplit?: () => void;
   onAdd: (set: SetInput) => void;
 }
 
 export default function SetForm({
   suggestions,
   initial,
+  isUnilateral,
   submitLabel = "Add set",
   onCancel,
+  onSplit,
   onAdd,
 }: SetFormProps) {
   const [exercise, setExercise] = useState(initial?.exercise_name ?? "");
@@ -40,8 +46,10 @@ export default function SetForm({
   const [time, setTime] = useState(
     initial?.duration_seconds ? formatClock(initial.duration_seconds) : "",
   );
-  // Only one-side-at-a-time sets have a side, and it can be corrected here.
+  // One-side-at-a-time sets say which side; tapping the chosen side again
+  // clears it.
   const [side, setSide] = useState<Side | null>(initial?.side ?? null);
+  const showSide = side !== null || (isUnilateral?.(exercise) ?? false);
 
   const parsedReps = /^\s*[1-9]\d*\s*$/.test(reps) ? Number(reps) : null;
   const parsedWeight = /^\s*\d+(\.\d+)?\s*$/.test(weight)
@@ -79,10 +87,14 @@ export default function SetForm({
         onChange={setExercise}
         suggestions={suggestions}
       />
-      {side && (
-        <div className="flex gap-1.5" aria-label="Side">
+      {showSide && (
+        <div className="flex gap-1.5" role="group" aria-label="Side">
           {(["left", "right"] as const).map((s) => (
-            <Chip key={s} selected={side === s} onClick={() => setSide(s)}>
+            <Chip
+              key={s}
+              selected={side === s}
+              onClick={() => setSide(side === s ? null : s)}
+            >
               {s === "left" ? "Left" : "Right"}
             </Chip>
           ))}
@@ -151,6 +163,18 @@ export default function SetForm({
           {submitLabel}
         </button>
       </div>
+      {onSplit && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60 dark:text-base-content/75 self-center"
+          onClick={onSplit}
+        >
+          Split into two sets
+          {initial?.duration_seconds != null &&
+            initial.duration_seconds >= 2 &&
+            ` of ${formatClock(Math.ceil(initial.duration_seconds / 2))}`}
+        </button>
+      )}
     </form>
   );
 }
