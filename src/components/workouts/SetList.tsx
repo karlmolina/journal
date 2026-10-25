@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { SetInput, WorkoutSet } from "../../hooks/useWorkouts";
 import {
   describeSet,
@@ -79,13 +80,24 @@ export default function SetList({
       {groupSets(sets).map(({ name, sets }) => {
         const labels = setLabels(sets);
         const tag = supersetTags?.get(name.trim().toLowerCase());
+        // The library entry, so you can see or change what it works.
+        const exerciseId = sets.find((s) => s.exercise_id)?.exercise_id;
         return (
           <div key={name}>
             {dense ? (
               <div className="flex items-baseline gap-2">
                 {tag && <SupersetTag letter={tag} />}
                 <p className="flex-1 min-w-0 truncate text-sm font-bold">
-                  {name}
+                  {exerciseId ? (
+                    <Link
+                      to={`/workouts/library/${exerciseId}`}
+                      className="underline decoration-base-content/25 underline-offset-2 hover:decoration-current"
+                    >
+                      {name}
+                    </Link>
+                  ) : (
+                    name
+                  )}
                 </p>
                 <span className="shrink-0 text-xs font-semibold tabular-nums text-base-content/55 dark:text-base-content/75">
                   {summarizeSets(sets)}

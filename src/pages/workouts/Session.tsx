@@ -92,7 +92,7 @@ export default function Session() {
     updateSet,
     removeSet,
   } = useWorkouts(userId);
-  const { exercises, byLowerName } = useExercises(userId);
+  const { exercises, byLowerName, ensureExercise } = useExercises(userId);
   const { plans } = useWorkoutPlans(userId);
   const notes = useExerciseNotes(userId);
   const { injuries } = useInjuries(userId);
@@ -116,20 +116,30 @@ export default function Session() {
     return [...names.values()];
   }, [active, history, exercises]);
 
+  // Every set links to the library; a name that isn't there yet is added as
+  // your own exercise.
   const linkExercise = useCallback(
-    (set: SetInput) => ({
-      ...set,
-      exercise_id: byLowerName.get(set.exercise_name.toLowerCase())?.id ?? null,
-    }),
-    [byLowerName],
+    (set: SetInput) => {
+      const link = ensureExercise(set.exercise_name, set.side !== null);
+      return {
+        set: { ...set, exercise_id: link?.id ?? null },
+        saved: link?.saved,
+      };
+    },
+    [ensureExercise],
   );
   const handleAddSet = useCallback(
-    (set: SetInput) => addSet(linkExercise(set)),
+    (input: SetInput) => {
+      const { set, saved } = linkExercise(input);
+      addSet(set, saved);
+    },
     [addSet, linkExercise],
   );
   const handleUpdateSet = useCallback(
-    (set: WorkoutSet, changes: SetInput) =>
-      updateSet(set, linkExercise(changes)),
+    (prev: WorkoutSet, changes: SetInput) => {
+      const { set, saved } = linkExercise(changes);
+      updateSet(prev, set, saved);
+    },
     [updateSet, linkExercise],
   );
 
