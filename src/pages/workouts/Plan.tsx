@@ -394,6 +394,7 @@ export default function Plan() {
     loading,
     generating,
     error,
+    errorDetails,
     dismissError,
     generate,
     revise,
@@ -417,7 +418,13 @@ export default function Plan() {
 
   return (
     <div className="flex flex-col gap-3 pb-6">
-      {error && <ErrorBanner message={error} onDismiss={dismissError} />}
+      {error && (
+        <ErrorBanner
+          message={error}
+          details={errorDetails}
+          onDismiss={dismissError}
+        />
+      )}
 
       {showForm ? (
         <PlanForm
