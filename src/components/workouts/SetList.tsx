@@ -11,6 +11,7 @@ import {
 import { formatClock } from "../../functions/formatDuration";
 import SetForm from "./SetForm";
 import SupersetTag from "./SupersetTag";
+import { bodyPartLabel } from "../../functions/bodyPartScores";
 
 // The rest timed before a set, shown after what was done.
 function RestNote({
@@ -50,6 +51,9 @@ interface SetListProps {
   dense?: boolean;
   // Superset letters by lowercased exercise name, for the dense header.
   supersetTags?: Map<string, string>;
+  // The body parts an exercise works, main one first, shown under its name
+  // in the dense header so it lines up with the workout's body-part summary.
+  bodyPartsOf?: (exerciseName: string) => string[];
 }
 
 // What a set did, in the dense row: the load, then its time when it has one.
@@ -79,6 +83,7 @@ export default function SetList({
   isUnilateral,
   dense = false,
   supersetTags,
+  bodyPartsOf,
 }: SetListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -89,6 +94,10 @@ export default function SetList({
         const tag = supersetTags?.get(name.trim().toLowerCase());
         // The library entry, so you can see or change what it works.
         const exerciseId = sets.find((s) => s.exercise_id)?.exercise_id;
+        // Unknown exercises count as "Other" in the summary, so say so here.
+        const found = dense && bodyPartsOf ? bodyPartsOf(name) : [];
+        const parts =
+          found.length > 0 ? found : dense && bodyPartsOf ? ["other"] : [];
         return (
           <div key={name}>
             {dense ? (
@@ -112,6 +121,21 @@ export default function SetList({
               </div>
             ) : (
               <p className="font-bold">{name}</p>
+            )}
+            {parts.length > 0 && (
+              <ul
+                className="mt-1 flex flex-wrap gap-1"
+                aria-label={`Works ${parts.map(bodyPartLabel).join(", ")}`}
+              >
+                {parts.map((part, i) => (
+                  <li
+                    key={part}
+                    className={`rounded-md px-1.5 text-[11px] leading-[18px] font-semibold ${i === 0 ? "bg-primary/12 text-primary dark:bg-primary/25 dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]" : "bg-base-content/8 text-base-content/65 dark:bg-base-content/12 dark:text-base-content/80"}`}
+                  >
+                    {bodyPartLabel(part)}
+                  </li>
+                ))}
+              </ul>
             )}
             <ol className={`flex flex-col ${dense ? "mt-0.5" : "mt-1"}`}>
               {sets.map((set, i) =>
