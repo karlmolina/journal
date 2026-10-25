@@ -177,6 +177,7 @@ export default function WorkoutHistoryCard({
               isUnilateral={isUnilateral}
               dense
               supersetTags={tags}
+              bodyPartsOf={bodyPartsOf}
             />
           ) : (
             <p className="text-sm font-medium text-base-content/55 dark:text-base-content/75">
