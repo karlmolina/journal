@@ -31,11 +31,13 @@ import {
   renameInSupersets,
   splitSuperset,
   supersetOf,
+  supersetTag,
   type Supersets,
 } from "../../functions/supersets";
 import ExerciseInput from "./ExerciseInput";
 import SetList from "./SetList";
 import SetTimer from "./SetTimer";
+import SupersetGroup from "./SupersetGroup";
 
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
@@ -95,13 +97,13 @@ function SupersetLink({
         type="button"
         className={`rounded-full px-2.5 py-0.5 text-xs font-bold transition cursor-pointer ${
           linked
-            ? "bg-primary/15 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]"
+            ? "text-primary/70 dark:text-[color-mix(in_oklab,var(--color-primary),white_55%)] hover:bg-primary/10"
             : "text-base-content/40 dark:text-base-content/70 hover:text-base-content/70 dark:hover:text-base-content/90 hover:bg-base-content/6"
         }`}
         onClick={onToggle}
         aria-pressed={linked}
       >
-        {linked ? "Superset · tap to split" : "+ Superset"}
+        {linked ? "↓ no rest · tap to split" : "+ Superset"}
       </button>
     </div>
   );
@@ -235,82 +237,125 @@ function PlanChecklist({
 }) {
   const groupOf = (i: number) =>
     exercises[i] && supersetOf(exercises[i].name, supersets);
+  const members = (group: string[]) =>
+    exercises.filter((e) => supersetOf(e.name, [group]));
   // The rest after a round: the longest any of its exercises asks for.
   const roundRest = (group: string[]) =>
-    Math.max(
-      0,
-      ...exercises
-        .filter((e) => supersetOf(e.name, [group]))
-        .map((e) => e.rest_seconds),
+    Math.max(0, ...members(group).map((e) => e.rest_seconds));
+  // Which round you're on: one past the fewest sets of anything unfinished.
+  const roundOf = (group: string[]) => {
+    const all = members(group);
+    const rounds = Math.max(...all.map((e) => e.planned_sets));
+    const open = all.filter((e) => setsDone(e, sets) < e.sets);
+    if (open.length === 0) return "Done";
+    const round = Math.min(...open.map((e) => setsDone(e, sets))) + 1;
+    return `Round ${Math.min(round, rounds)} of ${rounds}`;
+  };
+
+  // Exercises next to each other in the same superset share one box.
+  const runs: { group?: string[]; indices: number[] }[] = [];
+  exercises.forEach((_, i) => {
+    const group = groupOf(i) || undefined;
+    const last = runs.at(-1);
+    if (group && last?.group === group) last.indices.push(i);
+    else runs.push({ group, indices: [i] });
+  });
+  const names = exercises.map((e) => e.name);
+  const tagOf = (i: number) => supersetTag(names, i, supersets);
+  const row = (i: number) => {
+    const e = exercises[i];
+    const done = setsDone(e, sets);
+    const complete = done >= e.sets;
+    const group = groupOf(i);
+    return (
+      <div key={i} className="flex flex-col gap-1">
+        <button
+          type="button"
+          className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition cursor-pointer ${
+            selected === i
+              ? "bg-primary/15 dark:bg-primary/25"
+              : "hover:bg-base-content/6"
+          }`}
+          onClick={() => onSelect(i)}
+          aria-pressed={selected === i}
+        >
+          <span
+            className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1 text-xs font-bold ${
+              complete
+                ? "bg-primary text-primary-content"
+                : group
+                  ? "bg-primary/15 dark:bg-primary/30 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]"
+                  : "bg-base-content/10 text-base-content/60 dark:text-base-content/80"
+            }`}
+            aria-hidden="true"
+          >
+            {complete ? "✓" : (tagOf(i)?.tag ?? i + 1)}
+          </span>
+          <span className="flex-1 min-w-0">
+            <span
+              className={`block font-bold truncate ${complete ? "text-base-content/50 dark:text-base-content/75 line-through" : ""}`}
+            >
+              {e.name}
+            </span>
+            <span className="block text-xs font-semibold text-base-content/55 dark:text-base-content/75 tabular-nums">
+              {e.swapped_from && `Instead of ${e.swapped_from} · `}
+              {describeTarget({ ...e, sets: e.planned_sets })}
+              {e.ended && " · finished early"}
+              {!group && e.rest_seconds > 0 && ` · rest ${e.rest_seconds}s`}
+            </span>
+          </span>
+          <span className="text-sm font-bold tabular-nums text-base-content/60 dark:text-base-content/80">
+            {Math.min(done, e.planned_sets)}/{e.planned_sets}
+          </span>
+        </button>
+        {selected === i && (
+          <StepActions
+            // A fresh form for each exercise.
+            key={e.name}
+            step={e}
+            complete={complete}
+            suggestions={suggestions}
+            onSwap={(name) => onSwap(i, name)}
+            onEnd={(ended) => onEnd(i, ended)}
+          />
+        )}
+      </div>
     );
+  };
+
   return (
     <ol className="mt-2 flex flex-col gap-1">
-      {exercises.map((e, i) => {
-        const done = setsDone(e, sets);
-        const complete = done >= e.sets;
-        const group = groupOf(i);
-        const linked = i > 0 && !!group && group === groupOf(i - 1);
-        return (
-          <li key={i} className="flex flex-col gap-1">
-            {i > 0 && (
-              <SupersetLink
-                linked={linked}
-                onToggle={() => onLink(i, linked)}
-              />
-            )}
-            <button
-              type="button"
-              className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition cursor-pointer ${
-                selected === i ? "bg-primary/15" : "hover:bg-base-content/6"
-              }`}
-              onClick={() => onSelect(i)}
-              aria-pressed={selected === i}
+      {runs.map(({ group, indices }) => (
+        <li key={indices[0]} className="flex flex-col gap-1">
+          {indices[0] > 0 && (
+            <SupersetLink
+              linked={false}
+              onToggle={() => onLink(indices[0], false)}
+            />
+          )}
+          {group ? (
+            <SupersetGroup
+              letter={tagOf(indices[0])!.letter}
+              size={group.length}
+              progress={roundOf(group)}
+              rest={roundRest(group)}
             >
-              <span
-                className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                  complete
-                    ? "bg-primary text-primary-content"
-                    : "bg-base-content/10 text-base-content/60 dark:text-base-content/80"
-                }`}
-                aria-hidden="true"
-              >
-                {complete ? "✓" : i + 1}
-              </span>
-              <span className="flex-1 min-w-0">
-                <span
-                  className={`block font-bold truncate ${complete ? "text-base-content/50 dark:text-base-content/75 line-through" : ""}`}
-                >
-                  {e.name}
-                </span>
-                <span className="block text-xs font-semibold text-base-content/55 dark:text-base-content/75 tabular-nums">
-                  {e.swapped_from && `Instead of ${e.swapped_from} · `}
-                  {describeTarget({ ...e, sets: e.planned_sets })}
-                  {e.ended && " · finished early"}
-                  {!group
-                    ? e.rest_seconds > 0 && ` · rest ${e.rest_seconds}s`
-                    : groupOf(i + 1) !== group &&
-                      roundRest(group) > 0 &&
-                      ` · then rest ${roundRest(group)}s`}
-                </span>
-              </span>
-              <span className="text-sm font-bold tabular-nums text-base-content/60 dark:text-base-content/80">
-                {Math.min(done, e.planned_sets)}/{e.planned_sets}
-              </span>
-            </button>
-            {selected === i && (
-              <StepActions
-                // A fresh form for each exercise.
-                key={e.name}
-                step={e}
-                complete={complete}
-                suggestions={suggestions}
-                onSwap={(name) => onSwap(i, name)}
-                onEnd={(ended) => onEnd(i, ended)}
-              />
-            )}
-          </li>
-        );
-      })}
+              <div className="flex flex-col gap-0.5">
+                {indices.map((i, k) => (
+                  <div key={i} className="flex flex-col gap-0.5">
+                    {k > 0 && (
+                      <SupersetLink linked onToggle={() => onLink(i, true)} />
+                    )}
+                    {row(i)}
+                  </div>
+                ))}
+              </div>
+            </SupersetGroup>
+          ) : (
+            row(indices[0])
+          )}
+        </li>
+      ))}
     </ol>
   );
 }
@@ -380,10 +425,20 @@ export default function ActiveWorkout({
   const selectedIndex = picked ?? auto;
   const selected =
     selectedIndex !== null ? exercises[selectedIndex] : undefined;
+  const selectedTag =
+    selectedIndex !== null
+      ? supersetTag(
+          exercises.map((e) => e.name),
+          selectedIndex,
+          supersets,
+        )
+      : undefined;
   const target =
     selected &&
     [
-      `Set ${Math.min(setsDone(selected, sets) + 1, selected.planned_sets)} of ${selected.planned_sets}`,
+      `${
+        selectedTag ? `${selectedTag.tag} · Round` : "Set"
+      } ${Math.min(setsDone(selected, sets) + 1, selected.planned_sets)} of ${selected.planned_sets}`,
       selected.unilateral && sideLabel(nextSide(selected.name, sets)),
       `${selected.reps}${selected.weight != null ? ` at ${selected.weight} ${WEIGHT_UNIT}` : ""}`,
     ]
