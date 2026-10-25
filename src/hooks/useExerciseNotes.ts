@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabase";
+import { readUserCache, writeUserCache } from "../functions/userCache";
 
 // One of your own dated notes on an exercise, optionally about an injury.
 export interface ExerciseNoteEntry {
@@ -24,21 +25,11 @@ export const noteKey = (exercise: string) => exercise.trim().toLowerCase();
 const newestFirst = (a: ExerciseNoteEntry, b: ExerciseNoteEntry) =>
   b.created_at.localeCompare(a.created_at);
 
-function readCache(userId: string): ExerciseNoteEntry[] {
-  try {
-    return JSON.parse(localStorage.getItem(`${CACHE_KEY}_${userId}`) ?? "[]");
-  } catch {
-    return [];
-  }
-}
+const readCache = (userId: string) =>
+  readUserCache<ExerciseNoteEntry[]>(CACHE_KEY, userId, []);
 
-function writeCache(userId: string, entries: ExerciseNoteEntry[]) {
-  try {
-    localStorage.setItem(`${CACHE_KEY}_${userId}`, JSON.stringify(entries));
-  } catch {
-    // Ignore quota / private mode errors; the cache is only a convenience.
-  }
-}
+const writeCache = (userId: string, value: ExerciseNoteEntry[]) =>
+  writeUserCache(CACHE_KEY, userId, value);
 
 export default function useExerciseNotes(userId?: string) {
   // Newest first.

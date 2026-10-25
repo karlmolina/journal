@@ -6,6 +6,11 @@ import React, {
   useCallback,
 } from "react";
 import { supabase } from "../supabase";
+import {
+  readUserCache,
+  removeUserCache,
+  writeUserCache,
+} from "../functions/userCache";
 import TopBar from "../components/TopBar";
 import JournalEntry from "../components/JournalEntry";
 import { useAuth } from "../context/AuthContext";
@@ -53,35 +58,18 @@ interface SearchResult extends Entry {
   highlighted: string;
 }
 
-function readStored<T>(key: string, userId: string, fallback: T): T {
-  try {
-    const cached = localStorage.getItem(`${key}_${userId}`);
-    return cached ? JSON.parse(cached) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStored(key: string, userId: string, value: unknown) {
-  try {
-    localStorage.setItem(`${key}_${userId}`, JSON.stringify(value));
-  } catch {
-    // Ignore quota / private mode errors; the cache is only a convenience.
-  }
-}
-
 const readCache = (userId: string) =>
-  readStored<Entry[]>(LOCAL_STORAGE_KEY, userId, []);
+  readUserCache<Entry[]>(LOCAL_STORAGE_KEY, userId, []);
 const writeCache = (userId: string, entries: Entry[]) =>
-  writeStored(LOCAL_STORAGE_KEY, userId, entries);
+  writeUserCache(LOCAL_STORAGE_KEY, userId, entries);
 const readPending = (userId: string) =>
-  readStored<Entry[]>(PENDING_KEY, userId, []);
+  readUserCache<Entry[]>(PENDING_KEY, userId, []);
 const writePending = (userId: string, entries: Entry[]) =>
-  writeStored(PENDING_KEY, userId, entries);
-const readDraft = (userId: string) => readStored(DRAFT_KEY, userId, "");
+  writeUserCache(PENDING_KEY, userId, entries);
+const readDraft = (userId: string) => readUserCache(DRAFT_KEY, userId, "");
 const writeDraft = (userId: string, draft: string) => {
-  if (draft) writeStored(DRAFT_KEY, userId, draft);
-  else localStorage.removeItem(`${DRAFT_KEY}_${userId}`);
+  if (draft) writeUserCache(DRAFT_KEY, userId, draft);
+  else removeUserCache(DRAFT_KEY, userId);
 };
 
 function EmptyState({ title, hint }: { title: string; hint: string }) {
@@ -108,7 +96,9 @@ export default function Journal() {
   // Ids whose save failed this session, shown with a retry button.
   const [failed, setFailed] = useState<Set<string>>(new Set());
   const [text, setText] = useState(() => (userId ? readDraft(userId) : ""));
-  const [loading, setLoading] = useState(false);
+  // A fresh load refreshes cached entries quietly; only older pages (or an
+  // empty cache) show the spinner.
+  const [loading, setLoading] = useState<false | "refresh" | "older">(false);
   const [hasMore, setHasMore] = useState(true);
   const observer = useRef<IntersectionObserver | null>(null);
   const latestRequest = useRef(0);
@@ -138,7 +128,7 @@ export default function Journal() {
       const requestId = cursor
         ? latestRequest.current
         : ++latestRequest.current;
-      setLoading(true);
+      setLoading(cursor ? "older" : "refresh");
 
       let q = supabase
         .from("entries")
@@ -422,11 +412,12 @@ export default function Journal() {
           onScroll={handleListScroll}
           className="h-full overflow-y-auto overscroll-contain scrollbar-none"
         >
-          {loading && !results && (
-            <div className="flex justify-center py-4 text-base-content/40">
-              <span className="loading loading-spinner loading-md"></span>
-            </div>
-          )}
+          {(loading === "older" || (loading && entries.length === 0)) &&
+            !results && (
+              <div className="flex justify-center py-4 text-base-content/40">
+                <span className="loading loading-spinner loading-md"></span>
+              </div>
+            )}
 
           {results ? (
             <div className="flex flex-col gap-3 pb-1">

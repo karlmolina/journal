@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
+import { readUserCache, writeUserCache } from "../functions/userCache";
 
 export type ExerciseCategory =
   | "mobility"
@@ -41,21 +42,11 @@ const SELECT =
 
 const byName = (a: Exercise, b: Exercise) => a.name.localeCompare(b.name);
 
-function readCache(userId: string): Exercise[] {
-  try {
-    return JSON.parse(localStorage.getItem(`${CACHE_KEY}_${userId}`) ?? "[]");
-  } catch {
-    return [];
-  }
-}
+const readCache = (userId: string) =>
+  readUserCache<Exercise[]>(CACHE_KEY, userId, []);
 
-function writeCache(userId: string, exercises: Exercise[]) {
-  try {
-    localStorage.setItem(`${CACHE_KEY}_${userId}`, JSON.stringify(exercises));
-  } catch {
-    // Ignore quota / private mode errors; the cache is only a convenience.
-  }
-}
+const writeCache = (userId: string, value: Exercise[]) =>
+  writeUserCache(CACHE_KEY, userId, value);
 
 export default function useExercises(userId?: string) {
   const [exercises, setExercises] = useState<Exercise[]>(() =>

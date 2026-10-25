@@ -29,5 +29,7 @@ export default function MembersOnly({
 
   if (!membership.member) return <RedeemInvite />;
   if (admin && !membership.admin) return <Navigate to="/journal" replace />;
-  return <>{children}</>;
+  // Keyed by account so a different user remounts the pages, which then seed
+  // from that user's cache instead of carrying over the previous one's data.
+  return <React.Fragment key={user.id}>{children}</React.Fragment>;
 }
