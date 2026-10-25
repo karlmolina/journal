@@ -106,6 +106,14 @@ function PlanChecklist({
   const exercises = session.exercises;
   const groupOf = (i: number) =>
     exercises[i] && supersetOf(exercises[i].name, supersets);
+  // The rest after a round: the longest any of its exercises asks for.
+  const roundRest = (group: string[]) =>
+    Math.max(
+      0,
+      ...exercises
+        .filter((e) => supersetOf(e.name, [group]))
+        .map((e) => e.rest_seconds),
+    );
   return (
     <ol className="mt-2 flex flex-col gap-1">
       {exercises.map((e, i) => {
@@ -147,11 +155,11 @@ function PlanChecklist({
                 </span>
                 <span className="block text-xs font-semibold text-base-content/55 dark:text-base-content/75 tabular-nums">
                   {describeTarget(e)}
-                  {e.rest_seconds > 0 &&
-                    (!group
-                      ? ` · rest ${e.rest_seconds}s`
-                      : groupOf(i + 1) !== group &&
-                        ` · then rest ${e.rest_seconds}s`)}
+                  {!group
+                    ? e.rest_seconds > 0 && ` · rest ${e.rest_seconds}s`
+                    : groupOf(i + 1) !== group &&
+                      roundRest(group) > 0 &&
+                      ` · then rest ${roundRest(group)}s`}
                 </span>
               </span>
               <span className="text-sm font-bold tabular-nums text-base-content/60 dark:text-base-content/80">
@@ -435,7 +443,9 @@ export default function ActiveWorkout({
       <div className="flex justify-center pb-6">
         {confirmDiscard ? (
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <span className="text-base-content/60 dark:text-base-content/80">Delete this workout?</span>
+            <span className="text-base-content/60 dark:text-base-content/80">
+              Delete this workout?
+            </span>
             <button
               type="button"
               className="btn btn-sm btn-error rounded-full font-bold"

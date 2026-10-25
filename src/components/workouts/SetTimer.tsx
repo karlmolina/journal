@@ -107,7 +107,8 @@ interface SetTimerProps {
   onSave: (set: SetInput) => void;
 }
 
-// Pairs the current exercise with another one, or shows what it's paired with.
+// Shows what the current exercise is in a superset with, and adds more
+// exercises to it (any number: a superset of three or more is a circuit).
 function SupersetControl({
   exercise,
   partners,
@@ -123,20 +124,25 @@ function SupersetControl({
 }) {
   const [adding, setAdding] = useState(false);
   const [partner, setPartner] = useState("");
-  const linkClass = "btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]";
+  const linkClass =
+    "btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]";
 
-  if (partners?.length)
-    return (
-      <div className="flex items-center justify-center gap-1 text-sm font-semibold text-base-content/60 dark:text-base-content/80">
-        <span className="truncate">Superset with {partners.join(", ")}</span>
+  if (!adding)
+    return partners?.length ? (
+      <div className="flex flex-wrap items-center justify-center gap-x-1 text-sm font-semibold text-base-content/60 dark:text-base-content/80">
+        <span className="text-center">Superset with {partners.join(", ")}</span>
+        <button
+          type="button"
+          className={linkClass}
+          onClick={() => setAdding(true)}
+        >
+          + Add
+        </button>
         <button type="button" className={linkClass} onClick={onLeave}>
           Remove
         </button>
       </div>
-    );
-
-  if (!adding)
-    return (
+    ) : (
       <button
         type="button"
         className={`${linkClass} self-center`}
@@ -151,20 +157,25 @@ function SupersetControl({
     const name = partner.trim();
     if (!name || name.toLowerCase() === exercise.toLowerCase()) return;
     onSuperset(name);
+    // Stay open so a circuit can be built one exercise after another.
     setPartner("");
-    setAdding(false);
   };
   return (
     <div className="flex flex-col gap-2 rounded-xl bg-base-content/5 p-2">
       <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 px-1">
-        Do a set of each in turn, then rest.
+        {partners?.length
+          ? `Superset with ${partners.join(", ")}. Add as many as you like.`
+          : "Do a set of each in turn, then rest."}
       </p>
       <ExerciseInput
         className={fieldClass}
         value={partner}
         onChange={setPartner}
         suggestions={suggestions.filter(
-          (n) => n.toLowerCase() !== exercise.toLowerCase(),
+          (n) =>
+            ![exercise, ...(partners ?? [])].some(
+              (m) => m.toLowerCase() === n.toLowerCase(),
+            ),
         )}
       />
       <div className="flex gap-2">
@@ -173,7 +184,7 @@ function SupersetControl({
           className="btn btn-ghost btn-sm rounded-full font-bold flex-1"
           onClick={() => setAdding(false)}
         >
-          Cancel
+          Done
         </button>
         <button
           type="button"
@@ -181,7 +192,7 @@ function SupersetControl({
           onClick={add}
           disabled={!partner.trim()}
         >
-          Pair up
+          Add to superset
         </button>
       </div>
     </div>
@@ -338,7 +349,9 @@ export default function SetTimer({
           </p>
         )}
         {target && (
-          <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">{target}</p>
+          <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">
+            {target}
+          </p>
         )}
         <div className="w-full mt-2 flex flex-col gap-2 text-left">
           <ExerciseHowTo exercise={lookup?.(state.exercise)} />
