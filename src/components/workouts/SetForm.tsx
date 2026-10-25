@@ -28,6 +28,9 @@ interface SetFormProps {
   onCancel?: () => void;
   // Editing a logged set: turn it into two, halving its time.
   onSplit?: () => void;
+  // Editing a logged set: delete it, or every set of its exercise.
+  onDelete?: () => void;
+  onDeleteExercise?: { label: string; run: () => void };
   onAdd: (set: SetInput) => void;
 }
 
@@ -38,6 +41,8 @@ export default function SetForm({
   submitLabel = "Add set",
   onCancel,
   onSplit,
+  onDelete,
+  onDeleteExercise,
   onAdd,
 }: SetFormProps) {
   const [exercise, setExercise] = useState(initial?.exercise_name ?? "");
@@ -174,6 +179,28 @@ export default function SetForm({
             initial.duration_seconds >= 2 &&
             ` of ${formatClock(Math.ceil(initial.duration_seconds / 2))}`}
         </button>
+      )}
+      {(onDelete || onDeleteExercise) && (
+        <div className="flex flex-wrap justify-center gap-1">
+          {onDelete && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm rounded-full font-semibold text-error"
+              onClick={onDelete}
+            >
+              Delete set
+            </button>
+          )}
+          {onDeleteExercise && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm rounded-full font-semibold text-error"
+              onClick={onDeleteExercise.run}
+            >
+              {onDeleteExercise.label}
+            </button>
+          )}
+        </div>
       )}
     </form>
   );

@@ -368,23 +368,42 @@ export default function useWorkouts(userId?: string) {
     [fail],
   );
 
-  const removeSet = useCallback(
-    (set: WorkoutSet) => {
-      setSets(set.workout_id, (sets) => sets.filter((s) => s.id !== set.id));
+  // Deletes one set, or every set of an exercise, from the running workout
+  // or a past one. Undo puts them back in place.
+  const removeSets = useCallback(
+    (removed: WorkoutSet[]) => {
+      if (removed.length === 0) return;
+      const workoutId = removed[0].workout_id;
+      const ids = new Set(removed.map((s) => s.id));
+      const edit = (fn: (sets: WorkoutSet[]) => WorkoutSet[]) => {
+        const apply = (w: Workout) =>
+          w.id === workoutId ? { ...w, workout_sets: fn(w.workout_sets) } : w;
+        setActive((w) => (w ? apply(w) : w));
+        setHistory((h) => h.map(apply));
+      };
+      edit((sets) => sets.filter((s) => !ids.has(s.id)));
       setError(null);
+      const one = removed.length === 1;
       queueDelete({
-        message: "Set deleted",
-        rows: [`workout_sets:${set.id}`],
-        commit: () => supabase.from("workout_sets").delete().eq("id", set.id),
+        message: one ? "Set deleted" : `${removed.length} sets deleted`,
+        rows: removed.map((s) => `workout_sets:${s.id}`),
+        commit: () =>
+          supabase
+            .from("workout_sets")
+            .delete()
+            .in("id", [...ids]),
         undo: () =>
-          setSets(set.workout_id, (sets) =>
-            sets.some((s) => s.id === set.id)
-              ? sets
-              : [...sets, set].sort((a, b) =>
-                  a.created_at.localeCompare(b.created_at),
-                ),
+          edit((sets) =>
+            [
+              ...sets,
+              ...removed.filter((r) => !sets.some((s) => s.id === r.id)),
+            ].sort((a, b) => a.created_at.localeCompare(b.created_at)),
           ),
-        onError: (error) => fail("Couldn't delete that set.", error),
+        onError: (error) =>
+          fail(
+            one ? "Couldn't delete that set." : "Couldn't delete those sets.",
+            error,
+          ),
       });
     },
     [fail],
@@ -524,7 +543,7 @@ export default function useWorkouts(userId?: string) {
     removeWorkout,
     addSet,
     updateSet,
-    removeSet,
+    removeSets,
     splitSet,
   };
 }

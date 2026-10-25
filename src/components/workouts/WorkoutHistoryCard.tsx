@@ -80,6 +80,7 @@ interface WorkoutHistoryCardProps {
   isUnilateral?: (exercise: string) => boolean;
   onUpdateSet?: (set: WorkoutSet, changes: SetInput) => void;
   onSplitSet?: (set: WorkoutSet) => void;
+  onRemoveSets?: (sets: WorkoutSet[]) => void;
   onDelete: () => void;
 }
 
@@ -91,6 +92,7 @@ export default function WorkoutHistoryCard({
   isUnilateral,
   onUpdateSet,
   onSplitSet,
+  onRemoveSets,
   onDelete,
 }: WorkoutHistoryCardProps) {
   const [open, setOpen] = useState(false);
@@ -171,6 +173,7 @@ export default function WorkoutHistoryCard({
               suggestions={suggestions}
               onUpdate={onUpdateSet}
               onSplit={onSplitSet}
+              onRemove={onRemoveSets}
               isUnilateral={isUnilateral}
               dense
               supersetTags={tags}
