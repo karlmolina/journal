@@ -310,11 +310,13 @@ export default function useWorkouts(userId?: string) {
         : w,
     );
 
+  // `linked` settles on the library exercise to store, when the set's
+  // exercise is still being added to the library.
   const addSet = useCallback(
-    async (set: NewSet) => {
+    async (set: NewSet, linked?: Promise<string | null>) => {
       const w = state.current.active;
       if (!w) return;
-      const row: WorkoutSet = {
+      let row: WorkoutSet = {
         rest_seconds: null,
         ...set,
         id: crypto.randomUUID(),
@@ -323,6 +325,15 @@ export default function useWorkouts(userId?: string) {
       };
       setSets(w.id, (sets) => [...sets, row]);
       setError(null);
+      if (linked) {
+        const exercise_id = await linked;
+        if (exercise_id !== row.exercise_id) {
+          row = { ...row, exercise_id };
+          setSets(w.id, (sets) =>
+            sets.map((s) => (s.id === row.id ? { ...s, exercise_id } : s)),
+          );
+        }
+      }
       const { error } = await supabase.from("workout_sets").insert(row);
       if (error) {
         setSets(w.id, (sets) => sets.filter((s) => s.id !== row.id));
@@ -354,7 +365,11 @@ export default function useWorkouts(userId?: string) {
 
   // Sets can be corrected in the running workout and in past ones.
   const updateSet = useCallback(
-    async (set: WorkoutSet, changes: Partial<NewSet>) => {
+    async (
+      set: WorkoutSet,
+      changes: Partial<NewSet>,
+      linked?: Promise<string | null>,
+    ) => {
       const replace = (next: WorkoutSet) => (w: Workout) =>
         w.id === set.workout_id
           ? {
@@ -370,6 +385,13 @@ export default function useWorkouts(userId?: string) {
       };
       apply({ ...set, ...changes });
       setError(null);
+      if (linked) {
+        const exercise_id = await linked;
+        if (exercise_id !== changes.exercise_id) {
+          changes = { ...changes, exercise_id };
+          apply({ ...set, ...changes });
+        }
+      }
       const { error } = await supabase
         .from("workout_sets")
         .update(changes)

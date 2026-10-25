@@ -1,11 +1,20 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import Chip from "../../components/Chip";
 import ErrorBanner from "../../components/ErrorBanner";
 import ExerciseCard from "../../components/workouts/ExerciseCard";
 import NewExerciseForm from "../../components/workouts/NewExerciseForm";
 import { useAuth } from "../../context/AuthContext";
-import useExercises, { type ExercisePurpose } from "../../hooks/useExercises";
+import useExercises, {
+  type Exercise,
+  type ExercisePurpose,
+} from "../../hooks/useExercises";
 import useExerciseNotes from "../../hooks/useExerciseNotes";
 import useInjuries from "../../hooks/useInjuries";
 import { BODY_REGIONS } from "../../functions/bodyRegions";
@@ -20,10 +29,12 @@ export default function Library() {
   const { user } = useAuth();
   const {
     exercises,
+    byLowerName,
     loading,
     error,
     dismissError,
     addExercise,
+    updateExercise,
     removeExercise,
   } = useExercises(user?.id);
   const notes = useExerciseNotes(user?.id);
@@ -35,6 +46,86 @@ export default function Library() {
   const purpose = params.get("purpose") as ExercisePurpose | null;
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  // One exercise's own page, linked from past workouts.
+  const { exerciseId } = useParams();
+
+  // A built-in exercise you've made your own copy of shows as your copy.
+  const library = useMemo(
+    () =>
+      exercises.filter(
+        (e) => e.user_id || byLowerName.get(e.name.trim().toLowerCase()) === e,
+      ),
+    [exercises, byLowerName],
+  );
+
+  // Only offer areas some exercise covers.
+  const regions = useMemo(() => {
+    const used = new Set(library.flatMap((e) => e.body_regions));
+    return BODY_REGIONS.filter((r) => used.has(r.key));
+  }, [library]);
+
+  const card = (e: Exercise, open = false) =>
+    editingId === e.id ? (
+      <NewExerciseForm
+        key={e.id}
+        initial={e}
+        onSave={async (changes) => (await updateExercise(e, changes)) !== null}
+        onCancel={() => setEditingId(null)}
+      />
+    ) : (
+      <ExerciseCard
+        key={e.id}
+        exercise={e}
+        defaultOpen={open}
+        onLog={() => navigate("/workouts", { state: { exercise: e.name } })}
+        onEdit={() => setEditingId(e.id)}
+        exerciseNotes={{ notes, injuries }}
+        onDelete={
+          e.user_id
+            ? () => {
+                removeExercise(e);
+                if (exerciseId) navigate("/workouts/library");
+              }
+            : undefined
+        }
+      />
+    );
+
+  if (exerciseId) {
+    const exercise = exercises.find((e) => e.id === exerciseId);
+    const own =
+      exercise && !exercise.user_id
+        ? byLowerName.get(exercise.name.trim().toLowerCase())
+        : undefined;
+    if (own && own.id !== exerciseId)
+      return <Navigate to={`/workouts/library/${own.id}`} replace />;
+    return (
+      <div className="flex flex-col gap-3 pb-6">
+        {error && <ErrorBanner message={error} onDismiss={dismissError} />}
+        {notes.error && (
+          <ErrorBanner message={notes.error} onDismiss={notes.dismissError} />
+        )}
+        <Link
+          to="/workouts/library"
+          className="self-start ml-1 text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] hover:underline"
+        >
+          ← All exercises
+        </Link>
+        {exercise ? (
+          card(exercise, true)
+        ) : loading ? (
+          <div className="flex justify-center py-4 text-base-content/40 dark:text-base-content/70">
+            <span className="loading loading-spinner loading-md"></span>
+          </div>
+        ) : (
+          <p className="py-8 text-center text-lg font-bold">
+            That exercise isn't in your library
+          </p>
+        )}
+      </div>
+    );
+  }
 
   const setFilter = (key: string, value: string | null) =>
     setParams(
@@ -47,14 +138,8 @@ export default function Library() {
       { replace: true },
     );
 
-  // Only offer areas some exercise covers.
-  const regions = useMemo(() => {
-    const used = new Set(exercises.flatMap((e) => e.body_regions));
-    return BODY_REGIONS.filter((r) => used.has(r.key));
-  }, [exercises]);
-
   const q = query.trim().toLowerCase();
-  const shown = exercises.filter(
+  const shown = library.filter(
     (e) =>
       (!region || e.body_regions.includes(region)) &&
       (!purpose || e.purposes.includes(purpose)) &&
@@ -137,15 +222,7 @@ export default function Library() {
         </div>
       )}
 
-      {shown.map((e) => (
-        <ExerciseCard
-          key={e.id}
-          exercise={e}
-          onLog={() => navigate("/workouts", { state: { exercise: e.name } })}
-          exerciseNotes={{ notes, injuries }}
-          onDelete={e.user_id ? () => removeExercise(e) : undefined}
-        />
-      ))}
+      {shown.map((e) => card(e))}
 
       {adding ? (
         <NewExerciseForm

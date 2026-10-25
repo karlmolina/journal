@@ -15,17 +15,22 @@ interface ExerciseCardProps {
   onLog: () => void;
   // Your own notes on exercises.
   exerciseNotes: ExerciseNotesProps;
+  onEdit: () => void;
   // Only for exercises the person added themselves.
   onDelete?: () => void;
+  // Start expanded, as on an exercise's own page.
+  defaultOpen?: boolean;
 }
 
 export default function ExerciseCard({
   exercise,
   onLog,
   exerciseNotes,
+  onEdit,
   onDelete,
+  defaultOpen = false,
 }: ExerciseCardProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const meta = [
     CATEGORY_LABELS[exercise.category],
@@ -94,6 +99,11 @@ export default function ExerciseCard({
 
       {open && (
         <div className="px-4 pb-4 sm:px-5 flex flex-col gap-3 font-medium text-base-content/90 dark:text-[color-mix(in_oklab,var(--color-base-content),white_45%)]">
+          {exercise.body_regions.length === 0 && (
+            <p className="text-sm text-base-content/60 dark:text-base-content/80">
+              No body areas yet. Tap Edit to say what it works.
+            </p>
+          )}
           {exercise.description && <p>{exercise.description}</p>}
           {exercise.steps.length > 0 && (
             <ol className="list-decimal pl-5 flex flex-col gap-1">
@@ -140,6 +150,15 @@ export default function ExerciseCard({
                   Delete
                 </button>
               ))}
+            {!confirmDelete && (
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost rounded-full font-bold"
+                onClick={onEdit}
+              >
+                Edit
+              </button>
+            )}
             {!confirmDelete && (
               <button
                 type="button"
