@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
+import { reportError } from "../functions/reportError";
 
 export default function RedeemInvite() {
   const { user, refreshMembership } = useAuth();
@@ -17,7 +18,7 @@ export default function RedeemInvite() {
       invite_code: code,
     });
     if (error) {
-      console.error(error);
+      reportError(error, "RedeemInvite");
       setError("Something went wrong. Please try again.");
     } else if (!data) {
       setError("That code isn't valid or has already been used.");
@@ -31,7 +32,7 @@ export default function RedeemInvite() {
   const handleCancel = async () => {
     setBusy(true);
     const { error } = await supabase.rpc("delete_uninvited_account");
-    if (error) console.error(error);
+    if (error) reportError(error, "RedeemInvite");
     await supabase.auth.signOut();
   };
 

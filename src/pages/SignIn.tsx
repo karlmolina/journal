@@ -1,6 +1,7 @@
 // src/pages/SignIn.tsx
 import { supabase } from "../supabase";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import { reportError } from "../functions/reportError";
 
 export default function SignIn() {
   const handleSignIn = async () => {
@@ -11,7 +12,7 @@ export default function SignIn() {
         queryParams: { prompt: "select_account" },
       },
     });
-    if (error) console.error(error);
+    if (error) reportError(error, "SignIn");
   };
 
   return (

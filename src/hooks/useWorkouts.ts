@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
 import { flushDeletes, notDeleted, queueDelete } from "../functions/undoDelete";
+import { reportError } from "../functions/reportError";
 
 export type Side = "left" | "right";
 
@@ -123,7 +124,7 @@ export default function useWorkouts(userId?: string) {
   }, [userId, active, history]);
 
   const fail = useCallback((message: string, err: unknown) => {
-    console.error(err);
+    reportError(err, message);
     setError(message);
   }, []);
 

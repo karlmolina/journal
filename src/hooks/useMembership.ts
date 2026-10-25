@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
+import { reportError } from "../functions/reportError";
 
 export interface Membership {
   member: boolean;
@@ -39,7 +40,7 @@ export default function useMembership(user: User | null) {
       .eq("user_id", userId)
       .maybeSingle();
     // Keep the cached answer when offline; RLS still guards the data.
-    if (error) return console.error(error);
+    if (error) return reportError(error, "useMembership");
     const membership = {
       member: data !== null,
       admin: data?.is_admin === true,
