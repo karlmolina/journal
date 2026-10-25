@@ -25,6 +25,8 @@ interface SetFormProps {
   // Whether an exercise is done one side at a time, to offer Left / Right.
   isUnilateral?: (exercise: string) => boolean;
   submitLabel?: string;
+  // The exercise is shown above already (the set timer), so no field for it.
+  hideExercise?: boolean;
   onCancel?: () => void;
   // Editing a logged set: turn it into two, halving its time.
   onSplit?: () => void;
@@ -39,6 +41,7 @@ export default function SetForm({
   initial,
   isUnilateral,
   submitLabel = "Add set",
+  hideExercise,
   onCancel,
   onSplit,
   onDelete,
@@ -86,12 +89,14 @@ export default function SetForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-      <ExerciseInput
-        className={fieldClass}
-        value={exercise}
-        onChange={setExercise}
-        suggestions={suggestions}
-      />
+      {!hideExercise && (
+        <ExerciseInput
+          className={fieldClass}
+          value={exercise}
+          onChange={setExercise}
+          suggestions={suggestions}
+        />
+      )}
       {showSide && (
         <div className="flex gap-1.5" role="group" aria-label="Side">
           {(["left", "right"] as const).map((s) => (

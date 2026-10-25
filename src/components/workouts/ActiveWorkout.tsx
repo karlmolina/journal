@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   PlanChanges,
   SetInput,
@@ -35,8 +35,73 @@ import {
 } from "../../functions/supersets";
 import ExerciseInput from "./ExerciseInput";
 import SetList from "./SetList";
-import SetTimer from "./SetTimer";
+import SetTimer, { type SetTimerControl } from "./SetTimer";
+import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
+
+// The exercise after the current one, as one big card: tap it to start.
+function UpNextCard({
+  exercise,
+  howTo,
+  waiting,
+  onStart,
+}: {
+  exercise: Step;
+  howTo?: Exercise;
+  // A set is under way; it has to be saved first.
+  waiting: boolean;
+  onStart: () => void;
+}) {
+  const start = () => !waiting && onStart();
+  return (
+    <section
+      role="button"
+      tabIndex={waiting ? -1 : 0}
+      aria-disabled={waiting}
+      aria-label={`Up next: ${exercise.name}. Start it`}
+      className={`rounded-3xl bg-primary/10 dark:bg-primary/20 ring-2 ring-primary/40 px-4 py-5 sm:px-5 flex flex-col gap-1 transition ${waiting ? "" : "cursor-pointer hover:bg-primary/15 active:scale-[0.98]"}`}
+      onClick={start}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          start();
+        }
+      }}
+    >
+      <p className="text-xs font-bold tracking-wide text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
+        Up next
+      </p>
+      <p className="text-2xl font-extrabold leading-tight">{exercise.name}</p>
+      <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
+        {[describeTarget(exercise), exercise.notes].filter(Boolean).join(" · ")}
+      </p>
+      {/* Opening the how-to shouldn't start the exercise. */}
+      {howTo && (
+        <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+          <ExerciseHowTo exercise={howTo} />
+        </div>
+      )}
+      <span
+        className={`mt-3 flex items-center justify-center gap-2 rounded-full py-3 text-lg font-bold ${waiting ? "bg-base-content/10 text-base-content/55 dark:text-base-content/75" : "bg-primary text-primary-content"}`}
+      >
+        {waiting ? (
+          "Save this set first"
+        ) : (
+          <>
+            <svg
+              viewBox="0 0 24 24"
+              className="size-5 fill-current"
+              aria-hidden
+            >
+              <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" />
+            </svg>
+            Start {exercise.name}
+          </>
+        )}
+      </span>
+    </section>
+  );
+}
 
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
@@ -477,6 +542,26 @@ export default function ActiveWorkout({
     )
       setPicked(null);
   };
+  // The next unfinished exercise after this one (or its superset), else
+  // one skipped earlier.
+  const upNextIndex = (() => {
+    if (selectedIndex === null) return null;
+    const group = supersetOf(exercises[selectedIndex].name, supersets);
+    const open = (i: number) =>
+      i !== selectedIndex &&
+      !group?.some(
+        (n) => n.trim().toLowerCase() === exercises[i].name.toLowerCase(),
+      ) &&
+      setsDone(exercises[i], sets) < exercises[i].sets;
+    const after = exercises.findIndex((_, i) => i > selectedIndex && open(i));
+    if (after !== -1) return after;
+    const before = exercises.findIndex((_, i) => open(i));
+    return before === -1 ? null : before;
+  })();
+  const upNext = upNextIndex !== null ? exercises[upNextIndex] : undefined;
+  const timer = useRef<SetTimerControl>(null);
+  const [setBusy, setSetBusy] = useState(false);
+
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [notes, setNotes] = useState("");
@@ -643,8 +728,23 @@ export default function ActiveWorkout({
           lookup={lookup}
           exerciseNotes={exerciseNotes}
           onSave={handleSave}
+          control={timer}
+          onBusyChange={setSetBusy}
         />
       </section>
+
+      {upNext && (
+        <UpNextCard
+          key={upNext.name}
+          exercise={upNext}
+          howTo={lookup(upNext.name)}
+          waiting={setBusy}
+          onStart={() => {
+            setPicked(upNextIndex);
+            timer.current?.start(upNext.name);
+          }}
+        />
+      )}
 
       {sets.length > 0 && (
         <section className={cardClass}>
