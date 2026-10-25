@@ -1,5 +1,10 @@
 import type { WorkoutPlan, PlannedExercise } from "../hooks/useWorkoutPlans";
-import type { Side, Workout, WorkoutSet } from "../hooks/useWorkouts";
+import type {
+  PlanChanges,
+  Side,
+  Workout,
+  WorkoutSet,
+} from "../hooks/useWorkouts";
 import { WEIGHT_UNIT } from "./workoutSets";
 import { countSets } from "./supersets";
 
@@ -100,3 +105,66 @@ export function bestWeight(name: string, workouts: Workout[]) {
         best = Math.max(best ?? 0, s.weight);
   return best;
 }
+
+// A planned exercise as this workout does it: maybe swapped for another, or
+// ended before all its sets.
+export interface SessionExercise extends PlannedExercise {
+  // The plan's exercise, when another is done instead.
+  swapped_from?: string;
+  ended?: boolean;
+}
+
+// The session's exercises with this workout's swaps and early ends. A swap
+// keeps the sets, reps, rest and superset but not the old exercise's weight,
+// goal or notes; whether it's one side at a time comes from the library.
+export function applyPlanChanges(
+  exercises: PlannedExercise[],
+  changes: PlanChanges | null,
+): SessionExercise[] {
+  return exercises.map((e, i) => {
+    const swap = changes?.swaps?.[i];
+    const ended = changes?.ended?.includes(i) ?? false;
+    const swapped: SessionExercise = swap
+      ? {
+          name: swap,
+          sets: e.sets,
+          reps: e.reps,
+          rest_seconds: e.rest_seconds,
+          notes: "",
+          superset: e.superset,
+          swapped_from: e.name,
+        }
+      : { ...e };
+    return ended ? { ...swapped, ended } : swapped;
+  });
+}
+
+// Swaps the exercise at `index`; swapping back to the plan's undoes it. Either
+// way it's no longer ended.
+export function swapExercise(
+  changes: PlanChanges | null,
+  index: number,
+  name: string,
+  planned: string,
+): PlanChanges {
+  const swaps = { ...changes?.swaps };
+  if (key(name) === key(planned)) delete swaps[index];
+  else swaps[index] = name.trim();
+  return {
+    swaps,
+    ended: (changes?.ended ?? []).filter((i) => i !== index),
+  };
+}
+
+// Ends the exercise at `index` early, or picks it back up.
+export const endExercise = (
+  changes: PlanChanges | null,
+  index: number,
+  ended: boolean,
+): PlanChanges => ({
+  swaps: { ...changes?.swaps },
+  ended: [
+    ...(changes?.ended ?? []).filter((i) => i !== index),
+    ...(ended ? [index] : []),
+  ],
+});

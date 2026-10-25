@@ -34,7 +34,17 @@ export interface Workout {
   plan_session: number | null;
   // Supersets set up during this workout; null follows the plan's.
   supersets: string[][] | null;
+  // Plan exercises swapped or ended early in this workout only.
+  plan_changes: PlanChanges | null;
   workout_sets: WorkoutSet[];
+}
+
+// Keyed by the exercise's index in the plan session.
+export interface PlanChanges {
+  // The exercise done instead.
+  swaps?: Record<string, string>;
+  // Finished before all their sets were done.
+  ended?: number[];
 }
 
 export interface PlanSessionRef {
@@ -59,7 +69,7 @@ export type SetInput = Omit<NewSet, "exercise_id">;
 const CACHE_KEY = "workouts";
 const HISTORY_LIMIT = 20;
 const SELECT =
-  "id, started_at, paused_at, paused_seconds, ended_at, notes, plan_id, plan_session, supersets, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, side, rest_seconds, created_at)";
+  "id, started_at, paused_at, paused_seconds, ended_at, notes, plan_id, plan_session, supersets, plan_changes, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, side, rest_seconds, created_at)";
 
 // Stopwatch time: wall time since the start, minus time spent paused.
 export function elapsedSeconds(w: Workout, now = Date.now()) {
@@ -81,6 +91,7 @@ const pauseLength = (w: Workout, now: number) =>
 const normalize = (w: Workout): Workout => ({
   ...w,
   supersets: w.supersets ?? null,
+  plan_changes: w.plan_changes ?? null,
   workout_sets: w.workout_sets
     .filter(notDeleted("workout_sets"))
     .map((s) => ({
@@ -218,6 +229,7 @@ export default function useWorkouts(userId?: string) {
         plan_id: planned?.plan_id ?? null,
         plan_session: planned?.plan_session ?? null,
         supersets: null,
+        plan_changes: null,
         workout_sets: [],
       };
       setActive(workout);
@@ -282,6 +294,18 @@ export default function useWorkouts(userId?: string) {
   const setSupersets = useCallback(
     (supersets: string[][]) =>
       updateActive({ supersets }, "Couldn't save the superset."),
+    [updateActive],
+  );
+
+  // A swap renames the exercise in the workout's own supersets too.
+  const setPlanChanges = useCallback(
+    (plan_changes: PlanChanges, supersets?: string[][] | null) =>
+      updateActive(
+        supersets === undefined
+          ? { plan_changes }
+          : { plan_changes, supersets },
+        "Couldn't change the plan.",
+      ),
     [updateActive],
   );
 
@@ -541,6 +565,7 @@ export default function useWorkouts(userId?: string) {
     finish,
     discard,
     setSupersets,
+    setPlanChanges,
     removeWorkout,
     addSet,
     updateSet,
