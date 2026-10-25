@@ -38,21 +38,37 @@ function UpNext({
   const [chosen, setChosen] = useState<number | null>(null);
   const index = chosen !== null && chosen < sessions.length ? chosen : next;
   const session = sessions[index];
+  // The workout itself is the start button: one big tap target.
   return (
-    <section className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-5 sm:px-5 flex flex-col gap-1">
-      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-        {index === next ? "Up next" : "From your plan"} · {plan.plan.title}
-      </p>
-      <p className="text-lg font-bold leading-snug">
-        {session.day}: {session.focus}
-      </p>
-      <p className="text-sm font-medium text-base-content/60 dark:text-base-content/80">
-        {session.exercises.length}{" "}
-        {session.exercises.length === 1 ? "exercise" : "exercises"} · about{" "}
-        {session.duration_minutes} min
-      </p>
+    <section className="flex flex-col gap-3">
+      <button
+        type="button"
+        className="w-full rounded-3xl bg-primary text-primary-content px-5 py-7 sm:px-6 flex flex-col items-start gap-1 text-left shadow-lg shadow-primary/25 hover:brightness-110 active:scale-[0.98] transition cursor-pointer"
+        onClick={() => onStart(index)}
+      >
+        <span className="text-xs font-semibold tracking-wide opacity-80">
+          {index === next ? "Up next" : "From your plan"} · {plan.plan.title}
+        </span>
+        <span className="text-2xl font-extrabold leading-tight">
+          {session.day}: {session.focus}
+        </span>
+        <span className="text-sm font-semibold opacity-85">
+          {session.exercises.length}{" "}
+          {session.exercises.length === 1 ? "exercise" : "exercises"} · about{" "}
+          {session.duration_minutes} min
+        </span>
+        <span className="mt-4 self-stretch flex items-center justify-center gap-2 rounded-full bg-primary-content/15 py-3 text-lg font-bold">
+          <svg viewBox="0 0 24 24" className="size-5 fill-current" aria-hidden>
+            <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" />
+          </svg>
+          Tap to start
+        </span>
+      </button>
       {sessions.length > 1 && (
-        <div className="flex flex-wrap gap-1.5 mt-2" aria-label="Plan days">
+        <div
+          className="flex flex-wrap justify-center gap-1.5"
+          aria-label="Plan days"
+        >
           {sessions.map((s, i) => (
             <Chip key={i} selected={i === index} onClick={() => setChosen(i)}>
               {s.day}
@@ -60,13 +76,6 @@ function UpNext({
           ))}
         </div>
       )}
-      <button
-        type="button"
-        className="btn btn-primary btn-lg rounded-full font-bold mt-3 active:scale-95 transition"
-        onClick={() => onStart(index)}
-      >
-        Start {session.day}
-      </button>
     </section>
   );
 }
