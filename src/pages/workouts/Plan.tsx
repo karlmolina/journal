@@ -9,14 +9,22 @@ import useWorkoutPlans, {
   type WorkoutPlan,
 } from "../../hooks/useWorkoutPlans";
 import useWorkouts, { type Workout } from "../../hooks/useWorkouts";
+import useInjuries from "../../hooks/useInjuries";
+import useExercises from "../../hooks/useExercises";
+import usePlanPreferences, {
+  DEFAULT_PREFERENCES,
+} from "../../hooks/usePlanPreferences";
+import {
+  buildPlanContext,
+  buildPlanPrompt,
+  parsePlanReply,
+} from "../../functions/planPrompt";
 import {
   bestWeight,
   describeTarget,
   nextSessionIndex,
 } from "../../functions/planProgress";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
-import { formatClock } from "../../functions/formatDuration";
-import useTick from "../../hooks/useTick";
 
 const DAYS = [2, 3, 4, 5, 6];
 const MINUTES = [20, 30, 45, 60, 90];
@@ -28,63 +36,171 @@ const fieldClass =
 const label =
   "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
 
-// Shown while Gemini works, so a slow answer reads as progress, not a hang.
-// It mounts when the request starts, so its own clock is the elapsed time.
-function Waiting() {
-  const [startedAt] = useState(() => Date.now());
-  useTick(true);
-  const seconds = Math.floor((Date.now() - startedAt) / 1000);
-  return (
-    <p
-      className="text-xs font-medium text-center text-base-content/55 dark:text-base-content/75"
-      aria-live="polite"
-    >
-      <span className="tabular-nums font-semibold">{formatClock(seconds)}</span>
-      {" · "}
-      {seconds < 60
-        ? "Usually 20 to 60 seconds."
-        : "Still working. It stops and tells you if Gemini doesn't answer within 2½ minutes."}
-    </p>
-  );
-}
-
-function PlanForm({
-  initial,
-  generating,
-  onSubmit,
-  onCancel,
+// Copies the prompt for a chatbot. When the clipboard is blocked, the prompt
+// shows in a box to copy by hand.
+function CopyPrompt({
+  getPrompt,
+  disabled,
 }: {
-  initial?: WorkoutPlan;
-  generating: boolean;
-  onSubmit: (request: PlanRequest) => void;
-  onCancel?: () => void;
+  getPrompt: () => string;
+  disabled?: boolean;
 }) {
-  const [goals, setGoals] = useState(initial?.goals ?? "");
-  const [days, setDays] = useState(initial?.days_per_week ?? 3);
-  const [minutes, setMinutes] = useState(initial?.minutes_per_session ?? 45);
-  const [equipment, setEquipment] = useState(initial?.equipment ?? "");
+  const [copied, setCopied] = useState(false);
+  const [manual, setManual] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!goals.trim() || generating) return;
-    onSubmit({
-      goals: goals.trim(),
-      days_per_week: days,
-      minutes_per_session: minutes,
-      equipment: equipment.trim(),
-    });
+  const copy = async () => {
+    const prompt = getPrompt();
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setManual(null);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setManual(prompt);
+    }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={`${cardClass} flex flex-col gap-3`}
-    >
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        className="btn btn-primary rounded-full font-bold"
+        onClick={copy}
+        disabled={disabled}
+      >
+        {copied ? "Copied. Paste it into a chatbot" : "Copy prompt"}
+      </button>
+      {manual !== null && (
+        <textarea
+          className={`${fieldClass} resize-none font-mono text-xs`}
+          rows={6}
+          readOnly
+          value={manual}
+          onFocus={(e) => e.target.select()}
+          aria-label="Prompt to copy"
+        />
+      )}
+    </div>
+  );
+}
+
+// Where the chatbot's reply goes. It's checked before anything is saved, and
+// what's wrong is listed so the person can ask the bot to fix it.
+function PasteReply({
+  saving,
+  onImport,
+}: {
+  saving: boolean;
+  onImport: (plan: WorkoutPlan["plan"]) => Promise<boolean>;
+}) {
+  const [reply, setReply] = useState("");
+  const [errors, setErrors] = useState<string[]>([]);
+
+  const handleImport = async () => {
+    const result = parsePlanReply(reply);
+    if (!result.ok) {
+      setErrors(result.errors);
+      return;
+    }
+    setErrors([]);
+    if (await onImport(result.plan)) setReply("");
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <textarea
+        className={`${fieldClass} resize-none font-mono text-xs`}
+        rows={4}
+        placeholder="Paste the chatbot's reply here"
+        value={reply}
+        onChange={(e) => {
+          setReply(e.target.value);
+          setErrors([]);
+        }}
+        aria-label="Chatbot reply"
+        disabled={saving}
+      />
+      {errors.length > 0 && (
+        <div
+          role="alert"
+          className="rounded-xl bg-error/15 px-3 py-2 text-sm font-semibold"
+        >
+          <p>That reply can't be imported yet:</p>
+          <ul className="mt-1 list-disc pl-5 font-medium">
+            {errors.slice(0, 8).map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
+          </ul>
+          {errors.length > 8 && (
+            <p className="mt-1 font-medium">…and {errors.length - 8} more.</p>
+          )}
+          <p className="mt-1 font-medium">
+            You can paste these back to the chatbot and ask it to fix them.
+          </p>
+        </div>
+      )}
+      <button
+        type="button"
+        className="btn rounded-full font-bold bg-base-content/8 border-0 shadow-none"
+        onClick={handleImport}
+        disabled={!reply.trim() || saving}
+      >
+        {saving ? (
+          <>
+            <span className="loading loading-spinner loading-sm"></span>
+            Saving…
+          </>
+        ) : (
+          "Import plan"
+        )}
+      </button>
+    </div>
+  );
+}
+
+const Step = ({ n, children }: { n: number; children: React.ReactNode }) => (
+  <p className={label}>
+    {n}. {children}
+  </p>
+);
+
+function PlanForm({
+  initial,
+  saving,
+  buildPrompt,
+  onSavePreferences,
+  onImport,
+  onCancel,
+}: {
+  initial: PlanRequest;
+  saving: boolean;
+  buildPrompt: (request: PlanRequest) => string;
+  onSavePreferences: (request: PlanRequest) => void;
+  onImport: (
+    plan: WorkoutPlan["plan"],
+    request: PlanRequest,
+  ) => Promise<boolean>;
+  onCancel?: () => void;
+}) {
+  const [goals, setGoals] = useState(initial.goals);
+  const [days, setDays] = useState(initial.days_per_week);
+  const [minutes, setMinutes] = useState(initial.minutes_per_session);
+  const [equipment, setEquipment] = useState(initial.equipment);
+
+  const request = (): PlanRequest => ({
+    goals: goals.trim(),
+    days_per_week: days,
+    minutes_per_session: minutes,
+    equipment: equipment.trim(),
+  });
+
+  return (
+    <div className={`${cardClass} flex flex-col gap-3`}>
       <div>
         <h2 className="font-bold">Plan my training</h2>
         <p className="text-sm font-medium text-base-content/55 dark:text-base-content/75">
-          Gemini reads your injuries and recent workouts, then writes a weekly
-          plan around them.
+          Copy a prompt with your goals, injuries and recent workouts into any
+          chatbot, then paste its reply back here.
         </p>
       </div>
       <textarea
@@ -93,8 +209,8 @@ function PlanForm({
         placeholder="Your goals, like: Get back to running 5k without my knee hurting, and build some upper body strength."
         value={goals}
         onChange={(e) => setGoals(e.target.value)}
+        onBlur={() => onSavePreferences(request())}
         aria-label="Goals"
-        disabled={generating}
       />
       <div className="flex flex-col gap-1.5">
         <span className={label}>Days a week</span>
@@ -120,70 +236,68 @@ function PlanForm({
           ))}
         </div>
       </div>
-      <input
-        className={fieldClass}
+      <textarea
+        className={`${fieldClass} resize-none`}
+        rows={2}
         placeholder="Equipment, like dumbbells and a band (optional)"
         value={equipment}
         onChange={(e) => setEquipment(e.target.value)}
+        onBlur={() => onSavePreferences(request())}
         aria-label="Equipment"
-        disabled={generating}
       />
-      <div className="flex gap-2">
-        {onCancel && (
-          <button
-            type="button"
-            className="btn btn-ghost rounded-full font-bold flex-1"
-            onClick={onCancel}
-            disabled={generating}
-          >
-            Cancel
-          </button>
-        )}
+      <Step n={1}>
+        Copy the prompt into ChatGPT, Claude, Gemini or another chatbot
+      </Step>
+      <CopyPrompt
+        disabled={!goals.trim()}
+        getPrompt={() => {
+          onSavePreferences(request());
+          return buildPrompt(request());
+        }}
+      />
+      <Step n={2}>Paste its reply</Step>
+      <PasteReply
+        saving={saving}
+        onImport={(plan) => {
+          onSavePreferences(request());
+          return onImport(plan, request());
+        }}
+      />
+      {onCancel && (
         <button
-          type="submit"
-          className="btn btn-primary rounded-full font-bold flex-1"
-          disabled={!goals.trim() || generating}
+          type="button"
+          className="btn btn-ghost rounded-full font-bold"
+          onClick={onCancel}
+          disabled={saving}
         >
-          {generating ? (
-            <>
-              <span className="loading loading-spinner loading-sm"></span>
-              Writing your plan…
-            </>
-          ) : (
-            "Make my plan"
-          )}
+          Cancel
         </button>
-      </div>
-      {generating && <Waiting />}
-    </form>
+      )}
+    </div>
   );
 }
 
 function ReviseForm({
-  generating,
-  onSubmit,
+  saving,
+  buildPrompt,
+  onImport,
 }: {
-  generating: boolean;
-  onSubmit: (instruction: string) => Promise<boolean>;
+  saving: boolean;
+  buildPrompt: (instruction: string) => string;
+  onImport: (
+    plan: WorkoutPlan["plan"],
+    instruction: string,
+  ) => Promise<boolean>;
 }) {
   const [instruction, setInstruction] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!instruction.trim() || generating) return;
-    if (await onSubmit(instruction.trim())) setInstruction("");
-  };
-
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={`${cardClass} flex flex-col gap-3`}
-    >
+    <div className={`${cardClass} flex flex-col gap-3`}>
       <div>
         <h2 className="font-bold">Change this plan</h2>
         <p className="text-sm font-medium text-base-content/55 dark:text-base-content/75">
-          Tell Gemini what to change. It keeps the rest, and your current
-          version stays under earlier plans.
+          Say what to change. The prompt includes this plan, so the chatbot
+          keeps the rest, and your current version stays under earlier plans.
         </p>
       </div>
       <textarea
@@ -193,24 +307,25 @@ function ReviseForm({
         value={instruction}
         onChange={(e) => setInstruction(e.target.value)}
         aria-label="What to change"
-        disabled={generating}
       />
-      <button
-        type="submit"
-        className="btn btn-primary rounded-full font-bold"
-        disabled={!instruction.trim() || generating}
-      >
-        {generating ? (
-          <>
-            <span className="loading loading-spinner loading-sm"></span>
-            Updating your plan…
-          </>
-        ) : (
-          "Update plan"
-        )}
-      </button>
-      {generating && <Waiting />}
-    </form>
+      <Step n={1}>Copy the prompt into a chatbot</Step>
+      <CopyPrompt
+        disabled={!instruction.trim()}
+        getPrompt={() => buildPrompt(instruction.trim())}
+      />
+      <Step n={2}>Paste its reply</Step>
+      <PasteReply
+        saving={saving}
+        onImport={async (plan) => {
+          const ok = await onImport(
+            plan,
+            instruction.trim() || "Changed in a chatbot",
+          );
+          if (ok) setInstruction("");
+          return ok;
+        }}
+      />
+    </div>
   );
 }
 
@@ -392,15 +507,16 @@ export default function Plan() {
   const {
     plans,
     loading,
-    generating,
+    saving,
     error,
-    errorDetails,
     dismissError,
-    generate,
-    revise,
+    importPlan,
     removePlan,
   } = useWorkoutPlans(user?.id);
   const { active, history, start } = useWorkouts(user?.id);
+  const { injuries } = useInjuries(user?.id);
+  const { exercises } = useExercises(user?.id);
+  const { preferences, save: savePreferences } = usePlanPreferences(user?.id);
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [planning, setPlanning] = useState(false);
@@ -409,28 +525,58 @@ export default function Plan() {
   const older = plans.filter((p) => p !== selected);
   const showForm = planning || (!loading && plans.length === 0);
 
-  const handleSubmit = async (request: PlanRequest) => {
-    if (await generate(request)) {
+  const prompt = (
+    request: PlanRequest,
+    current?: WorkoutPlan,
+    instruction?: string,
+  ) =>
+    buildPlanPrompt(
+      buildPlanContext({
+        request,
+        injuries,
+        workouts: history,
+        exercises,
+        currentPlan: current?.plan,
+      }),
+      instruction,
+    );
+
+  // A revision keeps the plan's own goals and equipment.
+  const requestFor = (p: WorkoutPlan): PlanRequest => ({
+    goals: p.goals,
+    days_per_week: p.days_per_week,
+    minutes_per_session: p.minutes_per_session,
+    equipment: p.equipment ?? "",
+  });
+
+  // The latest plan's settings stand in until saved preferences load.
+  const formInitial: PlanRequest =
+    preferences ?? (plans[0] ? requestFor(plans[0]) : DEFAULT_PREFERENCES);
+
+  const handleImport = async (
+    plan: WorkoutPlan["plan"],
+    request: PlanRequest,
+  ) => {
+    if (await importPlan(plan, request)) {
       setSelectedId(null);
       setPlanning(false);
+      return true;
     }
+    return false;
   };
 
   return (
     <div className="flex flex-col gap-3 pb-6">
-      {error && (
-        <ErrorBanner
-          message={error}
-          details={errorDetails}
-          onDismiss={dismissError}
-        />
-      )}
+      {error && <ErrorBanner message={error} onDismiss={dismissError} />}
 
       {showForm ? (
         <PlanForm
-          initial={plans[0]}
-          generating={generating}
-          onSubmit={handleSubmit}
+          key={preferences ? "saved" : "default"}
+          initial={formInitial}
+          saving={saving}
+          buildPrompt={(request) => prompt(request)}
+          onSavePreferences={savePreferences}
+          onImport={handleImport}
           onCancel={plans.length > 0 ? () => setPlanning(false) : undefined}
         />
       ) : (
@@ -473,9 +619,16 @@ export default function Plan() {
             }}
           />
           <ReviseForm
-            generating={generating}
-            onSubmit={async (instruction) => {
-              const ok = await revise(selected, instruction);
+            key={selected.id}
+            saving={saving}
+            buildPrompt={(instruction) =>
+              prompt(requestFor(selected), selected, instruction)
+            }
+            onImport={async (plan, instruction) => {
+              const ok = await importPlan(plan, requestFor(selected), {
+                from: selected,
+                instruction,
+              });
               if (ok) setSelectedId(null);
               return ok;
             }}
