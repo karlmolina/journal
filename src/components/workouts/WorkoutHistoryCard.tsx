@@ -143,12 +143,22 @@ export default function WorkoutHistoryCard({
             className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm"
             aria-label="Body parts worked"
           >
-            {parts.map(({ part, score }) => (
+            {parts.map(({ part, score, seconds }) => (
               <li key={part} className="flex items-center gap-2 min-w-0">
                 <span className="flex-1 min-w-0 truncate font-semibold text-base-content/85 dark:text-[color-mix(in_oklab,var(--color-base-content),white_30%)]">
                   {bodyPartLabel(part)}
                 </span>
-                <ScoreMeter score={score} />
+                {seconds !== undefined ? (
+                  <span
+                    className={`shrink-0 text-xs font-semibold tabular-nums ${muted}`}
+                  >
+                    {seconds > 0
+                      ? formatDuration(seconds)
+                      : `${score} ${score === 1 ? "set" : "sets"}`}
+                  </span>
+                ) : (
+                  <ScoreMeter score={score} />
+                )}
               </li>
             ))}
           </ul>
