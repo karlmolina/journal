@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabase";
+import { useAuth } from "../context/AuthContext";
+import { readUserCache, writeUserCache } from "../functions/userCache";
 
 interface InviteCode {
   code: string;
@@ -16,8 +18,15 @@ const formatDay = (date: string) =>
     year: "numeric",
   });
 
+const CACHE_KEY = "invite_codes";
+
 export default function Invites() {
-  const [codes, setCodes] = useState<InviteCode[] | null>(null);
+  const { user } = useAuth();
+  const userId = user?.id;
+  // Last known codes show instantly; the list refreshes in the background.
+  const [codes, setCodes] = useState<InviteCode[] | null>(() =>
+    userId ? readUserCache<InviteCode[] | null>(CACHE_KEY, userId, null) : null,
+  );
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +39,8 @@ export default function Invites() {
       return;
     }
     setCodes(data);
-  }, []);
+    if (userId) writeUserCache(CACHE_KEY, userId, data);
+  }, [userId]);
 
   useEffect(() => {
     load();
@@ -61,6 +71,8 @@ export default function Invites() {
   };
 
   const revoke = async (code: string) => {
+    // Gone from the list right away; the reload below puts it back on failure.
+    setCodes((prev) => prev?.filter((c) => c.code !== code) ?? prev);
     setError(null);
     const { error } = await supabase.rpc("revoke_invite_code", {
       invite_code: code,

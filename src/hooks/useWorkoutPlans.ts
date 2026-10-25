@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../supabase";
+import { readUserCache, writeUserCache } from "../functions/userCache";
 
 export interface PlannedExercise {
   name: string;
@@ -80,21 +81,11 @@ const MESSAGES: Record<string, string> = {
 // normally arrives first; this only catches a request that hangs.
 const PLAN_TIMEOUT_MS = 150_000;
 
-function readCache(userId: string): WorkoutPlan[] {
-  try {
-    return JSON.parse(localStorage.getItem(`${CACHE_KEY}_${userId}`) ?? "[]");
-  } catch {
-    return [];
-  }
-}
+const readCache = (userId: string) =>
+  readUserCache<WorkoutPlan[]>(CACHE_KEY, userId, []);
 
-function writeCache(userId: string, plans: WorkoutPlan[]) {
-  try {
-    localStorage.setItem(`${CACHE_KEY}_${userId}`, JSON.stringify(plans));
-  } catch {
-    // Ignore quota / private mode errors; the cache is only a convenience.
-  }
-}
+const writeCache = (userId: string, value: WorkoutPlan[]) =>
+  writeUserCache(CACHE_KEY, userId, value);
 
 export default function useWorkoutPlans(userId?: string) {
   const [plans, setPlans] = useState<WorkoutPlan[]>(() =>

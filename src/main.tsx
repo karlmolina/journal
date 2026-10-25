@@ -13,12 +13,26 @@ import "./index.css";
 import { AuthProvider } from "./context/AuthProvider";
 import Root from "./components/ThemeRoot";
 
-// The workouts pages load on first visit so the journal stays fast to open.
-const Session = React.lazy(() => import("./pages/workouts/Session"));
-const Library = React.lazy(() => import("./pages/workouts/Library"));
-const Injuries = React.lazy(() => import("./pages/workouts/Injuries"));
-const Progress = React.lazy(() => import("./pages/workouts/Progress"));
-const Plan = React.lazy(() => import("./pages/workouts/Plan"));
+// The workouts pages load separately so the journal stays fast to open, then
+// download in the background once it's idle so switching tabs is instant.
+const workoutPages = {
+  session: () => import("./pages/workouts/Session"),
+  library: () => import("./pages/workouts/Library"),
+  injuries: () => import("./pages/workouts/Injuries"),
+  progress: () => import("./pages/workouts/Progress"),
+  plan: () => import("./pages/workouts/Plan"),
+};
+const Session = React.lazy(workoutPages.session);
+const Library = React.lazy(workoutPages.library);
+const Injuries = React.lazy(workoutPages.injuries);
+const Progress = React.lazy(workoutPages.progress);
+const Plan = React.lazy(workoutPages.plan);
+
+const prefetchWorkoutPages = () =>
+  Object.values(workoutPages).forEach((load) => load().catch(() => {}));
+if ("requestIdleCallback" in window)
+  requestIdleCallback(prefetchWorkoutPages, { timeout: 5000 });
+else setTimeout(prefetchWorkoutPages, 2000);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

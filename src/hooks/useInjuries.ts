@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../supabase";
+import { readUserCache, writeUserCache } from "../functions/userCache";
 
 export type Side = "left" | "right" | "center";
 
@@ -50,21 +51,11 @@ const sortCheckins = (i: Injury): Injury => ({
   ),
 });
 
-function readCache(userId: string): Injury[] {
-  try {
-    return JSON.parse(localStorage.getItem(`${CACHE_KEY}_${userId}`) ?? "[]");
-  } catch {
-    return [];
-  }
-}
+const readCache = (userId: string) =>
+  readUserCache<Injury[]>(CACHE_KEY, userId, []);
 
-function writeCache(userId: string, injuries: Injury[]) {
-  try {
-    localStorage.setItem(`${CACHE_KEY}_${userId}`, JSON.stringify(injuries));
-  } catch {
-    // Ignore quota / private mode errors; the cache is only a convenience.
-  }
-}
+const writeCache = (userId: string, value: Injury[]) =>
+  writeUserCache(CACHE_KEY, userId, value);
 
 export default function useInjuries(userId?: string) {
   const [injuries, setInjuries] = useState<Injury[]>(() =>

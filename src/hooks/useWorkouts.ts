@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../supabase";
+import { readUserCache, writeUserCache } from "../functions/userCache";
 
 export type Side = "left" | "right";
 
@@ -92,23 +93,11 @@ interface Cached {
   history: Workout[];
 }
 
-function readCache(userId: string): Cached {
-  try {
-    const cached = localStorage.getItem(`${CACHE_KEY}_${userId}`);
-    if (cached) return JSON.parse(cached);
-  } catch {
-    // Fall through to an empty cache.
-  }
-  return { active: null, history: [] };
-}
+const readCache = (userId: string) =>
+  readUserCache<Cached>(CACHE_KEY, userId, { active: null, history: [] });
 
-function writeCache(userId: string, value: Cached) {
-  try {
-    localStorage.setItem(`${CACHE_KEY}_${userId}`, JSON.stringify(value));
-  } catch {
-    // Ignore quota / private mode errors; the cache is only a convenience.
-  }
-}
+const writeCache = (userId: string, value: Cached) =>
+  writeUserCache(CACHE_KEY, userId, value);
 
 export default function useWorkouts(userId?: string) {
   // Seeded from the cache so a running stopwatch shows on the first paint.

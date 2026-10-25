@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../supabase";
+import { readUserCache, writeUserCache } from "../functions/userCache";
 
 export interface Membership {
   member: boolean;
@@ -9,25 +10,8 @@ export interface Membership {
 
 const MEMBERSHIP_CACHE_KEY = "journal_membership";
 
-function readCached(userId: string): Membership | null {
-  try {
-    const cached = localStorage.getItem(`${MEMBERSHIP_CACHE_KEY}_${userId}`);
-    return cached ? JSON.parse(cached) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeCached(userId: string, membership: Membership) {
-  try {
-    localStorage.setItem(
-      `${MEMBERSHIP_CACHE_KEY}_${userId}`,
-      JSON.stringify(membership),
-    );
-  } catch {
-    // Ignore quota / private mode errors; the cache is only a convenience.
-  }
-}
+const readCached = (userId: string) =>
+  readUserCache<Membership | null>(MEMBERSHIP_CACHE_KEY, userId, null);
 
 // Whether the signed-in user has redeemed an invite (or had an account before
 // invites existed), and whether they can make invite codes. Starts from the
@@ -56,8 +40,11 @@ export default function useMembership(user: User | null) {
       .maybeSingle();
     // Keep the cached answer when offline; RLS still guards the data.
     if (error) return console.error(error);
-    const membership = { member: data !== null, admin: data?.is_admin === true };
-    writeCached(userId, membership);
+    const membership = {
+      member: data !== null,
+      admin: data?.is_admin === true,
+    };
+    writeUserCache(MEMBERSHIP_CACHE_KEY, userId, membership);
     setState((prev) =>
       prev.userId === userId ? { userId, membership } : prev,
     );

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../supabase";
+import { readUserCache, writeUserCache } from "../../functions/userCache";
 import { useAuth } from "../../context/AuthContext";
 import useInjuries from "../../hooks/useInjuries";
 import { elapsedSeconds, type Workout } from "../../hooks/useWorkouts";
@@ -13,6 +14,7 @@ import { placeLabel } from "../../functions/bodyRegions";
 const WEEKS = 12;
 const HISTORY_WEEKS = 26;
 const DAY_MS = 86_400_000;
+const CACHE_KEY = "progress_workouts";
 
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
@@ -103,7 +105,10 @@ export default function Progress() {
   const { user } = useAuth();
   const userId = user?.id;
   const { injuries } = useInjuries(userId);
-  const [workouts, setWorkouts] = useState<Workout[] | null>(null);
+  // Seeded from the last visit so the charts paint before the refresh lands.
+  const [workouts, setWorkouts] = useState<Workout[] | null>(() =>
+    userId ? readUserCache<Workout[] | null>(CACHE_KEY, userId, null) : null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [exercise, setExercise] = useState<string | null>(null);
   const [injuryId, setInjuryId] = useState<string | null>(null);
@@ -131,15 +136,15 @@ export default function Progress() {
           setError("Couldn't load your workouts.");
           return;
         }
-        setWorkouts(
-          (data as Workout[]).map((w) => ({
-            ...w,
-            workout_sets: w.workout_sets.map((s) => ({
-              ...s,
-              weight: s.weight === null ? null : Number(s.weight),
-            })),
+        const next = (data as Workout[]).map((w) => ({
+          ...w,
+          workout_sets: w.workout_sets.map((s) => ({
+            ...s,
+            weight: s.weight === null ? null : Number(s.weight),
           })),
-        );
+        }));
+        setWorkouts(next);
+        writeUserCache(CACHE_KEY, userId, next);
       });
     return () => {
       cancelled = true;
