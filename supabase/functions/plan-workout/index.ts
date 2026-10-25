@@ -15,6 +15,9 @@ const DAILY_PLAN_LIMIT = 20;
 // Edge Functions are cut off at 150 seconds, so give up on Gemini before that
 // and send a clear error instead of a dropped connection.
 const GEMINI_TIMEOUT_MS = 120_000;
+// Gemini often answers 503 "high demand" for a few seconds at a time, so an
+// overloaded or failed call is retried after these waits, within the timeout.
+const RETRY_DELAYS_MS = [2_000, 5_000];
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -282,50 +285,71 @@ Deno.serve(async (req) => {
 
   const model = Deno.env.get("GEMINI_MODEL") || DEFAULT_MODEL;
   const startedAt = Date.now();
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: "POST",
-      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM }] },
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text: `Here is everything the app knows about me, as JSON:\n\n${JSON.stringify(context)}\n\n${ask}`,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseJsonSchema: PLAN_SCHEMA,
-          // Gemini 3 thinks hard by default, which pushed a full week's plan
-          // past the 150 second limit. Older models don't take this setting.
-          ...(model.startsWith("gemini-3") && {
-            thinkingConfig: { thinkingLevel: "low" },
-          }),
+  const callGemini = () =>
+    fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: "POST",
+        signal: AbortSignal.timeout(
+          GEMINI_TIMEOUT_MS - (Date.now() - startedAt),
+        ),
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
         },
-      }),
-    },
-  ).catch((err: Error) => {
-    console.error(model, `${Date.now() - startedAt} ms`, err);
-    return err;
-  });
-  if (res instanceof Error)
-    return res.name === "TimeoutError"
-      ? json({ error: "ai_timeout" }, 504)
-      : json({ error: "ai_failed" }, 502);
-  const result: GeminiResponse | null = await res.json().catch(() => null);
-  console.log(
-    model,
-    res.status,
-    result?.candidates?.[0]?.finishReason,
-    `${Date.now() - startedAt} ms`,
-  );
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM }] },
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `Here is everything the app knows about me, as JSON:\n\n${JSON.stringify(context)}\n\n${ask}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseJsonSchema: PLAN_SCHEMA,
+            // Gemini 3 thinks hard by default, which pushed a full week's plan
+            // past the 150 second limit. Older models don't take this setting.
+            ...(model.startsWith("gemini-3") && {
+              thinkingConfig: { thinkingLevel: "low" },
+            }),
+          },
+        }),
+      },
+    ).catch((err: Error) => {
+      console.error(model, `${Date.now() - startedAt} ms`, err);
+      return err;
+    });
+
+  let res: Response;
+  let result: GeminiResponse | null;
+  for (let attempt = 0; ; attempt++) {
+    const sent = await callGemini();
+    if (sent instanceof Error)
+      return sent.name === "TimeoutError"
+        ? json({ error: "ai_timeout" }, 504)
+        : json({ error: "ai_failed", detail: sent.message }, 502);
+    res = sent;
+    result = await res.json().catch(() => null);
+    console.log(
+      model,
+      res.status,
+      result?.candidates?.[0]?.finishReason,
+      `${Date.now() - startedAt} ms`,
+    );
+    const delay = RETRY_DELAYS_MS[attempt];
+    if (
+      (res.status !== 500 && res.status !== 503) ||
+      delay === undefined ||
+      Date.now() - startedAt + delay > GEMINI_TIMEOUT_MS / 2
+    )
+      break;
+    await new Promise((r) => setTimeout(r, delay));
+  }
   if (!res.ok) {
     console.error(res.status, JSON.stringify(result));
     const status = result?.error?.status;
@@ -342,7 +366,10 @@ Deno.serve(async (req) => {
       return json({ error: "bad_api_key" }, 503);
     if (res.status === 404 || status === "NOT_FOUND")
       return json({ error: "model_unavailable" }, 503);
-    return json({ error: "ai_failed" }, 502);
+    const detail =
+      `Gemini ${res.status} ${result?.error?.message ?? ""}`.trim();
+    if (res.status === 503) return json({ error: "ai_busy", detail }, 503);
+    return json({ error: "ai_failed", detail }, 502);
   }
 
   const candidate = result?.candidates?.[0];
@@ -362,7 +389,13 @@ Deno.serve(async (req) => {
     if (!Array.isArray(plan.sessions)) throw new Error("no sessions");
   } catch {
     console.error("Unparseable plan", candidate?.finishReason);
-    return json({ error: "ai_failed" }, 502);
+    return json(
+      {
+        error: "ai_failed",
+        detail: `Unreadable plan from Gemini (finish reason ${candidate?.finishReason})`,
+      },
+      502,
+    );
   }
 
   const { data, error } = await supabase

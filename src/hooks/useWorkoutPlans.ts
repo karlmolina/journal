@@ -72,6 +72,8 @@ const MESSAGES: Record<string, string> = {
   not_a_member: "Redeem an invite code to use AI planning.",
   plan_not_found: "That plan was deleted. Pick another one.",
   ai_timeout: "Gemini took too long to answer. Try again in a minute.",
+  ai_busy:
+    "Gemini is overloaded right now (Google's side). Try again in a few minutes.",
 };
 
 // A little longer than the function's own limit on Gemini, so its answer
@@ -101,6 +103,7 @@ export default function useWorkoutPlans(userId?: string) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
   useEffect(() => {
     if (userId) writeCache(userId, plans);
@@ -133,6 +136,7 @@ export default function useWorkoutPlans(userId?: string) {
   const callAI = useCallback(async (body: object) => {
     setGenerating(true);
     setError(null);
+    setErrorDetails(null);
     const { data, error } = await supabase.functions.invoke("plan-workout", {
       body,
       timeout: PLAN_TIMEOUT_MS,
@@ -140,22 +144,22 @@ export default function useWorkoutPlans(userId?: string) {
     setGenerating(false);
     if (error) {
       console.error(error);
-      // The function answers { error: code }; the gateway in front of it
-      // answers { message }. Unknown errors keep their detail on screen so
-      // they can be reported.
+      // The function answers { error: code, detail? }; the gateway in front
+      // of it answers { message }. The details stay on screen, and are copied
+      // with the message, so they can be reported.
       let code = error.context?.name === "AbortError" ? "ai_timeout" : "";
       let detail = error.message;
       if (error instanceof FunctionsHttpError) {
         const res: Response = error.context;
-        const b: { error?: string; message?: string } = await res
-          .json()
-          .catch(() => ({}));
+        const b: { error?: string; message?: string; detail?: string } =
+          await res.json().catch(() => ({}));
         code = b.error ?? "";
-        detail = `${res.status} ${b.error ?? b.message ?? ""}`.trim();
+        detail = [res.status, b.error ?? b.message, b.detail]
+          .filter(Boolean)
+          .join(" ");
       }
-      setError(
-        MESSAGES[code] ?? `Couldn't make a plan (${detail}). Try again.`,
-      );
+      setError(MESSAGES[code] ?? "Couldn't make a plan. Try again.");
+      setErrorDetails(`${detail} · ${new Date().toISOString()}`);
       return false;
     }
     setPlans((prev) => [data as WorkoutPlan, ...prev]);
@@ -176,6 +180,7 @@ export default function useWorkoutPlans(userId?: string) {
   const removePlan = useCallback(async (plan: WorkoutPlan) => {
     setPlans((prev) => prev.filter((p) => p.id !== plan.id));
     setError(null);
+    setErrorDetails(null);
     const { error } = await supabase
       .from("workout_plans")
       .delete()
@@ -196,7 +201,11 @@ export default function useWorkoutPlans(userId?: string) {
     loading,
     generating,
     error,
-    dismissError: () => setError(null),
+    errorDetails,
+    dismissError: () => {
+      setError(null);
+      setErrorDetails(null);
+    },
     generate,
     revise,
     removePlan,
