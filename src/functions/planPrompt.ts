@@ -1,5 +1,7 @@
-// The prompt the Plan tab copies for any chatbot, and the checks its JSON
-// reply has to pass before it's saved as a plan.
+// The prompt the Plan tab copies for any chatbot, and the reader for the
+// chatbot's reply. Both are short lines of text rather than JSON, because
+// phone clipboards cut off long text: one exercise is one line like
+//   [A][1] Split squat | 3x8 | 25 | 60 | 3x12 at 40 lb | Add 2 reps a week | Knee over toes
 import type { Exercise } from "../hooks/useExercises";
 import { today, type Injury } from "../hooks/useInjuries";
 import type {
@@ -9,37 +11,100 @@ import type {
   WorkoutPlan,
 } from "../hooks/useWorkoutPlans";
 import type { Workout } from "../hooks/useWorkouts";
+import { libraryRegion, regionLabel } from "./bodyRegions";
 
-// Everything the app knows that a plan should take into account.
-export interface PlanContext {
-  today: string;
-  goals: string;
-  days_per_week: number;
-  minutes_per_session: number;
-  equipment: string;
-  current_injuries: unknown[];
-  workouts_last_4_weeks: number;
-  recent_exercises: unknown[];
-  exercise_library: unknown[];
-  current_plan?: WorkoutPlan["plan"];
-}
+type Plan = WorkoutPlan["plan"];
 
 const FOUR_WEEKS_MS = 28 * 86_400_000;
 
-export function buildPlanContext({
+const COACH = `You're a strength coach with a physical therapy background. Write a weekly training plan for me; I'll paste your reply into my workout app.
+
+Fit my goals, days, minutes and equipment. Work around my injuries: favour the rehab exercises listed for them, keep loads and ranges pain-free, and never load an injury with high pain. Use my recent sets for starting loads. Use exact names from my library when one fits, otherwise short standard names. Put warm-ups in the sessions. Use supersets where they save time or suit the goal (2 exercises, or a circuit of 3-6); the app does one set of each in turn, then rests, so give them the same sets and rest. Every exercise gets a goal for the next 6-8 weeks and one progression rule; progress injured areas by pain, not the calendar. Don't diagnose anything.`;
+
+const REVISING = `My current plan is below in the same format. Make the change I ask for, however big or small, keep everything else as it is, and reply with the whole plan.`;
+
+const FORMAT = `Reply with only one code block in exactly this format, nothing else:
+
+# Plan title
+> Two or three sentences on the approach and how to progress week to week.
+! A safety note specific to me (one line each, or none)
+## Day | Focus | Minutes
+Name | SetsxReps | Weight | Rest | Goal | Progression | Cue
+
+One "##" line per session, then one line per exercise:
+- SetsxReps: "3x8-10", "3x30 sec" or "1x5 km". For one-side exercises it's per side.
+- Weight: pounds to use now, or "-" for bodyweight, timed or cardio work.
+- Rest: seconds after each set (after the round in a superset).
+- Goal: short and concrete, like "3x10 at 65 lb" or "Run 5k without stopping".
+- Progression: one rule, like "Add 5 lb once every set hits 10 reps".
+- Cue: one short tip, or leave it empty.
+- Start the name with [A], [B]... for exercises in the same superset (list them together), and with [1] for exercises done one arm or leg at a time.
+
+Example:
+## Mon | Lower body | 45
+Goblet squat | 3x8-10 | 35 | 90 | 3x10 at 50 lb | Add 5 lb when all sets hit 10 | Sit between heels
+[A][1] Split squat | 2x8 | - | 0 | 2x12 | Add 2 reps a week |
+[A] Dead bug | 2x10 | - | 60 | 3x12 slow | Add 2 reps a week | Low back down`;
+
+const lb = (n: number | null | undefined) => (n == null ? "-" : String(n));
+
+// One exercise as a reply line, so a revision starts from the same format.
+function exerciseLine(e: PlannedExercise) {
+  const tags =
+    (e.superset?.trim() ? `[${e.superset.trim().toUpperCase()}]` : "") +
+    (e.unilateral ? "[1]" : "");
+  return [
+    `${tags ? `${tags} ` : ""}${e.name}`,
+    `${e.sets}x${e.reps}`,
+    lb(e.weight),
+    e.rest_seconds,
+    e.goal ?? "",
+    e.progression ?? "",
+    e.notes ?? "",
+  ]
+    .join(" | ")
+    .trimEnd();
+}
+
+export function planToText(plan: Plan) {
+  return [
+    `# ${plan.title}`,
+    ...(plan.summary ? [`> ${plan.summary}`] : []),
+    ...plan.safety_notes.map((n) => `! ${n}`),
+    ...plan.sessions.flatMap((s) => [
+      `## ${s.day} | ${s.focus} | ${s.duration_minutes}`,
+      ...s.exercises.map(exerciseLine),
+    ]),
+  ].join("\n");
+}
+
+// Short "set" text, like "95 lb x 8 (left)".
+function setText(s: Workout["workout_sets"][number]) {
+  const parts = [
+    s.weight !== null && `${s.weight} lb`,
+    s.reps !== null && `${s.reps}`,
+    s.duration_seconds !== null && `${s.duration_seconds} sec`,
+  ].filter(Boolean);
+  return parts.join(" x ") + (s.side ? ` (${s.side})` : "");
+}
+
+export function buildPlanPrompt({
   request,
   injuries,
   workouts,
   exercises,
   currentPlan,
+  instruction,
 }: {
   request: PlanRequest;
   injuries: Injury[];
   // Finished workouts, any order.
   workouts: Workout[];
   exercises: Exercise[];
-  currentPlan?: WorkoutPlan["plan"];
-}): PlanContext {
+  // With an instruction, to revise this plan instead of writing a new one.
+  currentPlan?: Plan;
+  instruction?: string;
+}) {
   const since = Date.now() - FOUR_WEEKS_MS;
   const recentWorkouts = workouts
     .filter((w) => w.ended_at && Date.parse(w.started_at) >= since)
@@ -53,286 +118,192 @@ export function buildPlanContext({
     )) {
       const entry = recent.get(s.exercise_name) ?? { times: 0, latest: "" };
       entry.times++;
-      entry.latest = [
-        s.weight !== null && `${s.weight} lb`,
-        s.reps !== null && `${s.reps} reps`,
-        s.duration_seconds !== null && `${s.duration_seconds} sec`,
-        s.side && `${s.side} side`,
-      ]
-        .filter(Boolean)
-        .join(" × ");
+      entry.latest = setText(s);
       recent.set(s.exercise_name, entry);
     }
 
-  return {
-    today: today(),
-    goals: request.goals,
-    days_per_week: request.days_per_week,
-    minutes_per_session: request.minutes_per_session,
-    equipment: request.equipment || "not specified",
-    current_injuries: injuries
-      .filter((i) => !i.healed_on)
-      .map((i) => ({
-        where: `${i.side === "center" ? "" : `${i.side} `}${i.region.replace("_", " ")}`,
-        what: i.name,
-        notes: i.notes,
-        since: i.started_on,
-        pain_now: i.injury_checkins.at(-1)?.pain ?? null,
-        pain_at_start: i.injury_checkins[0]?.pain ?? null,
-      })),
-    workouts_last_4_weeks: recentWorkouts.length,
-    recent_exercises: [...recent].map(([name, r]) => ({
-      name,
-      sets_logged: r.times,
-      latest_set: r.latest,
-    })),
-    exercise_library: exercises.map((e) => ({
-      name: e.name,
-      purposes: e.purposes,
-      body_regions: e.body_regions,
-      dosage: e.dosage,
-      unilateral: e.unilateral,
-    })),
-    ...(currentPlan && { current_plan: currentPlan }),
-  };
-}
+  const current = injuries.filter((i) => !i.healed_on);
+  const injured = new Set(current.map((i) => libraryRegion(i.region)));
+  // Rehab and prevention moves for injured areas, then everything else by
+  // name only, which keeps the library to a few short lines.
+  const rehab = exercises.filter(
+    (e) => e.purposes.length > 0 && e.body_regions.some((r) => injured.has(r)),
+  );
+  const name = (e: Exercise) => (e.unilateral ? `[1] ${e.name}` : e.name);
 
-export const PLAN_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  required: ["title", "summary", "sessions", "safety_notes"],
-  properties: {
-    title: { type: "string" },
-    summary: { type: "string" },
-    sessions: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["day", "focus", "duration_minutes", "exercises"],
-        properties: {
-          day: { type: "string" },
-          focus: { type: "string" },
-          duration_minutes: { type: "integer" },
-          exercises: {
-            type: "array",
-            items: {
-              type: "object",
-              additionalProperties: false,
-              required: [
-                "name",
-                "sets",
-                "reps",
-                "weight",
-                "rest_seconds",
-                "notes",
-                "goal",
-                "goal_weight",
-                "progression",
-                "unilateral",
-                "superset",
-              ],
-              properties: {
-                name: { type: "string" },
-                sets: { type: "integer" },
-                reps: { type: "string" },
-                weight: { type: ["number", "null"] },
-                rest_seconds: { type: "integer" },
-                notes: { type: "string" },
-                goal: { type: "string" },
-                goal_weight: { type: ["number", "null"] },
-                progression: { type: "string" },
-                unilateral: { type: "boolean" },
-                superset: { type: "string" },
-              },
-            },
-          },
-        },
-      },
-    },
-    safety_notes: { type: "array", items: { type: "string" } },
-  },
-};
+  const about = [
+    `Today: ${today()}`,
+    `Goals: ${request.goals}`,
+    `Schedule: ${request.days_per_week} days a week, ${request.minutes_per_session} min each`,
+    `Equipment: ${request.equipment || "not specified"}`,
+    current.length > 0
+      ? `Injuries:\n${current
+          .map((i) => {
+            const pain = i.injury_checkins;
+            return `- ${i.side === "center" ? "" : `${i.side} `}${regionLabel(i.region).toLowerCase()}${i.name ? `, ${i.name}` : ""}, since ${i.started_on}, pain ${pain[0]?.pain ?? "?"}/10 at start, ${pain.at(-1)?.pain ?? "?"}/10 now${i.notes ? ` (${i.notes})` : ""}`;
+          })
+          .join("\n")}`
+      : "Injuries: none",
+    recent.size > 0
+      ? `Last 4 weeks: ${recentWorkouts.length} workouts. Sets logged, latest set:\n${[
+          ...recent,
+        ]
+          .map(([n, r]) => `- ${n}: ${r.times}, ${r.latest}`)
+          .join("\n")}`
+      : "Last 4 weeks: no workouts logged",
+    ...(rehab.length > 0
+      ? [
+          `Rehab for my injured areas: ${rehab
+            .map((e) => (e.dosage ? `${name(e)} (${e.dosage})` : name(e)))
+            .join("; ")}`,
+        ]
+      : []),
+    `My exercise library ([1] = one side at a time): ${exercises
+      .filter((e) => !rehab.includes(e))
+      .map(name)
+      .join("; ")}`,
+  ].join("\n");
 
-const COACH = `You are a strength and conditioning coach with a physical therapy background, writing a weekly training plan for one person. Your answer is imported into their personal workout app.
-
-Write a plan that fits their goals, the days and minutes they have, and their equipment. Work around their current injuries: favour the rehab and prevention exercises listed for the injured area, keep loads and ranges pain-free, and never prescribe movements that obviously load an injury with high pain. Use their recent training to pick sensible starting loads and to build on what they already do.
-
-When an exercise from their library fits, use its exact name so it links to the instructions they already have. Keep names short and standard otherwise. "reps" can be a count ("8-10"), a time ("30 sec") or a distance. Use "notes" for one short cue, or "" when nothing needs saying. Put warm-ups inside sessions as exercises. Set "unilateral" to true for exercises done one arm or one leg at a time (like single-leg Romanian deadlifts, split squats or one-arm rows); the app then has them do each set as a left side and a right side, so "sets" and "reps" are per side. Library exercises marked unilateral are done that way. Use supersets where they save time or suit the goal: two exercises (like opposing muscle groups, or a strength move with a mobility drill) or more (a circuit or giant set of three to six exercises, like a conditioning finisher). Give each exercise in a superset the same "superset" letter ("A", then "B" for the next superset) and list them one after another; use "" for exercises not in one. The app has them do one set of each in turn with no rest between, then rest after the round, so give the exercises in a superset the same "sets" and use "rest_seconds" for the rest after the round.
-
-Give every exercise a progression toward a goal. "weight" is the load in pounds to use now, based on their recent sets when they have done it (null for bodyweight, timed or cardio work). "goal" is where this exercise should get to over the next 6 to 8 weeks, short and concrete, like "3 × 10 at 65 lb", "3 × 60 sec holds" or "Run 5k without stopping". "goal_weight" is the goal's load in pounds, or null when the goal isn't a weight. "progression" is the one rule for moving toward the goal, like "Add 5 lb once every set reaches 10 reps" or "Add 10 sec per hold each week while pain stays at 3/10 or less". For injured areas, progress by pain response, not by the calendar.
-
-"summary" is two or three sentences on the plan's approach and how to progress it week to week. "safety_notes" lists brief points specific to this person (for example when to stop or see a professional because of an injury); leave it empty if there is nothing specific. You are not diagnosing anything.`;
-
-const REVISING = `You are given their current plan and a change they want. Return the whole plan with that change made, however big or small: swapping exercises, changing days, sets, reps, rest, length, focus or difficulty, or rebuilding it. Keep everything they didn't ask to change as it is, and update "summary" and "safety_notes" if the change affects them.`;
-
-const FORMAT = `Reply with only the plan as one JSON object in a \`\`\`json code block, with no other text. It must match this JSON Schema exactly: every listed field present, the types shown, and no extra fields.`;
-
-export function buildPlanPrompt(context: PlanContext, instruction?: string) {
-  const ask = instruction
-    ? `Change my plan like this:\n\n${instruction}`
-    : "Write my weekly plan.";
   return [
     COACH,
-    ...(instruction ? [REVISING] : []),
     FORMAT,
-    "```json\n" + JSON.stringify(PLAN_SCHEMA, null, 2) + "\n```",
-    "Here is everything my workout app knows about me, as JSON:",
-    "```json\n" + JSON.stringify(context, null, 2) + "\n```",
-    ask,
+    `About me:\n${about}`,
+    ...(currentPlan && instruction
+      ? [`${REVISING}\n\n${planToText(currentPlan)}`, `Change: ${instruction}`]
+      : ["Write my weekly plan."]),
   ].join("\n\n");
 }
 
 export type ImportResult =
-  | { ok: true; plan: WorkoutPlan["plan"] }
+  | { ok: true; plan: Plan }
   | { ok: false; errors: string[] };
 
-// Chatbots wrap JSON in ``` fences or add a sentence around it, so this finds
-// the object: inside a fence if there is one, otherwise from the first "{"
-// to the last "}".
-export function extractJson(text: string): string | null {
-  const fenced = [...text.matchAll(/```(?:json|JSON)?\s*\n?([\s\S]*?)```/g)]
-    .map((m) => m[1].trim())
-    .find((body) => body.startsWith("{"));
-  const source = fenced ?? text;
-  const start = source.indexOf("{");
-  const end = source.lastIndexOf("}");
-  if (start < 0) return null;
-  // No closing brace usually means the reply was cut off; parsing what's
-  // there reports that.
-  return end > start ? source.slice(start, end + 1) : source.slice(start);
+// The plan inside the reply: the code block that has "##" sessions, or the
+// whole reply when the bot left out the fences.
+function planText(text: string) {
+  const blocks = [...text.matchAll(/```[^\n]*\n?([\s\S]*?)(?:```|$)/g)].map(
+    (m) => m[1],
+  );
+  return blocks.find((b) => /^\s*##/m.test(b)) ?? text;
 }
 
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
+// Strips list markers and markdown emphasis bots like to add.
+const clean = (line: string) =>
+  line
+    .trim()
+    .replace(/^(?:[-*•]|\d+[.)])\s+/, "")
+    .replace(/\*\*|__/g, "")
+    .trim();
 
-// Checks a pasted reply against PLAN_SCHEMA. Small slips a person couldn't
-// fix by hand anyway (a number for reps, a numeric string for sets, a missing
-// optional field) are corrected; anything that would break the plan is listed.
-export function parsePlanReply(text: string): ImportResult {
-  if (!text.trim()) return { ok: false, errors: ["Paste the reply first."] };
-  const json = extractJson(text);
-  if (!json)
-    return {
-      ok: false,
-      errors: [
-        "Couldn't find a JSON object in that. Paste the chatbot's whole reply, including the part in { }.",
-      ],
-    };
-  let raw: unknown;
-  try {
-    raw = JSON.parse(json);
-  } catch (err) {
-    return {
-      ok: false,
-      errors: [
-        `That JSON doesn't parse (${(err as Error).message}). It may have been cut off; ask the chatbot to send the whole plan again.`,
-      ],
-    };
-  }
-  // Some bots nest the answer, like { "plan": { ... } }.
-  if (isObject(raw) && !("sessions" in raw) && isObject(raw.plan))
-    raw = raw.plan;
-  if (!isObject(raw))
-    return { ok: false, errors: ["The reply should be one JSON object."] };
+const blank = (v: string | undefined) =>
+  !v || /^(-|–|—|n\/a|none|bw|bodyweight)$/i.test(v.trim());
 
-  const errors: string[] = [];
-  const text_ = (v: unknown) =>
-    typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : null;
-  const whole = (v: unknown) => {
-    const n = typeof v === "string" && v.trim() ? Number(v) : v;
-    return typeof n === "number" && Number.isFinite(n) ? Math.round(n) : null;
-  };
-  const weight = (v: unknown) => {
-    if (v === null || v === undefined || v === "") return null;
-    const n = typeof v === "string" ? parseFloat(v) : v;
-    return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null;
-  };
+// Reads a reply in the format above. Lines that aren't part of the format
+// (a bot's "Here's your plan!") are skipped; anything that would break the
+// plan is listed so it can be pasted back to the bot.
+export function parsePlanReply(reply: string): ImportResult {
+  if (!reply.trim()) return { ok: false, errors: ["Paste the reply first."] };
+  const lines = planText(reply).split(/\r?\n/);
 
-  const title = text_(raw.title);
-  if (!title) errors.push("“title” is missing.");
-  const summary = text_(raw.summary) ?? "";
-  const safety = Array.isArray(raw.safety_notes)
-    ? raw.safety_notes.map(text_).filter((n): n is string => !!n)
-    : [];
-
+  let title = "";
+  const summary: string[] = [];
+  const safety: string[] = [];
   const sessions: PlannedSession[] = [];
-  if (!Array.isArray(raw.sessions) || raw.sessions.length === 0)
-    errors.push("“sessions” should be a list with at least one workout.");
-  else
-    raw.sessions.forEach((s: unknown, i: number) => {
-      const where = `Session ${i + 1}`;
-      if (!isObject(s)) {
-        errors.push(`${where} isn't an object.`);
-        return;
-      }
-      const day = text_(s.day);
-      const focus = text_(s.focus);
-      const minutes = whole(s.duration_minutes);
-      if (!day) errors.push(`${where}: “day” is missing.`);
-      if (!focus) errors.push(`${where}: “focus” is missing.`);
-      if (minutes === null || minutes <= 0)
-        errors.push(
-          `${where}: “duration_minutes” should be a number of minutes.`,
-        );
-      const exercises: PlannedExercise[] = [];
-      if (!Array.isArray(s.exercises) || s.exercises.length === 0)
-        errors.push(
-          `${where}: “exercises” should be a list with at least one exercise.`,
-        );
-      else
-        s.exercises.forEach((e: unknown, j: number) => {
-          const at = `${where}, exercise ${j + 1}`;
-          if (!isObject(e)) {
-            errors.push(`${at} isn't an object.`);
-            return;
-          }
-          const name = text_(e.name);
-          const sets = whole(e.sets);
-          const reps = text_(e.reps);
-          const rest = e.rest_seconds == null ? 0 : whole(e.rest_seconds);
-          const label = name ? `${at} (${name})` : at;
-          if (!name) errors.push(`${at}: “name” is missing.`);
-          if (sets === null || sets < 1)
-            errors.push(
-              `${label}: “sets” should be a whole number, 1 or more.`,
-            );
-          if (!reps) errors.push(`${label}: “reps” is missing.`);
-          if (rest === null || rest < 0)
-            errors.push(
-              `${label}: “rest_seconds” should be a number of seconds.`,
-            );
-          if (
-            e.unilateral !== undefined &&
-            e.unilateral !== null &&
-            typeof e.unilateral !== "boolean"
-          )
-            errors.push(`${label}: “unilateral” should be true or false.`);
-          exercises.push({
-            name: name ?? "",
-            sets: sets ?? 1,
-            reps: reps ?? "",
-            rest_seconds: rest ?? 0,
-            notes: text_(e.notes) ?? "",
-            weight: weight(e.weight),
-            goal: text_(e.goal) ?? "",
-            goal_weight: weight(e.goal_weight),
-            progression: text_(e.progression) ?? "",
-            unilateral: e.unilateral === true,
-            superset: (text_(e.superset) ?? "").toUpperCase(),
-          });
-        });
+  const errors: string[] = [];
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (/^##(?!#)/.test(line)) {
+      const where = `Session ${sessions.length + 1}`;
+      const [day, focus, minutes] = line
+        .replace(/^##\s*/, "")
+        .split("|")
+        .map((p) => p.trim());
+      const mins = parseInt(minutes ?? "", 10);
+      if (!day) errors.push(`${where}: the day is missing.`);
+      if (!focus) errors.push(`${where} (${day}): the focus is missing.`);
+      if (!(mins > 0))
+        errors.push(`${where} (${day}): minutes should be a number.`);
       sessions.push({
         day: day ?? "",
         focus: focus ?? "",
-        duration_minutes: minutes ?? 0,
-        exercises,
+        duration_minutes: mins > 0 ? mins : 0,
+        exercises: [],
       });
-    });
+    } else if (/^#(?!#)/.test(line)) {
+      title ||= clean(line.replace(/^#\s*/, ""));
+    } else if (line.startsWith(">")) {
+      summary.push(line.replace(/^>\s*/, ""));
+    } else if (line.startsWith("!")) {
+      const note = line.replace(/^!\s*/, "");
+      if (note) safety.push(note);
+    } else if (sessions.length > 0 && line.includes("|")) {
+      const session = sessions[sessions.length - 1];
+      const fields = clean(line)
+        .split("|")
+        .map((p) => p.trim());
+      let name = fields[0] ?? "";
+      let superset = "";
+      let unilateral = false;
+      for (let tag; (tag = name.match(/^\[([^\]]*)\]\s*/)); ) {
+        const t = tag[1].trim().toUpperCase();
+        if (t === "1") unilateral = true;
+        else if (/^[A-Z]$/.test(t)) superset = t;
+        name = name.slice(tag[0].length);
+      }
+      const at = `${session.day || `Session ${sessions.length}`}, ${name || `exercise ${session.exercises.length + 1}`}`;
+      const setsReps = (fields[1] ?? "").match(/^(\d+)\s*[x×]\s*(.+)$/i);
+      const weight = blank(fields[2]) ? null : parseFloat(fields[2]);
+      const rest = blank(fields[3]) ? 0 : parseInt(fields[3], 10);
+      const goal = fields[4] ?? "";
+      const goalWeight = goal.match(/(\d+(?:\.\d+)?)\s*(?:lb|lbs|pounds)\b/i);
+      if (!name) errors.push(`${at}: the name is missing.`);
+      if (!setsReps || Number(setsReps[1]) < 1)
+        errors.push(`${at}: sets and reps should look like "3x8-10".`);
+      if (weight !== null && !(weight > 0))
+        errors.push(`${at}: weight should be a number of pounds or "-".`);
+      if (!(rest >= 0)) errors.push(`${at}: rest should be seconds.`);
+      session.exercises.push({
+        name,
+        sets: setsReps ? Number(setsReps[1]) : 1,
+        reps: setsReps ? setsReps[2].trim() : "",
+        weight: weight !== null && weight > 0 ? weight : null,
+        rest_seconds: rest >= 0 ? rest : 0,
+        goal,
+        goal_weight: goalWeight ? Number(goalWeight[1]) : null,
+        progression: fields[5] ?? "",
+        notes: fields.slice(6).join(" | "),
+        unilateral,
+        superset,
+      });
+    }
+  }
+
+  if (sessions.length === 0)
+    return {
+      ok: false,
+      errors: [
+        /^\s*[{[]/.test(planText(reply))
+          ? "That's JSON. Copy a new prompt and send it, so the bot answers in the app's format."
+          : "Couldn't find any sessions (lines starting with \"##\"). Paste the bot's whole reply.",
+      ],
+    };
+  if (!title) errors.unshift('The title line (starting with "#") is missing.');
+  for (const s of sessions)
+    if (s.exercises.length === 0)
+      errors.push(
+        `${s.day || "A session"} has no exercises. The reply may have been cut off.`,
+      );
 
   if (errors.length > 0) return { ok: false, errors };
   return {
     ok: true,
-    plan: { title: title!, summary, sessions, safety_notes: safety },
+    plan: {
+      title,
+      summary: summary.join(" "),
+      sessions,
+      safety_notes: safety,
+    },
   };
 }
