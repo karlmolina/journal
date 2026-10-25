@@ -8,6 +8,12 @@ import { WEIGHT_UNIT } from "../../functions/workoutSets";
 const fieldClass =
   "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 
+// Small unit label tucked into the bottom right corner of a field.
+const cornerLabelClass =
+  "pointer-events-none absolute bottom-1 right-2 text-[10px] font-semibold leading-none text-base-content/50 dark:text-base-content/70";
+
+const weightLabel = WEIGHT_UNIT === "lb" ? "lbs" : WEIGHT_UNIT;
+
 const text = (n: number | null | undefined) => (n == null ? "" : String(n));
 
 interface SetFormProps {
@@ -82,25 +88,39 @@ export default function SetForm({
           ))}
         </div>
       )}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="flex items-center gap-2">
+        <label className="relative flex-1 min-w-0">
+          <input
+            className={`${fieldClass} pr-10`}
+            inputMode="numeric"
+            value={reps}
+            onChange={(e) => setReps(e.target.value)}
+            aria-label="Reps"
+          />
+          <span className={cornerLabelClass} aria-hidden>
+            reps
+          </span>
+        </label>
+        <span
+          className="-mx-1 text-sm font-semibold text-base-content/50 dark:text-base-content/70"
+          aria-hidden
+        >
+          ×
+        </span>
+        <label className="relative flex-1 min-w-0">
+          <input
+            className={`${fieldClass} pr-9`}
+            inputMode="decimal"
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            aria-label={`Weight in ${WEIGHT_UNIT}`}
+          />
+          <span className={cornerLabelClass} aria-hidden>
+            {weightLabel}
+          </span>
+        </label>
         <input
-          className={fieldClass}
-          inputMode="numeric"
-          placeholder="Reps"
-          value={reps}
-          onChange={(e) => setReps(e.target.value)}
-          aria-label="Reps"
-        />
-        <input
-          className={fieldClass}
-          inputMode="decimal"
-          placeholder={WEIGHT_UNIT}
-          value={weight}
-          onChange={(e) => setWeight(e.target.value)}
-          aria-label={`Weight in ${WEIGHT_UNIT}`}
-        />
-        <input
-          className={fieldClass}
+          className={`${fieldClass} flex-1`}
           inputMode="numeric"
           placeholder="Time"
           value={time}
