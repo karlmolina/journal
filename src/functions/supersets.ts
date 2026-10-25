@@ -85,6 +85,7 @@ export function nextInSuperset(
   const count = done(name);
   const behind = open.find((n) => !same(n, name) && done(n) < count);
   if (behind) return { next: behind, rest: false };
-  const fewest = Math.min(...open.map(done));
+  // Wrapped so map's index never reaches `done` as a second argument.
+  const fewest = Math.min(...open.map((n) => done(n)));
   return { next: open.find((n) => done(n) === fewest)!, rest: true };
 }
