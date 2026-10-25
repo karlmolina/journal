@@ -3,7 +3,7 @@ import type { SetInput, Workout, WorkoutSet } from "../../hooks/useWorkouts";
 import { elapsedSeconds } from "../../hooks/useWorkouts";
 import type { PlannedSession } from "../../hooks/useWorkoutPlans";
 import type { Exercise } from "../../hooks/useExercises";
-import useTick from "../../hooks/useTick";
+import useClock from "../../hooks/useClock";
 import { formatClock } from "../../functions/formatDuration";
 import {
   currentExerciseIndex,
@@ -194,7 +194,9 @@ export default function ActiveWorkout({
   onRemoveSet,
 }: ActiveWorkoutProps) {
   const paused = workout.paused_at !== null;
-  useTick(!paused);
+  // One clock drives the workout time and the set and rest timers.
+  const clockOrigin = Date.parse(workout.started_at);
+  const now = useClock(clockOrigin);
   const sets = workout.workout_sets;
   const exercises = planned?.session.exercises ?? [];
   const supersets = workout.supersets ?? planSupersets(exercises);
@@ -287,7 +289,7 @@ export default function ActiveWorkout({
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [notes, setNotes] = useState("");
-  const elapsed = formatClock(elapsedSeconds(workout));
+  const elapsed = formatClock(elapsedSeconds(workout, now));
 
   // Show the running time in the browser tab too.
   useEffect(() => {
@@ -312,7 +314,7 @@ export default function ActiveWorkout({
           {paused ? "Paused" : "In progress"} · started {started}
         </p>
         <p
-          className={`my-2 text-6xl sm:text-7xl font-extrabold tracking-tight tabular-nums transition-opacity ${
+          className={`mt-0.5 mb-2 text-3xl font-extrabold tracking-tight tabular-nums transition-opacity ${
             paused ? "opacity-50" : ""
           }`}
           role="timer"
@@ -404,6 +406,8 @@ export default function ActiveWorkout({
         <SetTimer
           workoutId={workout.id}
           storageKey={timerKey}
+          now={now}
+          clockOrigin={clockOrigin}
           exercise={selected?.name ?? initialExercise ?? ""}
           target={target || undefined}
           notes={
