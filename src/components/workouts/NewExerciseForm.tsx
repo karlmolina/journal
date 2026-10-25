@@ -16,6 +16,7 @@ const CATEGORIES: { key: ExerciseCategory; label: string }[] = [
   { key: "stability", label: "Stability" },
   { key: "mobility", label: "Mobility" },
   { key: "stretch", label: "Stretch" },
+  { key: "cardio", label: "Cardio" },
 ];
 
 const toggle = <T,>(list: T[], item: T) =>

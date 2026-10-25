@@ -4,6 +4,7 @@ import { readUserCache, writeUserCache } from "../functions/userCache";
 import { flushDeletes, notDeleted, queueDelete } from "../functions/undoDelete";
 
 export type ExerciseCategory =
+  | "cardio"
   | "mobility"
   | "stability"
   | "strength"

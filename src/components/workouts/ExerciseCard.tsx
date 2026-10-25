@@ -4,6 +4,7 @@ import { regionLabel } from "../../functions/bodyRegions";
 import ExerciseNote, { type ExerciseNotesProps } from "./ExerciseNote";
 
 const CATEGORY_LABELS: Record<Exercise["category"], string> = {
+  cardio: "Cardio",
   mobility: "Mobility",
   stability: "Stability",
   strength: "Strength",

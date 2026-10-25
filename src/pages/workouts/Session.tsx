@@ -217,7 +217,9 @@ export default function Session() {
   // Library body parts for an exercise, or a guess from its name.
   const bodyPartsOf = useCallback(
     (name: string) => {
-      const regions = lookup(name)?.body_regions ?? [];
+      const exercise = lookup(name);
+      if (exercise?.category === "cardio") return ["cardio"];
+      const regions = exercise?.body_regions ?? [];
       return regions.length > 0 ? regions : guessBodyParts(name);
     },
     [lookup],
