@@ -18,15 +18,4 @@ For CI deploys, set the `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` 
 
 ## AI workout planning
 
-The Plan tab calls the `plan-workout` Edge Function (`supabase/functions/plan-workout`), which asks Gemini for a weekly plan using your goals, current injuries and recent workouts. The Gemini API key stays server-side as a Supabase secret:
-
-```sh
-supabase login
-supabase link --project-ref <your-project-ref>
-supabase secrets set GEMINI_API_KEY=...
-# Optional; defaults to gemini-3.8-flash, which the free tier covers
-supabase secrets set GEMINI_MODEL=gemini-2.5-pro
-supabase functions deploy plan-workout
-```
-
-Create the key at https://aistudio.google.com/apikey. Without it the Plan tab shows "AI planning isn't set up yet". On the free tier Google may use prompts to improve its products, and daily request limits are low.
+The Plan tab doesn't call an AI itself. It builds a prompt from your goals, equipment, current injuries, recent workouts, exercise library (and the current plan, when changing one), plus the JSON schema the app expects, and copies it. Paste it into any chatbot, then paste the bot's reply into **Import plan**. The reply is checked in the browser (code fences and text around the JSON are fine) and saved to `workout_plans`; the previous plan stays under **Earlier plans**. Goals, equipment, days and minutes are saved per person in `workout_plan_preferences` and fill the form next time.
