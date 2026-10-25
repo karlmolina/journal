@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
 import type { PlanRequest } from "./useWorkoutPlans";
+import { reportError } from "../functions/reportError";
 
 const CACHE_KEY = "workout_plan_preferences";
 const SELECT = "goals, equipment, days_per_week, minutes_per_session";
@@ -41,7 +42,7 @@ export default function usePlanPreferences(userId?: string) {
       .then(({ data, error }) => {
         if (cancelled) return;
         setLoading(false);
-        if (error) return console.error(error);
+        if (error) return reportError(error, "usePlanPreferences");
         setPreferences((data as PlanRequest | null) ?? DEFAULT_PREFERENCES);
       });
     return () => {
@@ -59,7 +60,7 @@ export default function usePlanPreferences(userId?: string) {
         ...next,
         updated_at: new Date().toISOString(),
       });
-      if (error) console.error(error);
+      if (error) reportError(error, "usePlanPreferences");
     },
     [userId, preferences],
   );

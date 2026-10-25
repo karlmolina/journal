@@ -4,6 +4,7 @@ import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 import { readUserCache, writeUserCache } from "../functions/userCache";
 import { isDeleted, queueDelete } from "../functions/undoDelete";
+import { reportError } from "../functions/reportError";
 
 interface InviteCode {
   code: string;
@@ -35,7 +36,7 @@ export default function Invites() {
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc("list_invite_codes");
     if (error) {
-      console.error(error);
+      reportError(error, "Invites");
       setError("Couldn't load invite codes.");
       return;
     }
@@ -65,7 +66,7 @@ export default function Invites() {
     setError(null);
     const { data, error } = await supabase.rpc("create_invite_code");
     if (error) {
-      console.error(error);
+      reportError(error, "Invites");
       setError("Couldn't create an invite code.");
     } else {
       await load();
@@ -91,7 +92,7 @@ export default function Invites() {
       },
       undo: load,
       onError: (error) => {
-        console.error(error);
+        reportError(error, "Invites");
         setError("Couldn't revoke that code.");
       },
     });

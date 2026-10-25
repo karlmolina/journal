@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
 import { notDeleted, queueDelete } from "../functions/undoDelete";
+import { reportError } from "../functions/reportError";
 
 export type Side = "left" | "right" | "center";
 
@@ -72,7 +73,7 @@ export default function useInjuries(userId?: string) {
   }, [userId, injuries]);
 
   const fail = useCallback((message: string, err: unknown) => {
-    console.error(err);
+    reportError(err, message);
     setError(message);
   }, []);
 

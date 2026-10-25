@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
 import { notDeleted, queueDelete } from "../functions/undoDelete";
+import { reportError } from "../functions/reportError";
 
 export interface PlannedExercise {
   name: string;
@@ -88,7 +89,7 @@ export default function useWorkoutPlans(userId?: string) {
         if (cancelled) return;
         setLoading(false);
         if (error) {
-          console.error(error);
+          reportError(error, "useWorkoutPlans");
           setError("Couldn't load your plans.");
           return;
         }
@@ -126,7 +127,7 @@ export default function useWorkoutPlans(userId?: string) {
         .single();
       setSaving(false);
       if (error) {
-        console.error(error);
+        reportError(error, "useWorkoutPlans");
         setError("Couldn't save that plan. Try importing it again.");
         return false;
       }
@@ -152,7 +153,7 @@ export default function useWorkoutPlans(userId?: string) {
               ),
         ),
       onError: (error) => {
-        console.error(error);
+        reportError(error, "useWorkoutPlans");
         setError("Couldn't delete that plan.");
       },
     });

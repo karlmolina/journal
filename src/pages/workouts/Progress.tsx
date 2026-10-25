@@ -10,6 +10,7 @@ import ErrorBanner from "../../components/ErrorBanner";
 import { formatClock, formatDuration } from "../../functions/formatDuration";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 import { placeLabel } from "../../functions/bodyRegions";
+import { reportError } from "../../functions/reportError";
 
 const WEEKS = 12;
 const HISTORY_WEEKS = 26;
@@ -132,7 +133,7 @@ export default function Progress() {
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
-          console.error(error);
+          reportError(error, "Progress");
           setError("Couldn't load your workouts.");
           return;
         }

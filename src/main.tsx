@@ -10,6 +10,8 @@ import Invites from "./pages/Invites";
 import MembersOnly from "./components/MembersOnly";
 import RememberPage from "./components/RememberPage";
 import UndoToast from "./components/UndoToast";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { reportError, reportUncaughtErrors } from "./functions/reportError";
 import "./index.css";
 import { AuthProvider } from "./context/AuthProvider";
 import Root from "./components/ThemeRoot";
@@ -35,51 +37,64 @@ if ("requestIdleCallback" in window)
   requestIdleCallback(prefetchWorkoutPages, { timeout: 5000 });
 else setTimeout(prefetchWorkoutPages, 2000);
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
+reportUncaughtErrors();
+
+// Render crashes are reported with the component stack, which says where in
+// the app they happened.
+const reportRenderError =
+  (context: string) => (error: unknown, info: { componentStack?: string }) =>
+    reportError(error, context, info.componentStack);
+
+ReactDOM.createRoot(document.getElementById("root")!, {
+  onCaughtError: reportRenderError("Render crash"),
+  onUncaughtError: reportRenderError("Render crash (uncaught)"),
+}).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <Root>
-          <RememberPage />
-          <Routes>
-            <Route path="/" element={<App />} />
-            <Route path="/signin" element={<SignIn />} />
-            <Route
-              path="/journal"
-              element={
-                <MembersOnly>
-                  <Journal />
-                </MembersOnly>
-              }
-            />
-            <Route
-              path="/workouts"
-              element={
-                <MembersOnly>
-                  <Workouts />
-                </MembersOnly>
-              }
-            >
-              <Route index element={<Session />} />
-              <Route path="library" element={<Library />} />
-              <Route path="library/:exerciseId" element={<Library />} />
-              <Route path="injuries" element={<Injuries />} />
-              <Route path="progress" element={<Progress />} />
-              <Route path="plan" element={<Plan />} />
-            </Route>
-            <Route
-              path="/invites"
-              element={
-                <MembersOnly admin>
-                  <Invites />
-                </MembersOnly>
-              }
-            />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-          <UndoToast />
-        </Root>
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <Root>
+            <RememberPage />
+            <Routes>
+              <Route path="/" element={<App />} />
+              <Route path="/signin" element={<SignIn />} />
+              <Route
+                path="/journal"
+                element={
+                  <MembersOnly>
+                    <Journal />
+                  </MembersOnly>
+                }
+              />
+              <Route
+                path="/workouts"
+                element={
+                  <MembersOnly>
+                    <Workouts />
+                  </MembersOnly>
+                }
+              >
+                <Route index element={<Session />} />
+                <Route path="library" element={<Library />} />
+                <Route path="library/:exerciseId" element={<Library />} />
+                <Route path="injuries" element={<Injuries />} />
+                <Route path="progress" element={<Progress />} />
+                <Route path="plan" element={<Plan />} />
+              </Route>
+              <Route
+                path="/invites"
+                element={
+                  <MembersOnly admin>
+                    <Invites />
+                  </MembersOnly>
+                }
+              />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+            <UndoToast />
+          </Root>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

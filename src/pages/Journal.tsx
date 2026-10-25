@@ -16,6 +16,7 @@ import JournalEntry from "../components/JournalEntry";
 import { useAuth } from "../context/AuthContext";
 import useVisualViewport from "../hooks/useVisualViewport";
 import signOut from "../functions/signOut";
+import { reportError } from "../functions/reportError";
 
 const LOCAL_STORAGE_KEY = "journal_entries";
 // Entries submitted but not yet confirmed saved, so a reload or a failed request
@@ -140,7 +141,7 @@ export default function Journal() {
       const { data, error } = await q;
       setLoading(false);
       if (error) {
-        console.error(error);
+        reportError(error, "Journal");
         return;
       }
 
@@ -196,7 +197,7 @@ export default function Journal() {
         .select("id, text, created_at");
       saving.current.delete(entry.id);
       if (error) {
-        console.error(error);
+        reportError(error, "Journal");
         setFailed((prev) => new Set(prev).add(entry.id));
         return;
       }
@@ -248,7 +249,7 @@ export default function Journal() {
     if (requestId !== searchRequestId.current) return;
     setSearching(false);
     if (error) {
-      console.error(error);
+      reportError(error, "Journal");
       return;
     }
     setResults(

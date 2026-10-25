@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
 import { notDeleted, queueDelete } from "../functions/undoDelete";
+import { reportError } from "../functions/reportError";
 
 // One of your own dated notes on an exercise, optionally about an injury.
 export interface ExerciseNoteEntry {
@@ -46,7 +47,7 @@ export default function useExerciseNotes(userId?: string) {
   }, [userId, entries]);
 
   const fail = useCallback((message: string, err: unknown) => {
-    console.error(err);
+    reportError(err, message);
     setError(message);
   }, []);
 

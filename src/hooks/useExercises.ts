@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
 import { flushDeletes, notDeleted, queueDelete } from "../functions/undoDelete";
+import { reportError } from "../functions/reportError";
 
 export type ExerciseCategory =
   | "cardio"
@@ -68,7 +69,7 @@ export default function useExercises(userId?: string) {
       if (cancelled) return;
       setLoading(false);
       if (error) {
-        console.error(error);
+        reportError(error, "useExercises");
         setError("Couldn't load the exercise library.");
         return;
       }
@@ -101,7 +102,7 @@ export default function useExercises(userId?: string) {
         .select(SELECT)
         .single();
       if (error) {
-        console.error(error);
+        reportError(error, "useExercises");
         setError(
           error.code === "23505"
             ? "You already have an exercise with that name."
@@ -139,7 +140,7 @@ export default function useExercises(userId?: string) {
           .select(SELECT)
           .single();
         if (error) {
-          console.error(error);
+          reportError(error, "useExercises");
           nameTaken(error);
           return null;
         }
@@ -148,7 +149,7 @@ export default function useExercises(userId?: string) {
           .from("workout_sets")
           .update({ exercise_id: copy.id })
           .eq("exercise_id", exercise.id);
-        if (moved.error) console.error(moved.error);
+        if (moved.error) reportError(moved.error, "useExercises");
         update((prev) => [...prev, copy].sort(byName));
         return copy;
       }
@@ -159,7 +160,7 @@ export default function useExercises(userId?: string) {
         .select(SELECT)
         .single();
       if (error) {
-        console.error(error);
+        reportError(error, "useExercises");
         nameTaken(error);
         return null;
       }
@@ -223,7 +224,7 @@ export default function useExercises(userId?: string) {
         const existing = all.find(
           (e) => e.user_id === userId && nameKey(e.name) === key,
         );
-        if (!existing) console.error(error);
+        if (!existing) reportError(error, "useExercises");
         update((prev) =>
           existing ? all : prev.filter((e) => e.id !== exercise.id),
         );
@@ -251,7 +252,7 @@ export default function useExercises(userId?: string) {
               : [...prev, exercise].sort(byName),
           ),
         onError: (error) => {
-          console.error(error);
+          reportError(error, "useExercises");
           setError("Couldn't delete that exercise.");
         },
       });
