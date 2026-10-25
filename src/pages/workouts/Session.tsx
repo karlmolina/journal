@@ -90,7 +90,7 @@ export default function Session() {
     removeWorkout,
     addSet,
     updateSet,
-    removeSet,
+    removeSets,
     splitSet,
   } = useWorkouts(userId);
   const { exercises, byLowerName, ensureExercise } = useExercises(userId);
@@ -249,7 +249,7 @@ export default function Session() {
           onSupersetsChange={setSupersets}
           onAddSet={handleAddSet}
           onUpdateSet={handleUpdateSet}
-          onRemoveSet={removeSet}
+          onRemoveSets={removeSets}
           onSplitSet={splitSet}
         />
       ) : (
@@ -309,6 +309,7 @@ export default function Session() {
                 isUnilateral={isUnilateral}
                 onUpdateSet={handleUpdateSet}
                 onSplitSet={splitSet}
+                onRemoveSets={removeSets}
                 onDelete={() => removeWorkout(w.id)}
               />
             ))}

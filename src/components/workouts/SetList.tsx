@@ -39,7 +39,8 @@ interface SetListProps {
   // Exercise names for the edit form.
   suggestions?: string[];
   onUpdate?: (set: WorkoutSet, changes: SetInput) => void;
-  onRemove?: (set: WorkoutSet) => void;
+  // Deletes one set, or all of an exercise's sets in this workout.
+  onRemove?: (sets: WorkoutSet[]) => void;
   // Turns a set into two, halving its time.
   onSplit?: (set: WorkoutSet) => void;
   // Whether an exercise is done one side at a time, for the edit form.
@@ -127,6 +128,24 @@ export default function SetList({
                           setEditingId(null);
                         })
                       }
+                      onDelete={
+                        onRemove &&
+                        (() => {
+                          onRemove([set]);
+                          setEditingId(null);
+                        })
+                      }
+                      onDeleteExercise={
+                        onRemove && sets.length > 1
+                          ? {
+                              label: `Delete ${name} (all ${sets.length} sets)`,
+                              run: () => {
+                                onRemove(sets);
+                                setEditingId(null);
+                              },
+                            }
+                          : undefined
+                      }
                       submitLabel="Save"
                       onCancel={() => setEditingId(null)}
                       onAdd={(changes) => {
@@ -200,11 +219,11 @@ export default function SetList({
                         </svg>
                       </button>
                     )}
-                    {onRemove && (
+                    {onRemove && !dense && (
                       <button
                         type="button"
                         className="btn btn-ghost btn-circle btn-xs text-base-content/50 dark:text-base-content/75"
-                        onClick={() => onRemove(set)}
+                        onClick={() => onRemove([set])}
                         aria-label={`Delete ${labels[i].toLowerCase()} of ${name}`}
                       >
                         <svg

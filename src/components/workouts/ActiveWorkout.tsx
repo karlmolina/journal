@@ -58,7 +58,7 @@ interface ActiveWorkoutProps {
   initialExercise?: string;
   onAddSet: (set: SetInput) => void;
   onUpdateSet: (set: WorkoutSet, changes: SetInput) => void;
-  onRemoveSet: (set: WorkoutSet) => void;
+  onRemoveSets: (sets: WorkoutSet[]) => void;
   onSplitSet: (set: WorkoutSet) => void;
 }
 
@@ -191,7 +191,7 @@ export default function ActiveWorkout({
   onSupersetsChange,
   onAddSet,
   onUpdateSet,
-  onRemoveSet,
+  onRemoveSets,
   onSplitSet,
 }: ActiveWorkoutProps) {
   const paused = workout.paused_at !== null;
@@ -439,7 +439,7 @@ export default function ActiveWorkout({
             sets={sets}
             suggestions={suggestions}
             onUpdate={onUpdateSet}
-            onRemove={onRemoveSet}
+            onRemove={onRemoveSets}
             onSplit={onSplitSet}
             isUnilateral={isUnilateral}
           />
