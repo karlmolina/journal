@@ -110,6 +110,53 @@ interface SetTimerProps {
   onSave: (set: SetInput) => void;
 }
 
+// The next exercise and its target as one big tap target that starts the set.
+function StartExerciseButton({
+  exercise,
+  target,
+  notes,
+  label,
+  onStart,
+}: {
+  exercise: string;
+  target?: string;
+  notes?: string;
+  label: string;
+  onStart: () => void;
+}) {
+  if (!exercise.trim())
+    return (
+      <button
+        type="button"
+        className="btn btn-primary btn-lg rounded-full font-bold w-full"
+        disabled
+      >
+        {label}
+      </button>
+    );
+  return (
+    <button
+      type="button"
+      className="w-full rounded-3xl bg-primary text-primary-content px-5 py-6 flex flex-col items-center gap-1 text-center shadow-lg shadow-primary/25 hover:brightness-110 active:scale-[0.98] transition cursor-pointer"
+      onClick={onStart}
+    >
+      <span className="text-2xl font-extrabold leading-tight">{exercise}</span>
+      {target && (
+        <span className="text-base font-bold opacity-90">{target}</span>
+      )}
+      {notes && (
+        <span className="text-sm font-semibold opacity-80">{notes}</span>
+      )}
+      <span className="mt-3 self-stretch flex items-center justify-center gap-2 rounded-full bg-primary-content/15 py-3 text-lg font-bold">
+        <svg viewBox="0 0 24 24" className="size-5 fill-current" aria-hidden>
+          <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" />
+        </svg>
+        {label}
+      </span>
+    </button>
+  );
+}
+
 // Shows what the current exercise is in a superset with, and adds more
 // exercises to it (any number: a superset of three or more is a circuit).
 function SupersetControl({
@@ -538,20 +585,12 @@ export default function SetTimer({
             ? `Target ${formatClock(goal)} reached. Go when you're ready.`
             : `Target ${formatClock(goal)}`}
         </p>
-        {name && (
-          <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 mb-2">
-            Next: {name}
-            {target && ` · ${target}`}
-          </p>
-        )}
-        <button
-          type="button"
-          className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
-          onClick={startSet}
-          disabled={!name.trim()}
-        >
-          {side ? startLabel : "Start next set"}
-        </button>
+        <StartExerciseButton
+          exercise={name}
+          target={target}
+          label={side ? startLabel : "Start next set"}
+          onStart={startSet}
+        />
         <button
           type="button"
           className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
@@ -587,11 +626,13 @@ export default function SetTimer({
         onChange={setName}
         suggestions={suggestions}
       />
-      {(target || notes) && (
-        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">
-          {[target, notes].filter(Boolean).join(" · ")}
-        </p>
-      )}
+      <StartExerciseButton
+        exercise={name}
+        target={target}
+        notes={notes}
+        label={startLabel}
+        onStart={startSet}
+      />
       <ExerciseHowTo exercise={lookup?.(name)} />
       {exerciseNotes && name.trim() && (
         <ExerciseNote
@@ -602,14 +643,6 @@ export default function SetTimer({
           {...exerciseNotes}
         />
       )}
-      <button
-        type="button"
-        className="btn btn-primary btn-lg rounded-full font-bold active:scale-[0.98] transition"
-        onClick={startSet}
-        disabled={!name.trim()}
-      >
-        {startLabel}
-      </button>
       <SupersetControl
         key={name.trim().toLowerCase()}
         exercise={name.trim()}
