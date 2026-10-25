@@ -61,6 +61,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             >
               <Route index element={<Session />} />
               <Route path="library" element={<Library />} />
+              <Route path="library/:exerciseId" element={<Library />} />
               <Route path="injuries" element={<Injuries />} />
               <Route path="progress" element={<Progress />} />
               <Route path="plan" element={<Plan />} />

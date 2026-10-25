@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Chip from "../Chip";
 import { BODY_REGIONS } from "../../functions/bodyRegions";
 import type {
+  Exercise,
   ExerciseCategory,
   ExercisePurpose,
   NewExercise,
@@ -21,21 +22,30 @@ const toggle = <T,>(list: T[], item: T) =>
   list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 
 interface NewExerciseFormProps {
+  // An exercise to edit, instead of adding a new one.
+  initial?: Exercise;
   onSave: (exercise: NewExercise) => Promise<boolean>;
   onCancel: () => void;
 }
 
 export default function NewExerciseForm({
+  initial,
   onSave,
   onCancel,
 }: NewExerciseFormProps) {
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState<ExerciseCategory>("strength");
-  const [purposes, setPurposes] = useState<ExercisePurpose[]>([]);
-  const [regions, setRegions] = useState<string[]>([]);
-  const [dosage, setDosage] = useState("");
-  const [unilateral, setUnilateral] = useState(false);
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [category, setCategory] = useState<ExerciseCategory>(
+    initial?.category ?? "strength",
+  );
+  const [purposes, setPurposes] = useState<ExercisePurpose[]>(
+    initial?.purposes ?? [],
+  );
+  const [regions, setRegions] = useState<string[]>(
+    initial?.body_regions ?? [],
+  );
+  const [dosage, setDosage] = useState(initial?.dosage ?? "");
+  const [unilateral, setUnilateral] = useState(initial?.unilateral ?? false);
+  const [description, setDescription] = useState(initial?.description ?? "");
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,7 +72,15 @@ export default function NewExerciseForm({
       onSubmit={handleSubmit}
       className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5 flex flex-col gap-3"
     >
-      <h2 className="font-bold">Add your own exercise</h2>
+      <h2 className="font-bold">
+        {initial ? `Edit ${initial.name}` : "Add your own exercise"}
+      </h2>
+      {initial && !initial.user_id && (
+        <p className="-mt-2 text-sm font-medium text-base-content/55 dark:text-base-content/75">
+          This is a built-in exercise, so your changes are saved as your own
+          copy.
+        </p>
+      )}
       <input
         className={fieldClass}
         placeholder="Name"
@@ -70,7 +88,7 @@ export default function NewExerciseForm({
         onChange={(e) => setName(e.target.value)}
         aria-label="Name"
         autoCapitalize="words"
-        autoFocus
+        autoFocus={!initial}
       />
       <div className="flex flex-col gap-1.5">
         <span className={label}>Type</span>
@@ -156,7 +174,7 @@ export default function NewExerciseForm({
           className="btn btn-primary rounded-full font-bold flex-1"
           disabled={!name.trim() || saving}
         >
-          Save exercise
+          {initial ? "Save changes" : "Save exercise"}
         </button>
       </div>
     </form>
