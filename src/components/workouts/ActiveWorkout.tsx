@@ -438,6 +438,7 @@ export default function ActiveWorkout({
             suggestions={suggestions}
             onUpdate={onUpdateSet}
             onRemove={onRemoveSet}
+            isUnilateral={isUnilateral}
           />
         </section>
       )}

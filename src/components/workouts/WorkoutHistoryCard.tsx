@@ -77,6 +77,7 @@ interface WorkoutHistoryCardProps {
   // The body parts an exercise works, main one first.
   bodyPartsOf?: (exerciseName: string) => string[];
   suggestions?: string[];
+  isUnilateral?: (exercise: string) => boolean;
   onUpdateSet?: (set: WorkoutSet, changes: SetInput) => void;
   onDelete: () => void;
 }
@@ -86,6 +87,7 @@ export default function WorkoutHistoryCard({
   supersets = [],
   bodyPartsOf = () => [],
   suggestions,
+  isUnilateral,
   onUpdateSet,
   onDelete,
 }: WorkoutHistoryCardProps) {
@@ -166,6 +168,7 @@ export default function WorkoutHistoryCard({
               sets={workout.workout_sets}
               suggestions={suggestions}
               onUpdate={onUpdateSet}
+              isUnilateral={isUnilateral}
               dense
               supersetTags={tags}
             />

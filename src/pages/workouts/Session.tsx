@@ -304,6 +304,7 @@ export default function Session() {
                 supersets={supersetsOf(w)}
                 bodyPartsOf={bodyPartsOf}
                 suggestions={suggestions}
+                isUnilateral={isUnilateral}
                 onUpdateSet={handleUpdateSet}
                 onDelete={() => removeWorkout(w.id)}
               />
