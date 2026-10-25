@@ -1,12 +1,31 @@
 import { useState } from "react";
 import type { SetInput, WorkoutSet } from "../../hooks/useWorkouts";
-import { describeSet, groupSets, setLabels } from "../../functions/workoutSets";
+import {
+  describeSet,
+  describeSetShort,
+  groupSets,
+  setLabels,
+  summarizeSets,
+} from "../../functions/workoutSets";
 import { formatClock } from "../../functions/formatDuration";
 import SetForm from "./SetForm";
+import SupersetTag from "./SupersetTag";
 
 // The rest timed before a set, shown after what was done.
-function RestNote({ seconds }: { seconds: number | null }) {
+function RestNote({
+  seconds,
+  dense,
+}: {
+  seconds: number | null;
+  dense?: boolean;
+}) {
   if (seconds == null) return null;
+  if (dense)
+    return (
+      <span className="shrink-0 text-xs font-semibold text-base-content/55 dark:text-base-content/75">
+        rest {formatClock(seconds)}
+      </span>
+    );
   return (
     <span className="ml-2 text-xs font-semibold text-base-content/50 dark:text-base-content/75">
       after {formatClock(seconds)} rest
@@ -20,6 +39,29 @@ interface SetListProps {
   suggestions?: string[];
   onUpdate?: (set: WorkoutSet, changes: SetInput) => void;
   onRemove?: (set: WorkoutSet) => void;
+  // Tighter rows for past workouts: a summary beside each exercise and one
+  // short line per set ("1 L  10 × 45 lb  0:42  rest 1:30").
+  dense?: boolean;
+  // Superset letters by lowercased exercise name, for the dense header.
+  supersetTags?: Map<string, string>;
+}
+
+// What a set did, in the dense row: the load, then its time when it has one.
+function DenseSet({ set }: { set: WorkoutSet }) {
+  const load = describeSetShort(set);
+  const timed =
+    (set.reps !== null || set.weight !== null) && set.duration_seconds !== null;
+  return (
+    <span className="flex-1 min-w-0 truncate">
+      {load}
+      {timed && (
+        <span className="text-base-content/55 dark:text-base-content/75">
+          {" "}
+          · {formatClock(set.duration_seconds!)}
+        </span>
+      )}
+    </span>
+  );
 }
 
 export default function SetList({
@@ -27,17 +69,32 @@ export default function SetList({
   suggestions = [],
   onUpdate,
   onRemove,
+  dense = false,
+  supersetTags,
 }: SetListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={`flex flex-col ${dense ? "gap-3" : "gap-4"}`}>
       {groupSets(sets).map(({ name, sets }) => {
         const labels = setLabels(sets);
+        const tag = supersetTags?.get(name.trim().toLowerCase());
         return (
           <div key={name}>
-            <p className="font-bold">{name}</p>
-            <ol className="mt-1 flex flex-col">
+            {dense ? (
+              <div className="flex items-baseline gap-2">
+                {tag && <SupersetTag letter={tag} />}
+                <p className="flex-1 min-w-0 truncate text-sm font-bold">
+                  {name}
+                </p>
+                <span className="shrink-0 text-xs font-semibold tabular-nums text-base-content/55 dark:text-base-content/75">
+                  {summarizeSets(sets)}
+                </span>
+              </div>
+            ) : (
+              <p className="font-bold">{name}</p>
+            )}
+            <ol className={`flex flex-col ${dense ? "mt-0.5" : "mt-1"}`}>
               {sets.map((set, i) =>
                 editingId === set.id && onUpdate ? (
                   <li key={set.id} className="py-2">
@@ -55,12 +112,29 @@ export default function SetList({
                 ) : (
                   <li
                     key={set.id}
-                    className="flex items-center gap-3 min-h-8 font-medium text-base-content/80 dark:text-[color-mix(in_oklab,var(--color-base-content),white_30%)]"
+                    className={`flex items-center font-medium text-base-content/80 dark:text-[color-mix(in_oklab,var(--color-base-content),white_30%)] ${dense ? "gap-2 min-h-6 text-sm" : "gap-3 min-h-8"}`}
                   >
-                    <span className="w-14 shrink-0 text-xs font-semibold tracking-wide text-base-content/50 dark:text-base-content/75">
-                      {labels[i]}
+                    <span
+                      className={`shrink-0 text-xs font-semibold tracking-wide text-base-content/50 dark:text-base-content/75 ${dense ? "w-8 tabular-nums" : "w-14"}`}
+                      aria-label={dense ? labels[i] : undefined}
+                    >
+                      {dense ? labels[i].replace("Set ", "") : labels[i]}
                     </span>
-                    {onUpdate ? (
+                    {dense ? (
+                      <button
+                        type="button"
+                        className="flex-1 min-w-0 flex items-center gap-3 text-left tabular-nums cursor-pointer hover:text-base-content dark:hover:text-base-content disabled:cursor-default"
+                        disabled={!onUpdate}
+                        onClick={() => setEditingId(set.id)}
+                        aria-label={
+                          onUpdate &&
+                          `Edit ${labels[i].toLowerCase()} of ${name}: ${describeSet(set)}`
+                        }
+                      >
+                        <DenseSet set={set} />
+                        <RestNote seconds={set.rest_seconds} dense />
+                      </button>
+                    ) : onUpdate ? (
                       <button
                         type="button"
                         className="flex-1 text-left tabular-nums cursor-pointer hover:text-base-content dark:hover:text-base-content"

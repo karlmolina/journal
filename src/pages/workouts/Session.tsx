@@ -9,12 +9,14 @@ import ErrorBanner from "../../components/ErrorBanner";
 import { useAuth } from "../../context/AuthContext";
 import useWorkouts, {
   type SetInput,
+  type Workout,
   type WorkoutSet,
 } from "../../hooks/useWorkouts";
 import useExercises from "../../hooks/useExercises";
 import useExerciseNotes from "../../hooks/useExerciseNotes";
 import useInjuries from "../../hooks/useInjuries";
 import useWorkoutPlans, { type WorkoutPlan } from "../../hooks/useWorkoutPlans";
+import { planSupersets, type Supersets } from "../../functions/supersets";
 import {
   lastSetOf,
   nextSessionIndex,
@@ -187,6 +189,19 @@ export default function Session() {
     [active, history, planned],
   );
 
+  // A past workout's supersets: its own, or else its plan session's.
+  const supersetsOf = useCallback(
+    (w: Workout): Supersets => {
+      if (w.supersets) return w.supersets;
+      const plan = w.plan_id
+        ? plans.find((p) => p.id === w.plan_id)
+        : undefined;
+      const session = plan?.plan.sessions[w.plan_session ?? -1];
+      return session ? planSupersets(session.exercises) : [];
+    },
+    [plans],
+  );
+
   return (
     <>
       {error && <ErrorBanner message={error} onDismiss={dismissError} />}
@@ -261,11 +276,12 @@ export default function Session() {
               Past workouts
             </h2>
           )}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {history.map((w) => (
               <WorkoutHistoryCard
                 key={w.id}
                 workout={w}
+                supersets={supersetsOf(w)}
                 suggestions={suggestions}
                 onUpdateSet={handleUpdateSet}
                 onDelete={() => removeWorkout(w.id)}
