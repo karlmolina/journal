@@ -31,7 +31,6 @@ import {
   renameInSupersets,
   splitSuperset,
   supersetOf,
-  supersetTag,
   type Supersets,
 } from "../../functions/supersets";
 import ExerciseInput from "./ExerciseInput";
@@ -260,8 +259,6 @@ function PlanChecklist({
     if (group && last?.group === group) last.indices.push(i);
     else runs.push({ group, indices: [i] });
   });
-  const names = exercises.map((e) => e.name);
-  const tagOf = (i: number) => supersetTag(names, i, supersets);
   const row = (i: number) => {
     const e = exercises[i];
     const done = setsDone(e, sets);
@@ -289,7 +286,7 @@ function PlanChecklist({
             }`}
             aria-hidden="true"
           >
-            {complete ? "✓" : (tagOf(i)?.tag ?? i + 1)}
+            {complete ? "✓" : i + 1}
           </span>
           <span className="flex-1 min-w-0">
             <span
@@ -335,7 +332,6 @@ function PlanChecklist({
           )}
           {group ? (
             <SupersetGroup
-              letter={tagOf(indices[0])!.letter}
               size={group.length}
               progress={roundOf(group)}
               rest={roundRest(group)}
@@ -425,19 +421,11 @@ export default function ActiveWorkout({
   const selectedIndex = picked ?? auto;
   const selected =
     selectedIndex !== null ? exercises[selectedIndex] : undefined;
-  const selectedTag =
-    selectedIndex !== null
-      ? supersetTag(
-          exercises.map((e) => e.name),
-          selectedIndex,
-          supersets,
-        )
-      : undefined;
   const target =
     selected &&
     [
       `${
-        selectedTag ? `${selectedTag.tag} · Round` : "Set"
+        supersetOf(selected.name, supersets) ? "Round" : "Set"
       } ${Math.min(setsDone(selected, sets) + 1, selected.planned_sets)} of ${selected.planned_sets}`,
       selected.unilateral && sideLabel(nextSide(selected.name, sets)),
       `${selected.reps}${selected.weight != null ? ` at ${selected.weight} ${WEIGHT_UNIT}` : ""}`,

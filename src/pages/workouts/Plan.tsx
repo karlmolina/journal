@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import Chip from "../../components/Chip";
 import ErrorBanner from "../../components/ErrorBanner";
 import SupersetGroup from "../../components/workouts/SupersetGroup";
-import SupersetTag from "../../components/workouts/SupersetTag";
 import { useAuth } from "../../context/AuthContext";
 import useWorkoutPlans, {
   type PlannedExercise,
@@ -451,18 +450,7 @@ function PlanView({
           return (
             <div key={j} className="flex items-start gap-3 py-2">
               <div className="flex-1 min-w-0">
-                <p className="flex items-baseline gap-2 font-bold">
-                  {letterOf(e) && (
-                    <SupersetTag
-                      letter={`${letterOf(e)}${
-                        s.exercises
-                          .slice(0, j + 1)
-                          .filter((x) => letterOf(x) === letterOf(e)).length
-                      }`}
-                    />
-                  )}
-                  {e.name}
-                </p>
+                <p className="font-bold">{e.name}</p>
                 <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
                   {describeTarget(e)}
                   {!letterOf(e) &&
@@ -520,7 +508,6 @@ function PlanView({
                 <li key={indices[0]}>
                   {letter ? (
                     <SupersetGroup
-                      letter={letter}
                       size={indices.length}
                       progress={`${Math.max(
                         ...indices.map((j) => s.exercises[j].sets),
