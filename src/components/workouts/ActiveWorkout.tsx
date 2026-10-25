@@ -442,6 +442,7 @@ export default function ActiveWorkout({
             onRemove={onRemoveSets}
             onSplit={onSplitSet}
             isUnilateral={isUnilateral}
+            newestFirst
           />
         </section>
       )}
