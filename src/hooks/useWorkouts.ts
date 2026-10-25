@@ -431,6 +431,82 @@ export default function useWorkouts(userId?: string) {
     [fail],
   );
 
+  // Turns one logged set into two, halving its time, for a set that should
+  // have been recorded as two. The second half starts right after the first
+  // with no rest. An Undo toast puts the one set back.
+  const splitSet = useCallback(
+    (set: WorkoutSet) => {
+      const d = set.duration_seconds;
+      const first: WorkoutSet = {
+        ...set,
+        duration_seconds: d === null ? null : Math.ceil(d / 2),
+      };
+      const second: WorkoutSet = {
+        ...set,
+        id: crypto.randomUUID(),
+        duration_seconds: d === null ? null : Math.floor(d / 2) || null,
+        rest_seconds: null,
+        created_at: new Date(Date.parse(set.created_at) + 1).toISOString(),
+      };
+      const edit = (fn: (sets: WorkoutSet[]) => WorkoutSet[]) => {
+        const apply = (w: Workout) =>
+          w.id === set.workout_id
+            ? { ...w, workout_sets: fn(w.workout_sets) }
+            : w;
+        setActive((w) => (w ? apply(w) : w));
+        setHistory((h) => h.map(apply));
+      };
+      const unsplit = () =>
+        edit((sets) =>
+          sets
+            .filter((s) => s.id !== second.id)
+            .map((s) => (s.id === set.id ? set : s)),
+        );
+      edit((sets) =>
+        sets
+          .flatMap((s) => (s.id === set.id ? [first, second] : [s]))
+          .sort((a, b) => a.created_at.localeCompare(b.created_at)),
+      );
+      setError(null);
+      const saved = (async () => {
+        const { error } = await supabase.from("workout_sets").insert(second);
+        if (error) return error;
+        return (
+          await supabase
+            .from("workout_sets")
+            .update({ duration_seconds: first.duration_seconds })
+            .eq("id", set.id)
+        ).error;
+      })().then((error) => {
+        if (error) {
+          unsplit();
+          fail("Couldn't split that set.", error);
+        }
+        return !error;
+      });
+      queueDelete({
+        message: "Set split",
+        rows: [],
+        commit: () => Promise.resolve({ error: null }),
+        undo: async () => {
+          unsplit();
+          if (!(await saved)) return;
+          const [del, upd] = await Promise.all([
+            supabase.from("workout_sets").delete().eq("id", second.id),
+            supabase
+              .from("workout_sets")
+              .update({ duration_seconds: set.duration_seconds })
+              .eq("id", set.id),
+          ]);
+          if (del.error || upd.error)
+            fail("Couldn't undo the split.", del.error ?? upd.error);
+        },
+        onError: (error) => fail("Couldn't split that set.", error),
+      });
+    },
+    [fail],
+  );
+
   return {
     active,
     history,
@@ -449,5 +525,6 @@ export default function useWorkouts(userId?: string) {
     addSet,
     updateSet,
     removeSet,
+    splitSet,
   };
 }

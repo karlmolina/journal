@@ -26,6 +26,8 @@ interface SetFormProps {
   isUnilateral?: (exercise: string) => boolean;
   submitLabel?: string;
   onCancel?: () => void;
+  // Editing a logged set: turn it into two, halving its time.
+  onSplit?: () => void;
   onAdd: (set: SetInput) => void;
 }
 
@@ -35,6 +37,7 @@ export default function SetForm({
   isUnilateral,
   submitLabel = "Add set",
   onCancel,
+  onSplit,
   onAdd,
 }: SetFormProps) {
   const [exercise, setExercise] = useState(initial?.exercise_name ?? "");
@@ -160,6 +163,18 @@ export default function SetForm({
           {submitLabel}
         </button>
       </div>
+      {onSplit && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60 dark:text-base-content/75 self-center"
+          onClick={onSplit}
+        >
+          Split into two sets
+          {initial?.duration_seconds != null &&
+            initial.duration_seconds >= 2 &&
+            ` of ${formatClock(Math.ceil(initial.duration_seconds / 2))}`}
+        </button>
+      )}
     </form>
   );
 }

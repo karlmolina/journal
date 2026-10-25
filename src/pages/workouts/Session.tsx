@@ -91,6 +91,7 @@ export default function Session() {
     addSet,
     updateSet,
     removeSet,
+    splitSet,
   } = useWorkouts(userId);
   const { exercises, byLowerName, ensureExercise } = useExercises(userId);
   const { plans } = useWorkoutPlans(userId);
@@ -249,6 +250,7 @@ export default function Session() {
           onAddSet={handleAddSet}
           onUpdateSet={handleUpdateSet}
           onRemoveSet={removeSet}
+          onSplitSet={splitSet}
         />
       ) : (
         <div className="flex flex-col pb-6">
@@ -306,6 +308,7 @@ export default function Session() {
                 suggestions={suggestions}
                 isUnilateral={isUnilateral}
                 onUpdateSet={handleUpdateSet}
+                onSplitSet={splitSet}
                 onDelete={() => removeWorkout(w.id)}
               />
             ))}

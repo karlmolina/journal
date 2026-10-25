@@ -40,6 +40,8 @@ interface SetListProps {
   suggestions?: string[];
   onUpdate?: (set: WorkoutSet, changes: SetInput) => void;
   onRemove?: (set: WorkoutSet) => void;
+  // Turns a set into two, halving its time.
+  onSplit?: (set: WorkoutSet) => void;
   // Whether an exercise is done one side at a time, for the edit form.
   isUnilateral?: (exercise: string) => boolean;
   // Tighter rows for past workouts: a summary beside each exercise and one
@@ -72,6 +74,7 @@ export default function SetList({
   suggestions = [],
   onUpdate,
   onRemove,
+  onSplit,
   isUnilateral,
   dense = false,
   supersetTags,
@@ -117,6 +120,13 @@ export default function SetList({
                       suggestions={suggestions}
                       initial={set}
                       isUnilateral={isUnilateral}
+                      onSplit={
+                        onSplit &&
+                        (() => {
+                          onSplit(set);
+                          setEditingId(null);
+                        })
+                      }
                       submitLabel="Save"
                       onCancel={() => setEditingId(null)}
                       onAdd={(changes) => {

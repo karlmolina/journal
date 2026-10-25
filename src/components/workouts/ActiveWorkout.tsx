@@ -59,6 +59,7 @@ interface ActiveWorkoutProps {
   onAddSet: (set: SetInput) => void;
   onUpdateSet: (set: WorkoutSet, changes: SetInput) => void;
   onRemoveSet: (set: WorkoutSet) => void;
+  onSplitSet: (set: WorkoutSet) => void;
 }
 
 // Between two planned exercises: whether they're a superset, and a tap to
@@ -191,6 +192,7 @@ export default function ActiveWorkout({
   onAddSet,
   onUpdateSet,
   onRemoveSet,
+  onSplitSet,
 }: ActiveWorkoutProps) {
   const paused = workout.paused_at !== null;
   // One clock drives the workout time and the set and rest timers.
@@ -438,6 +440,7 @@ export default function ActiveWorkout({
             suggestions={suggestions}
             onUpdate={onUpdateSet}
             onRemove={onRemoveSet}
+            onSplit={onSplitSet}
             isUnilateral={isUnilateral}
           />
         </section>
