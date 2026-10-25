@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
+import { notDeleted, queueDelete } from "../functions/undoDelete";
 
 export type Side = "left" | "right" | "center";
 
@@ -86,7 +87,9 @@ export default function useInjuries(userId?: string) {
         if (cancelled) return;
         setLoading(false);
         if (error) return fail("Couldn't load your injuries.", error);
-        setInjuries((data as Injury[]).map(sortCheckins));
+        setInjuries(
+          (data as Injury[]).filter(notDeleted("injuries")).map(sortCheckins),
+        );
       });
     return () => {
       cancelled = true;
@@ -193,19 +196,28 @@ export default function useInjuries(userId?: string) {
     [fail],
   );
 
+  // Check-ins (and note links) stay in the database until the Undo toast
+  // closes, so undo just puts the injury back in the list.
   const removeInjury = useCallback(
-    async (injuryId: string) => {
-      const prev = latest.current;
-      setInjuries(prev.filter((i) => i.id !== injuryId));
+    (injuryId: string) => {
+      const injury = latest.current.find((i) => i.id === injuryId);
+      if (!injury) return;
+      setInjuries((prev) => prev.filter((i) => i.id !== injuryId));
       setError(null);
-      const { error } = await supabase
-        .from("injuries")
-        .delete()
-        .eq("id", injuryId);
-      if (error) {
-        setInjuries(prev);
-        fail("Couldn't delete that injury.", error);
-      }
+      queueDelete({
+        message: "Injury deleted",
+        rows: [`injuries:${injuryId}`],
+        commit: () => supabase.from("injuries").delete().eq("id", injuryId),
+        undo: () =>
+          setInjuries((prev) =>
+            prev.some((i) => i.id === injuryId)
+              ? prev
+              : [...prev, injury].sort((a, b) =>
+                  b.started_on.localeCompare(a.started_on),
+                ),
+          ),
+        onError: (error) => fail("Couldn't delete that injury.", error),
+      });
     },
     [fail],
   );

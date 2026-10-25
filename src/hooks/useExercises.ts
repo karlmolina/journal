@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
+import { notDeleted, queueDelete } from "../functions/undoDelete";
 
 export type ExerciseCategory =
   | "mobility"
@@ -70,8 +71,9 @@ export default function useExercises(userId?: string) {
           setError("Couldn't load the exercise library.");
           return;
         }
-        setExercises(data as Exercise[]);
-        writeCache(userId, data as Exercise[]);
+        const fresh = (data as Exercise[]).filter(notDeleted("exercises"));
+        setExercises(fresh);
+        writeCache(userId, fresh);
       });
     return () => {
       cancelled = true;
@@ -113,18 +115,24 @@ export default function useExercises(userId?: string) {
   );
 
   const removeExercise = useCallback(
-    async (exercise: Exercise) => {
+    (exercise: Exercise) => {
       update((prev) => prev.filter((e) => e.id !== exercise.id));
       setError(null);
-      const { error } = await supabase
-        .from("exercises")
-        .delete()
-        .eq("id", exercise.id);
-      if (error) {
-        console.error(error);
-        update((prev) => [...prev, exercise].sort(byName));
-        setError("Couldn't delete that exercise.");
-      }
+      queueDelete({
+        message: `${exercise.name} deleted`,
+        rows: [`exercises:${exercise.id}`],
+        commit: () => supabase.from("exercises").delete().eq("id", exercise.id),
+        undo: () =>
+          update((prev) =>
+            prev.some((e) => e.id === exercise.id)
+              ? prev
+              : [...prev, exercise].sort(byName),
+          ),
+        onError: (error) => {
+          console.error(error);
+          setError("Couldn't delete that exercise.");
+        },
+      });
     },
     [update],
   );

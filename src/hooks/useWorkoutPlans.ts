@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
+import { notDeleted, queueDelete } from "../functions/undoDelete";
 
 export interface PlannedExercise {
   name: string;
@@ -116,7 +117,7 @@ export default function useWorkoutPlans(userId?: string) {
           setError("Couldn't load your plans.");
           return;
         }
-        setPlans(data as WorkoutPlan[]);
+        setPlans((data as WorkoutPlan[]).filter(notDeleted("workout_plans")));
       });
     return () => {
       cancelled = true;
@@ -168,23 +169,27 @@ export default function useWorkoutPlans(userId?: string) {
     [callAI],
   );
 
-  const removePlan = useCallback(async (plan: WorkoutPlan) => {
+  const removePlan = useCallback((plan: WorkoutPlan) => {
     setPlans((prev) => prev.filter((p) => p.id !== plan.id));
     setError(null);
     setErrorDetails(null);
-    const { error } = await supabase
-      .from("workout_plans")
-      .delete()
-      .eq("id", plan.id);
-    if (error) {
-      console.error(error);
-      setPlans((prev) =>
-        [...prev, plan].sort((a, b) =>
-          b.created_at.localeCompare(a.created_at),
+    queueDelete({
+      message: "Plan deleted",
+      rows: [`workout_plans:${plan.id}`],
+      commit: () => supabase.from("workout_plans").delete().eq("id", plan.id),
+      undo: () =>
+        setPlans((prev) =>
+          prev.some((p) => p.id === plan.id)
+            ? prev
+            : [...prev, plan].sort((a, b) =>
+                b.created_at.localeCompare(a.created_at),
+              ),
         ),
-      );
-      setError("Couldn't delete that plan.");
-    }
+      onError: (error) => {
+        console.error(error);
+        setError("Couldn't delete that plan.");
+      },
+    });
   }, []);
 
   return {
