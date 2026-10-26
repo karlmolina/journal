@@ -103,6 +103,13 @@ function UpNextCard({
   );
 }
 
+// Brings the current exercise's card to the top of the screen.
+function scrollToTop(el: HTMLElement | null) {
+  requestAnimationFrame(() =>
+    el?.scrollIntoView({ behavior: "smooth", block: "start" }),
+  );
+}
+
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
 
@@ -562,6 +569,14 @@ export default function ActiveWorkout({
   const timer = useRef<SetTimerControl>(null);
   const [setBusy, setSetBusy] = useState(false);
 
+  // Keep the current exercise at the top: when the workout opens and
+  // whenever a set starts.
+  const currentCard = useRef<HTMLElement>(null);
+  useEffect(() => scrollToTop(currentCard.current), []);
+  useEffect(() => {
+    if (setBusy) scrollToTop(currentCard.current);
+  }, [setBusy]);
+
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [notes, setNotes] = useState("");
@@ -679,7 +694,10 @@ export default function ActiveWorkout({
             onEnd={(i, ended) => {
               onPlanChange(endExercise(workout.plan_changes, i, ended));
               // Move on to what's next once it's done.
-              if (ended) setPicked(null);
+              if (ended) {
+                setPicked(null);
+                scrollToTop(currentCard.current);
+              }
             }}
             onLink={(i, linked) =>
               onSupersetsChange(
@@ -701,7 +719,7 @@ export default function ActiveWorkout({
         </section>
       )}
 
-      <section className={cardClass}>
+      <section ref={currentCard} className={`${cardClass} scroll-mt-4`}>
         <SetTimer
           workoutId={workout.id}
           storageKey={timerKey}
@@ -791,6 +809,8 @@ export default function ActiveWorkout({
           </button>
         )}
       </div>
+      {/* Room to scroll the current exercise to the top near the end. */}
+      <div aria-hidden className="h-[75dvh]" />
     </div>
   );
 }
