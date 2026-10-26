@@ -517,7 +517,7 @@ function PlanView({
                         ...indices.map((j) => s.exercises[j].rest_seconds),
                       )}
                     >
-                      <div className="flex flex-col divide-y divide-primary/15 px-2">
+                      <div className="flex flex-col divide-y divide-base-content/8 px-2">
                         {indices.map((j) => exerciseRow(j))}
                       </div>
                     </SupersetGroup>

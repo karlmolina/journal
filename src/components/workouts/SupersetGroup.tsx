@@ -1,10 +1,7 @@
 import type { ReactNode } from "react";
 
-const accent =
-  "text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]";
-
-// A box around exercises done back to back as one superset, headed with
-// where you are in the rounds and the rest after each round.
+// A thin outline around exercises done back to back as one superset, with a
+// quiet note of the round you're on and the rest after each round.
 export default function SupersetGroup({
   size,
   progress,
@@ -19,26 +16,16 @@ export default function SupersetGroup({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border-2 border-primary/45 dark:border-primary/70 bg-primary/6 dark:bg-primary/12 p-1.5">
-      <div className="flex items-baseline gap-2 px-2 pt-0.5 pb-1">
-        <span
-          className={`whitespace-nowrap text-xs font-extrabold uppercase tracking-wide ${accent}`}
-        >
-          {size > 2 ? "Circuit" : "Superset"}
-        </span>
-        {progress && (
-          <span
-            className={`whitespace-nowrap text-xs font-bold tabular-nums ${accent}`}
-          >
-            · {progress}
-          </span>
-        )}
-        {!!rest && rest > 0 && (
-          <span className="ml-auto whitespace-nowrap text-xs font-semibold text-base-content/55 dark:text-base-content/75 tabular-nums">
-            {rest}s rest per round
-          </span>
-        )}
-      </div>
+    <div className="rounded-2xl border border-base-content/15 dark:border-base-content/25 p-1">
+      <p className="px-2.5 pt-1 text-xs font-semibold text-base-content/50 dark:text-base-content/70 tabular-nums">
+        {[
+          size > 2 ? "Circuit" : "Superset",
+          progress,
+          !!rest && rest > 0 && `${rest}s rest per round`,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
       {children}
     </div>
   );
