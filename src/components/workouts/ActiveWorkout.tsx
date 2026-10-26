@@ -166,15 +166,11 @@ function SupersetLink({
     <div className="flex justify-center -my-0.5">
       <button
         type="button"
-        className={`rounded-full px-2.5 py-0.5 text-xs font-bold transition cursor-pointer ${
-          linked
-            ? "text-primary/70 dark:text-[color-mix(in_oklab,var(--color-primary),white_55%)] hover:bg-primary/10"
-            : "text-base-content/40 dark:text-base-content/70 hover:text-base-content/70 dark:hover:text-base-content/90 hover:bg-base-content/6"
-        }`}
+        className="rounded-full px-2.5 py-0.5 text-xs font-bold transition cursor-pointer text-base-content/40 dark:text-base-content/70 hover:text-base-content/70 dark:hover:text-base-content/90 hover:bg-base-content/6"
         onClick={onToggle}
         aria-pressed={linked}
       >
-        {linked ? "↓ no rest · tap to split" : "+ Superset"}
+        {linked ? "No rest · tap to split" : "+ Superset"}
       </button>
     </div>
   );
@@ -341,20 +337,16 @@ function PlanChecklist({
         <button
           type="button"
           className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition cursor-pointer ${
-            selected === i
-              ? "bg-primary/15 dark:bg-primary/25"
-              : "hover:bg-base-content/6"
+            selected === i ? "bg-primary/15" : "hover:bg-base-content/6"
           }`}
           onClick={() => onSelect(i)}
           aria-pressed={selected === i}
         >
           <span
-            className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1 text-xs font-bold ${
+            className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
               complete
                 ? "bg-primary text-primary-content"
-                : group
-                  ? "bg-primary/15 dark:bg-primary/30 text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]"
-                  : "bg-base-content/10 text-base-content/60 dark:text-base-content/80"
+                : "bg-base-content/10 text-base-content/60 dark:text-base-content/80"
             }`}
             aria-hidden="true"
           >
