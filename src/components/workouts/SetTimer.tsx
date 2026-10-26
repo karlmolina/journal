@@ -38,7 +38,8 @@ type Phase =
       exercise: string;
       startedAt: number;
       side?: Side | null;
-      // The rest before this set, and the rest itself to go back to on cancel.
+      // The rest before this set, and the rest itself to carry on with if
+      // the set is thrown away.
       restSeconds?: number | null;
       rest?: Rest;
     }
@@ -92,7 +93,9 @@ interface SetTimerProps {
   exercise: string;
   // A line about the target, like "Set 2 of 3 · 8-10 reps".
   target?: string;
+  // The plan's tip for the exercise, and what it's working toward.
   notes?: string;
+  goal?: string;
   suggestions: string[];
   prefillFor: (exercise: string) => Partial<SetInput>;
   // Rest after a set, and the exercise to do next when it's in a superset.
@@ -219,6 +222,7 @@ export default function SetTimer({
   exercise,
   target,
   notes,
+  goal,
   suggestions,
   prefillFor,
   afterSet,
@@ -423,6 +427,16 @@ export default function SetTimer({
 
   const startLabel = side ? `Start ${side} side` : "Start set";
 
+  // What the plan says: the set and target, then its tip and the goal, each
+  // on a line of its own.
+  const planLines = (target || notes || goal) && (
+    <div className="flex flex-col gap-0.5 text-sm text-base-content/60 dark:text-base-content/80">
+      {target && <p className="font-semibold tabular-nums">{target}</p>}
+      {notes && <p className="font-medium">{notes}</p>}
+      {goal && <p className="font-medium">Goal: {goal}</p>}
+    </div>
+  );
+
   // The same heading while a set runs, while it's filled in and during the
   // rest after it, so the card doesn't jump around on Stop set.
   const header = (exerciseName: string, setSide?: Side | null) => (
@@ -433,11 +447,7 @@ export default function SetTimer({
           {sideLabel(setSide)}
         </p>
       )}
-      {(target || notes) && (
-        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">
-          {[target, notes].filter(Boolean).join(" · ")}
-        </p>
-      )}
+      {planLines}
       <div className="w-full mt-2 flex flex-col gap-2 text-left">
         <ExerciseHowTo exercise={lookup?.(exerciseName)} />
         {exerciseNotes && (
@@ -492,13 +502,6 @@ export default function SetTimer({
             Stop set
           </button>
         )}
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
-          onClick={() => setState({ phase: "ready", rest: state.rest })}
-        >
-          Cancel set
-        </button>
       </div>
     );
 
@@ -614,11 +617,7 @@ export default function SetTimer({
         onChange={setName}
         suggestions={suggestions}
       />
-      {(target || notes) && (
-        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">
-          {[target, notes].filter(Boolean).join(" · ")}
-        </p>
-      )}
+      {planLines}
       <ExerciseHowTo exercise={lookup?.(name)} />
       {exerciseNotes && name.trim() && (
         <ExerciseNote

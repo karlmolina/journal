@@ -17,7 +17,6 @@ import {
   endExercise,
   nextSide,
   setsDone,
-  sideLabel,
   swapExercise,
   type SessionExercise,
 } from "../../functions/planProgress";
@@ -40,6 +39,7 @@ import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 
 // The exercise after the current one, as one big card: tap it to start.
+// While a set is under way it can't start yet, so it's a quiet preview.
 function UpNextCard({
   exercise,
   howTo,
@@ -53,13 +53,24 @@ function UpNextCard({
   onStart: () => void;
 }) {
   const start = () => !waiting && onStart();
+  if (waiting)
+    return (
+      <section className="rounded-2xl px-4 py-3 sm:px-5 ring-1 ring-base-content/10 dark:ring-base-content/15">
+        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+          Up next, after this set
+        </p>
+        <p className="font-bold leading-tight">{exercise.name}</p>
+        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
+          {describeTarget(exercise)}
+        </p>
+      </section>
+    );
   return (
     <section
       role="button"
-      tabIndex={waiting ? -1 : 0}
-      aria-disabled={waiting}
+      tabIndex={0}
       aria-label={`Up next: ${exercise.name}. Start it`}
-      className={`rounded-3xl bg-primary/10 dark:bg-primary/20 ring-2 ring-primary/40 px-4 py-5 sm:px-5 flex flex-col gap-1 transition ${waiting ? "" : "cursor-pointer hover:bg-primary/15 active:scale-[0.98]"}`}
+      className="rounded-3xl bg-primary/10 dark:bg-primary/20 ring-2 ring-primary/40 px-4 py-5 sm:px-5 flex flex-col gap-1 transition cursor-pointer hover:bg-primary/15 active:scale-[0.98]"
       onClick={start}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -81,23 +92,11 @@ function UpNextCard({
           <ExerciseHowTo exercise={howTo} />
         </div>
       )}
-      <span
-        className={`mt-3 flex items-center justify-center gap-2 rounded-full py-3 text-lg font-bold ${waiting ? "bg-base-content/10 text-base-content/55 dark:text-base-content/75" : "bg-primary text-primary-content"}`}
-      >
-        {waiting ? (
-          "Save this set first"
-        ) : (
-          <>
-            <svg
-              viewBox="0 0 24 24"
-              className="size-5 fill-current"
-              aria-hidden
-            >
-              <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" />
-            </svg>
-            Start {exercise.name}
-          </>
-        )}
+      <span className="mt-3 flex items-center justify-center gap-2 rounded-full py-3 text-lg font-bold bg-primary text-primary-content">
+        <svg viewBox="0 0 24 24" className="size-5 fill-current" aria-hidden>
+          <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" />
+        </svg>
+        Start {exercise.name}
       </span>
     </section>
   );
@@ -491,7 +490,6 @@ export default function ActiveWorkout({
       `${
         supersetOf(selected.name, supersets) ? "Round" : "Set"
       } ${Math.min(setsDone(selected, sets) + 1, selected.planned_sets)} of ${selected.planned_sets}`,
-      selected.unilateral && sideLabel(nextSide(selected.name, sets)),
       `${selected.reps}${selected.weight != null ? ` at ${selected.weight} ${WEIGHT_UNIT}` : ""}`,
     ]
       .filter(Boolean)
@@ -719,11 +717,8 @@ export default function ActiveWorkout({
           clockOrigin={clockOrigin}
           exercise={selected?.name ?? initialExercise ?? ""}
           target={target || undefined}
-          notes={
-            [selected?.notes, selected?.goal && `Goal ${selected.goal}`]
-              .filter(Boolean)
-              .join(" · ") || undefined
-          }
+          notes={selected?.notes || undefined}
+          goal={selected?.goal || undefined}
           suggestions={suggestions}
           prefillFor={prefillFor}
           afterSet={afterSet}
