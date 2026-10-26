@@ -8,9 +8,14 @@ import { WEIGHT_UNIT } from "../../functions/workoutSets";
 const fieldClass =
   "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 
-// Small unit label tucked into the bottom right corner of a field.
-const cornerLabelClass =
-  "pointer-events-none absolute bottom-1 right-2 text-[10px] font-semibold leading-none text-base-content/50 dark:text-base-content/70";
+// A field that reads like "10 reps": the number sits right up against its
+// unit, and tapping anywhere in the box focuses the input.
+const unitFieldClass =
+  "flex flex-1 min-w-0 items-baseline gap-1 rounded-xl bg-base-content/8 px-3 py-2.5 transition focus-within:bg-base-content/12 cursor-text";
+const unitInputClass =
+  "w-full min-w-0 bg-transparent text-right font-semibold outline-none";
+const unitClass =
+  "shrink-0 text-sm font-medium text-base-content/45 dark:text-base-content/65";
 
 const weightLabel = WEIGHT_UNIT === "lb" ? "lbs" : WEIGHT_UNIT;
 
@@ -111,33 +116,33 @@ export default function SetForm({
         </div>
       )}
       <div className="flex items-center gap-2">
-        <label className="relative flex-1 min-w-0">
+        <label className={unitFieldClass}>
           <input
-            className={`${fieldClass} pr-10`}
+            className={unitInputClass}
             inputMode="numeric"
             value={reps}
             onChange={(e) => setReps(e.target.value)}
             aria-label="Reps"
           />
-          <span className={cornerLabelClass} aria-hidden>
+          <span className={unitClass} aria-hidden>
             reps
           </span>
         </label>
         <span
-          className="-mx-1 text-sm font-semibold text-base-content/50 dark:text-base-content/70"
+          className="text-base font-semibold text-base-content/45 dark:text-base-content/65"
           aria-hidden
         >
           ×
         </span>
-        <label className="relative flex-1 min-w-0">
+        <label className={unitFieldClass}>
           <input
-            className={`${fieldClass} pr-9`}
+            className={unitInputClass}
             inputMode="decimal"
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             aria-label={`Weight in ${WEIGHT_UNIT}`}
           />
-          <span className={cornerLabelClass} aria-hidden>
+          <span className={unitClass} aria-hidden>
             {weightLabel}
           </span>
         </label>
