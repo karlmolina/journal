@@ -27,13 +27,16 @@ export function groupSets(sets: WorkoutSet[]) {
   return [...groups.values()];
 }
 
-// "Set 2", or "Set 2 L" for one side of a one-side-at-a-time set. Each side
-// counts its own sets, so a left and a right share a number.
-export function setLabels(sets: WorkoutSet[]) {
+// "Set 2", or "Set 2 L" ("Set 2 · Left" when not short) for one side of a
+// one-side-at-a-time set. Each side counts its own sets, so a left and a
+// right share a number.
+export function setLabels(sets: WorkoutSet[], short = true) {
   const counts = { left: 0, right: 0, none: 0 };
   return sets.map((s) => {
     const n = ++counts[s.side ?? "none"];
-    return s.side ? `Set ${n} ${s.side === "left" ? "L" : "R"}` : `Set ${n}`;
+    if (!s.side) return `Set ${n}`;
+    if (short) return `Set ${n} ${s.side === "left" ? "L" : "R"}`;
+    return `Set ${n} · ${s.side === "left" ? "Left" : "Right"}`;
   });
 }
 

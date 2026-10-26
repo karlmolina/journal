@@ -93,7 +93,7 @@ export default function SetList({
   const groups = groupSets(sets).map(({ name, sets }) => ({
     name,
     sets,
-    labels: setLabels(sets),
+    labels: setLabels(sets, dense),
   }));
   if (newestFirst) {
     const order = new Map(sets.map((s, i) => [s.id, i]));
@@ -201,7 +201,7 @@ export default function SetList({
                     className={`flex items-center font-medium text-base-content/80 dark:text-[color-mix(in_oklab,var(--color-base-content),white_30%)] ${dense ? "gap-2 min-h-6 text-sm" : "gap-3 min-h-8"}`}
                   >
                     <span
-                      className={`shrink-0 text-xs font-semibold tracking-wide text-base-content/50 dark:text-base-content/75 ${dense ? "w-8 tabular-nums" : "w-14"}`}
+                      className={`shrink-0 text-xs font-semibold tracking-wide text-base-content/50 dark:text-base-content/75 ${dense ? "w-8 tabular-nums" : "w-22"}`}
                       aria-label={dense ? labels[i] : undefined}
                     >
                       {dense ? labels[i].replace("Set ", "") : labels[i]}
