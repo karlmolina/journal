@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { SetInput, Side, WorkoutSet } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
@@ -418,8 +418,12 @@ export default function SetTimer({
       : state.phase === "resting"
         ? "rest"
         : "none";
-  useEffect(() => onSlotChange?.(slot), [slot, onSlotChange]);
-  useEffect(() => onPhaseChange?.(state.phase), [state.phase, onPhaseChange]);
+  // Told before paint, so the cards around the timer change in the same frame.
+  useLayoutEffect(() => onSlotChange?.(slot), [slot, onSlotChange]);
+  useLayoutEffect(
+    () => onPhaseChange?.(state.phase),
+    [state.phase, onPhaseChange],
+  );
 
   const startSet = () => {
     const n = name.trim();

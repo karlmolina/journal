@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type {
   PlanChanges,
   SetInput,
@@ -40,11 +40,13 @@ import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 
-// Brings the current exercise's card to the top of the screen.
+// Brings the current exercise's card to the top of the screen, gliding
+// there unless reduced motion is asked for.
 function scrollToTop(el: HTMLElement | null) {
-  requestAnimationFrame(() =>
-    el?.scrollIntoView({ behavior: "smooth", block: "start" }),
-  );
+  const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "auto"
+    : "smooth";
+  requestAnimationFrame(() => el?.scrollIntoView({ behavior, block: "start" }));
 }
 
 const cardClass =
@@ -413,6 +415,22 @@ export default function ActiveWorkout({
   useEffect(() => {
     if (setBusy) scrollToTop(currentCard.current);
   }, [setBusy]);
+  // While the rest card above empties and goes, hold the exercise where it
+  // was on screen so it glides up from there rather than jumping.
+  const cardTop = useRef<{ el: HTMLElement; top: number } | null>(null);
+  const wasResting = useRef(resting);
+  useLayoutEffect(() => {
+    const el = currentCard.current;
+    const before = cardTop.current;
+    if (wasResting.current && el && before?.el === el) {
+      const shift = el.getBoundingClientRect().top + scrollY - before.top;
+      if (shift) scrollBy({ top: shift, behavior: "instant" });
+    }
+    wasResting.current = resting;
+    cardTop.current = el
+      ? { el, top: el.getBoundingClientRect().top + scrollY }
+      : null;
+  });
 
   // Where the current exercise is when it isn't scrolled to the top, for
   // the button that brings it back.
