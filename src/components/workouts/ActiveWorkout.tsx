@@ -408,17 +408,18 @@ export default function ActiveWorkout({
     if (setBusy) scrollToTop(currentCard.current);
   }, [setBusy]);
 
-  // Where the current exercise is when it's scrolled off screen, for the
-  // button that brings it back.
+  // Where the current exercise is when it isn't scrolled to the top, for
+  // the button that brings it back.
   const [awayFrom, setAwayFrom] = useState<"above" | "below" | null>(null);
   useEffect(() => {
     const check = () => {
       const el = restSlot ?? currentCard.current;
       if (!el) return setAwayFrom(null);
-      const { top, bottom } = el.getBoundingClientRect();
-      setAwayFrom(
-        bottom < 0 ? "above" : top > window.innerHeight ? "below" : null,
-      );
+      // Scrolled to the top leaves it its scroll margin below the edge.
+      const offset =
+        el.getBoundingClientRect().top -
+        parseFloat(getComputedStyle(el).scrollMarginTop || "0");
+      setAwayFrom(offset < -2 ? "above" : offset > 2 ? "below" : null);
     };
     check();
     window.addEventListener("scroll", check, { passive: true });
@@ -874,7 +875,7 @@ export default function ActiveWorkout({
         <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none">
           <button
             type="button"
-            className="pointer-events-auto btn btn-sm rounded-full font-semibold border-0 shadow-md bg-base-100 text-base-content/75 dark:bg-base-300 dark:text-base-content/85 ring-1 ring-base-content/10"
+            className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition"
             onClick={() => scrollToTop(restSlot ?? currentCard.current)}
           >
             {awayFrom === "above" ? "↑" : "↓"} Current exercise
