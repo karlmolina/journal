@@ -93,6 +93,19 @@ interface ActiveWorkoutProps {
 
 // Between two planned exercises: whether they're a superset, and a tap to
 // pair them up or split them.
+// A whole rest from music notation: a small block hanging from a line.
+function RestIcon() {
+  return (
+    <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+      <path d="M1 3.5h14" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="4.5" y="3.5" width="7" height="4.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+const linkButtonClass =
+  "flex size-7 items-center justify-center rounded-full font-bold transition cursor-pointer text-base-content/40 dark:text-base-content/65 hover:text-base-content/70 dark:hover:text-base-content/90";
+
 function SupersetLink({
   linked,
   onToggle,
@@ -100,15 +113,45 @@ function SupersetLink({
   linked: boolean;
   onToggle: () => void;
 }) {
+  if (!linked)
+    return (
+      <div className="flex justify-center -my-0.5">
+        <button
+          type="button"
+          className={`${linkButtonClass} hover:bg-base-content/6`}
+          onClick={onToggle}
+          aria-pressed={false}
+          aria-label="Rest between these. Tap to make them a superset."
+          title="Rest between · tap to superset"
+        >
+          <RestIcon />
+        </button>
+      </div>
+    );
+  // Joined with no rest: a neck of card joins the two cards, with the
+  // superset sign in its waist.
   return (
-    <div className="flex justify-center -my-0.5">
+    <div className="relative flex justify-center h-7 -my-1">
+      <svg
+        className="absolute inset-y-0 left-1/2 -translate-x-1/2 h-full w-20 text-base-content/5 dark:text-base-content/9"
+        viewBox="0 0 80 28"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M0 0H80C62 0 56 7 56 14C56 21 62 28 80 28H0C18 28 24 21 24 14C24 7 18 0 0 0Z"
+          fill="currentColor"
+        />
+      </svg>
       <button
         type="button"
-        className="rounded-full px-2.5 py-0.5 text-xs font-bold transition cursor-pointer text-base-content/40 dark:text-base-content/70 hover:text-base-content/70 dark:hover:text-base-content/90 hover:bg-base-content/6"
+        className={`${linkButtonClass} relative text-base leading-none`}
         onClick={onToggle}
-        aria-pressed={linked}
+        aria-pressed
+        aria-label="Superset, no rest between these. Tap to split them."
+        title="Superset · tap to split"
       >
-        {linked ? "No rest · tap to split" : "+ Superset"}
+        ⊃
       </button>
     </div>
   );

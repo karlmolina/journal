@@ -275,7 +275,7 @@ export function ExerciseHeader({
   exerciseNotes?: ExerciseNotesProps;
 }) {
   return (
-    <div className="w-full flex flex-col items-center text-center">
+    <div className="w-full flex flex-col">
       {/* The biggest text on the screen: what you're doing now. */}
       <p className="text-4xl font-extrabold leading-tight tracking-tight">
         {name}
@@ -549,7 +549,7 @@ export default function SetTimer({
 
   const bigClock = (seconds: number, muted = false) => (
     <p
-      className={`my-2 text-3xl font-extrabold tracking-tight tabular-nums text-center ${muted ? "text-base-content/45 dark:text-base-content/70" : ""}`}
+      className={`my-2 text-3xl font-extrabold tracking-tight tabular-nums ${muted ? "text-base-content/45 dark:text-base-content/70" : ""}`}
       role="timer"
     >
       {formatClock(seconds)}
@@ -558,13 +558,13 @@ export default function SetTimer({
 
   if (state.phase === "running")
     return (
-      <div className="flex flex-col items-center text-center">
+      <div className="flex flex-col">
         {header(state.exercise, state.side)}
         {countdown > 0 ? (
           // In the clock's place, so nothing moves when it starts.
           <>
             <p
-              className="my-2 text-3xl font-extrabold tracking-tight tabular-nums text-center text-base-content/45 dark:text-base-content/70"
+              className="my-2 text-3xl font-extrabold tracking-tight tabular-nums text-base-content/45 dark:text-base-content/70"
               role="timer"
             >
               Starting in {countdown}
@@ -705,7 +705,7 @@ export default function SetTimer({
     // stays with the exercise it starts.
     if (restSlot !== undefined)
       return (
-        <div className="flex flex-col items-center text-center">
+        <div className="flex flex-col">
           {restSlot && createPortal(restBlock, restSlot)}
           {header(name.trim(), side)}
           <div className="w-full mt-2 flex flex-col items-center">{start}</div>
@@ -726,18 +726,18 @@ export default function SetTimer({
   return (
     <div className="flex flex-col gap-2">
       {state.rest && (
-        <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold text-center tabular-nums">
+        <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold tabular-nums">
           Resting {formatClock(rested)} · target{" "}
           {formatClock(state.rest.target)}
         </p>
       )}
       {state.switchTo && side === state.switchTo && (
-        <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold text-center">
+        <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold">
           Now the {state.switchTo} side.
         </p>
       )}
       {state.supersetNext && name === state.supersetNext && (
-        <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold text-center">
+        <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold">
           Superset: straight on to {state.supersetNext}, no rest.
         </p>
       )}
