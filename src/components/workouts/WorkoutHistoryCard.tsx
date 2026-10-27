@@ -72,6 +72,8 @@ function ScoreMeter({ score }: { score: number }) {
 
 interface WorkoutHistoryCardProps {
   workout: Workout;
+  // The plan day this workout followed, like "Day 2 · Upper body".
+  planDay?: string;
   // The supersets this workout used, from the workout or its plan.
   supersets?: Supersets;
   // The body parts an exercise works, main one first.
@@ -86,6 +88,7 @@ interface WorkoutHistoryCardProps {
 
 export default function WorkoutHistoryCard({
   workout,
+  planDay,
   supersets = [],
   bodyPartsOf = () => [],
   suggestions,
@@ -138,6 +141,11 @@ export default function WorkoutHistoryCard({
             <path d="m6 9 6 6 6-6" />
           </svg>
         </div>
+        {planDay && (
+          <p className="mt-0.5 truncate text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
+            {planDay}
+          </p>
+        )}
         {!open && parts.length > 0 && (
           <ul
             className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm"
