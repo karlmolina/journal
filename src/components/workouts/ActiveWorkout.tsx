@@ -1,5 +1,6 @@
 import {
   type ReactNode,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -48,14 +49,18 @@ import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 
-// Brings the current exercise's card to the top of the screen in one glide
+// Brings the current exercise's card to the top of the screen (or the set
+// just finished to the middle) in one glide
 // (a jump with reduced motion). Cards swap, the rest card comes and goes and
 // sets fold away right as you tap, so it waits for the page to hold still
 // before picking where to go. Asked again before then, the latest ask wins.
 // Only a glide that ends well off target (the page changed on the way) gets
 // one more, and touching the page cancels it all.
 let stopScrolling: (() => void) | null = null;
-function scrollToTop(target: () => HTMLElement | null) {
+function scrollToTop(
+  target: () => HTMLElement | null,
+  block: "start" | "center" = "start",
+) {
   stopScrolling?.();
   const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches
     ? "auto"
@@ -77,16 +82,18 @@ function scrollToTop(target: () => HTMLElement | null) {
   const offset = () => {
     const el = target();
     if (!el?.isConnected) return null;
+    const r = el.getBoundingClientRect();
     const off =
-      el.getBoundingClientRect().top -
-      parseFloat(getComputedStyle(el).scrollMarginTop || "0");
+      block === "center"
+        ? r.top + r.height / 2 - innerHeight / 2
+        : r.top - parseFloat(getComputedStyle(el).scrollMarginTop || "0");
     const atBottom = innerHeight + scrollY >= document.body.scrollHeight - 1;
-    return off > 0 && atBottom ? 0 : off;
+    return (off > 0 && atBottom) || (off < 0 && scrollY <= 0) ? 0 : off;
   };
   const glide = (corrected: boolean) => {
     const off = offset();
     if (off === null || Math.abs(off) <= 2) return stop();
-    target()!.scrollIntoView({ behavior, block: "start" });
+    target()!.scrollIntoView({ behavior, block });
     // Wait for the glide to end, then look once more.
     let lastY = NaN;
     const ended = () => {
@@ -470,6 +477,12 @@ export default function ActiveWorkout({
       setPicked(null);
   };
   const [timerPhase, setTimerPhase] = useState<TimerPhase>("ready");
+  // Read by the scrolling below, which can run before the phase's state does.
+  const phaseNow = useRef<TimerPhase>("ready");
+  const onPhaseChange = useCallback((phase: TimerPhase) => {
+    phaseNow.current = phase;
+    setTimerPhase(phase);
+  }, []);
   const setBusy = timerPhase === "running" || timerPhase === "logging";
   // A rest gets a card of its own just above the exercise that's next.
   const [slot, setSlot] = useState<SlotContent>("none");
@@ -480,19 +493,37 @@ export default function ActiveWorkout({
   // plan moves on to another exercise and whenever a set starts.
   const currentCard = useRef<HTMLElement>(null);
   const [restSlot, setRestSlot] = useState<HTMLElement | null>(null);
+  // Under the set just finished, for the button on to the rest or next set.
+  const [doneSlot, setDoneSlot] = useState<HTMLElement | null>(null);
+  const doneBlock = (timerPhase === "done" && doneSlot?.parentElement) || null;
+  const doneRef = useRef(doneBlock);
+  doneRef.current = doneBlock;
   // During a rest its card is the top.
   const restRef = useRef(restSlot);
   restRef.current = restSlot;
   const toCurrent = () => restRef.current ?? currentCard.current;
   // When the plan moves on, a rest starts or a set starts; one scroll for
   // all of them, once the page settles.
-  const seen = useRef<{ index: number | null; rest: boolean; busy: boolean }>(
-    null,
-  );
+  // A set just finished goes to the middle instead, with the button on
+  // under it, and stays there until you go on.
+  const seen = useRef<{
+    index: number | null;
+    rest: boolean;
+    busy: boolean;
+    done: boolean;
+  }>(null);
   useEffect(() => {
     const before = seen.current;
-    seen.current = { index: selectedIndex, rest: !!restSlot, busy: setBusy };
-    if (
+    seen.current = {
+      index: selectedIndex,
+      rest: !!restSlot,
+      busy: setBusy,
+      done: !!doneBlock,
+    };
+    if (doneBlock && !before?.done)
+      scrollToTop(() => doneRef.current, "center");
+    else if (phaseNow.current === "done") return;
+    else if (
       !before ||
       before.index !== selectedIndex ||
       (restSlot && !before.rest) ||
@@ -525,8 +556,11 @@ export default function ActiveWorkout({
   useEffect(() => {
     const check = () => {
       const el = currentCard.current;
-      // The rest card sits above the exercise; together they're where you are.
-      const parts = [restSlot, el].filter((p): p is HTMLElement => !!p);
+      // The rest card sits above the exercise; together they're where you
+      // are. Just after a set it's that set and the button under it.
+      const parts = (doneBlock ? [doneBlock] : [restSlot, el]).filter(
+        (p): p is HTMLElement => !!p,
+      );
       // Main buttons near the bottom edge, where the floating buttons sit.
       const zone = innerHeight - 96;
       const underBar = [...document.querySelectorAll(".btn-primary")]
@@ -570,7 +604,7 @@ export default function ActiveWorkout({
       window.removeEventListener("scroll", check);
       window.removeEventListener("resize", check);
     };
-  }, [restSlot, selectedIndex, timerPhase]);
+  }, [restSlot, selectedIndex, timerPhase, doneBlock]);
 
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -620,8 +654,9 @@ export default function ActiveWorkout({
       onLoggedChange={setFixingLast}
       aboveClock={aboveClock}
       onSlotChange={setSlot}
-      onPhaseChange={setTimerPhase}
+      onPhaseChange={onPhaseChange}
       restSlot={restCard}
+      doneSlot={doneSlot}
       // A plan's exercise cards have Swap exercise instead.
       hideChange={restCard !== undefined}
     />
@@ -631,18 +666,22 @@ export default function ActiveWorkout({
   // time on the big clock, side, reps and weight, saving as they change.
   const fixing = fixingLast ? sets.at(-1) : undefined;
   const fixingEditor = (s: WorkoutSet) => (
-    <div className="flex flex-col gap-1 rounded-2xl bg-base-content/5 p-3">
-      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-        Just done{s.side && ` · ${sideLabel(s.side)}`}
-      </p>
-      <SetForm
-        key={s.id}
-        suggestions={suggestions}
-        hideExercise
-        bigTime
-        initial={s}
-        onChange={(changes) => onUpdateSet(s, changes)}
-      />
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1 rounded-2xl bg-base-content/5 p-3">
+        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+          Just done{s.side && ` · ${sideLabel(s.side)}`}
+        </p>
+        <SetForm
+          key={s.id}
+          suggestions={suggestions}
+          hideExercise
+          bigTime
+          initial={s}
+          onChange={(changes) => onUpdateSet(s, changes)}
+        />
+      </div>
+      {/* Right under it: on to the rest or the next set. */}
+      <div ref={setDoneSlot} className="empty:hidden" />
     </div>
   );
 
@@ -1072,7 +1111,11 @@ export default function ActiveWorkout({
           <button
             type="button"
             className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition"
-            onClick={() => scrollToTop(toCurrent)}
+            onClick={() =>
+              doneBlock
+                ? scrollToTop(() => doneRef.current, "center")
+                : scrollToTop(toCurrent)
+            }
           >
             {awayFrom === "above" ? "↑" : "↓"} Current exercise
           </button>

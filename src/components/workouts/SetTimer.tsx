@@ -64,7 +64,10 @@ type Phase =
       stoppedAt?: number;
       rest?: Rest;
     }
-  | { phase: "resting"; rest: Rest; logged?: boolean };
+  | { phase: "resting"; rest: Rest; logged?: boolean }
+  // A set just finished: fix its numbers, then go on to `then`, the rest or
+  // the next set.
+  | { phase: "done"; exercise: string; then: Phase };
 
 interface Saved {
   workoutId: string;
@@ -149,6 +152,9 @@ interface SetTimerProps {
   // A card of its own for the rest (null until it's on the page); without
   // one the rest shows in place.
   restSlot?: HTMLElement | null;
+  // Just under the set just finished, for the button that goes on to the
+  // rest or the next set; without one it shows in place.
+  doneSlot?: HTMLElement | null;
   // In a plan, Swap exercise on the card picks another exercise instead.
   hideChange?: boolean;
 }
@@ -341,6 +347,7 @@ export default function SetTimer({
   onSlotChange,
   onPhaseChange,
   restSlot,
+  doneSlot,
   hideChange = false,
 }: SetTimerProps) {
   const [state, setStateNow] = useState<Phase>(() =>
@@ -366,7 +373,10 @@ export default function SetTimer({
     [storageKey, workoutId, state],
   );
 
-  const rest = state.phase === "running" ? undefined : state.rest;
+  const rest =
+    state.phase === "running" || state.phase === "done"
+      ? undefined
+      : state.rest;
   // Whole seconds from `from` to `to`, on the workout clock's ticks.
   const since = (from: number, to = now) =>
     Math.max(0, Math.floor((to - onGrid(from, clockOrigin)) / 1000));
@@ -378,7 +388,7 @@ export default function SetTimer({
     if (!restDue) return;
     restTargetAlert();
     setStateNow((s) =>
-      s.phase !== "running" && s.rest
+      s.phase !== "running" && s.phase !== "done" && s.rest
         ? { ...s, rest: { ...s.rest, alerted: true } }
         : s,
     );
@@ -416,7 +426,8 @@ export default function SetTimer({
   // Told before paint, so the cards around the timer change in the same frame.
   useLayoutEffect(() => onSlotChange?.(slot), [slot, onSlotChange]);
   const logged =
-    (state.phase === "ready" || state.phase === "resting") && !!state.logged;
+    state.phase === "done" ||
+    ((state.phase === "ready" || state.phase === "resting") && !!state.logged);
   useLayoutEffect(() => onLoggedChange?.(logged), [logged, onLoggedChange]);
   useLayoutEffect(
     () => onPhaseChange?.(state.phase),
@@ -436,11 +447,6 @@ export default function SetTimer({
       rest,
     });
   };
-
-  // After the first side, go straight to the second; rest after that.
-  // In a superset, go straight to the next exercise and rest after the round.
-  const restAfter = (set: SetInput) =>
-    set.side === FIRST_SIDE ? { rest: 0 } : afterSet(set);
 
   // What comes after a saved set: the second side after the first, otherwise
   // the rest, or the next exercise straight on in a superset.
@@ -485,29 +491,24 @@ export default function SetTimer({
       side: state.side ?? null,
     };
     onSave({ ...set, rest_seconds: state.restSeconds ?? null });
-    setState(afterSaving(set, at, true));
+    setState({
+      phase: "done",
+      exercise: state.exercise,
+      then: afterSaving(set, at, true),
+    });
   };
 
-  // Starts the second side straight after the first: one tap saves the
-  // first side with the timer's time and the usual numbers (fix them later
-  // in the set list), and starts the second side's timer.
-  const startSecondSide = () => {
-    if (state.phase !== "running" || state.side !== FIRST_SIDE) return;
-    const at = Date.now();
-    const { reps = null, weight = null } = prefillFor(state.exercise);
-    onSave({
-      exercise_name: state.exercise,
-      reps,
-      weight,
-      duration_seconds: since(state.startedAt, at) || null,
-      side: FIRST_SIDE,
-      rest_seconds: state.restSeconds ?? null,
-    });
+  // From the set just finished on to the rest (which began when the set
+  // stopped), or straight into the next set after a short countdown.
+  const carryOn = () => {
+    if (state.phase !== "done") return;
+    const n = name.trim();
+    if (state.then.phase === "resting" || !n) return setState(state.then);
     setState({
       phase: "running",
-      exercise: state.exercise,
-      startedAt: at + COUNTDOWN * 1000,
-      side: SECOND_SIDE,
+      exercise: n,
+      startedAt: Date.now() + COUNTDOWN * 1000,
+      side: sideFor(n),
       restSeconds: null,
     });
   };
@@ -575,39 +576,14 @@ export default function SetTimer({
         ) : (
           bigClock(since(state.startedAt))
         )}
-        {countdown > 0 ? null : state.side === FIRST_SIDE ? (
-          <>
-            <button
-              type="button"
-              className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
-              onClick={startSecondSide}
-            >
-              Start {SECOND_SIDE} side
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
-              onClick={stopSet}
-            >
-              Finish {FIRST_SIDE} side
-            </button>
-          </>
-        ) : (
+        {countdown === 0 && (
+          // Finishing a first side too: fix it, then start the second.
           <button
             type="button"
             className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
             onClick={stopSet}
           >
-            {/* Named for what's next: rest, when the plan has one. */}
-            {restAfter({
-              exercise_name: state.exercise,
-              reps: null,
-              weight: null,
-              duration_seconds: null,
-              side: state.side ?? null,
-            }).rest > 0
-              ? "Rest"
-              : "Finish"}
+            Finish
           </button>
         )}
       </div>
@@ -635,6 +611,39 @@ export default function SetTimer({
         />
       </div>
     );
+
+  if (state.phase === "done") {
+    // Named for what's next.
+    const label =
+      state.then.phase === "resting"
+        ? "Rest"
+        : name.trim().toLowerCase() !== state.exercise.toLowerCase()
+          ? "Next exercise"
+          : side
+            ? `Start ${side} side`
+            : "Next set";
+    const button = (
+      <button
+        type="button"
+        className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
+        onClick={carryOn}
+      >
+        {label}
+      </button>
+    );
+    // No start button here: the one button is under the set just finished.
+    return (
+      <div className="flex flex-col">
+        {name.trim() && header(name.trim(), side)}
+        {aboveClock}
+        {doneSlot ? (
+          createPortal(button, doneSlot)
+        ) : (
+          <div className="mt-2">{button}</div>
+        )}
+      </div>
+    );
+  }
 
   if (state.phase === "resting") {
     const goal = state.rest.target;
@@ -715,16 +724,6 @@ export default function SetTimer({
         <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold tabular-nums">
           Resting {formatClock(rested)} · target{" "}
           {formatClock(state.rest.target)}
-        </p>
-      )}
-      {state.switchTo && side === state.switchTo && (
-        <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold">
-          Now the {state.switchTo} side.
-        </p>
-      )}
-      {state.supersetNext && name === state.supersetNext && (
-        <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold">
-          Superset: straight on to {state.supersetNext}, no rest.
         </p>
       )}
       {editing ? (
