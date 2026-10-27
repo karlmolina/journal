@@ -4,18 +4,23 @@ import Chip from "../Chip";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
 import { formatClock, parseClock } from "../../functions/formatDuration";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
+import useDragAdjust from "../../hooks/useDragAdjust";
 
 const fieldClass =
   "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 
 // A field that reads like "10 reps": the number sits right up against its
-// unit, and tapping anywhere in the box focuses the input.
+// unit. Tapping anywhere in the box focuses the input, and dragging up or down
+// on it changes the number, so it doesn't scroll the page.
 const unitFieldClass =
-  "flex flex-1 min-w-0 items-baseline gap-1 rounded-xl bg-base-content/8 px-3 py-2.5 transition focus-within:bg-base-content/12 cursor-text";
+  "flex flex-1 min-w-0 items-baseline gap-1 rounded-xl bg-base-content/8 px-3 py-2.5 transition focus-within:bg-base-content/12 cursor-ns-resize touch-none";
 const unitInputClass =
   "w-full min-w-0 bg-transparent text-right font-semibold outline-none";
 const unitClass =
   "shrink-0 text-sm font-medium text-base-content/45 dark:text-base-content/65";
+
+// How much one drag step changes the weight.
+const WEIGHT_STEP = 5;
 
 const weightLabel = WEIGHT_UNIT === "lb" ? "lbs" : WEIGHT_UNIT;
 
@@ -56,6 +61,8 @@ export default function SetForm({
   const [exercise, setExercise] = useState(initial?.exercise_name ?? "");
   const [reps, setReps] = useState(text(initial?.reps));
   const [weight, setWeight] = useState(text(initial?.weight));
+  const dragReps = useDragAdjust(reps, setReps, 1, 1);
+  const dragWeight = useDragAdjust(weight, setWeight, WEIGHT_STEP, 0);
   const [time, setTime] = useState(
     initial?.duration_seconds ? formatClock(initial.duration_seconds) : "",
   );
@@ -116,7 +123,7 @@ export default function SetForm({
         </div>
       )}
       <div className="flex items-center gap-2">
-        <label className={unitFieldClass}>
+        <label className={unitFieldClass} {...dragReps}>
           <input
             className={unitInputClass}
             inputMode="numeric"
@@ -134,7 +141,7 @@ export default function SetForm({
         >
           ×
         </span>
-        <label className={unitFieldClass}>
+        <label className={unitFieldClass} {...dragWeight}>
           <input
             className={unitInputClass}
             inputMode="decimal"
