@@ -158,7 +158,7 @@ export default function SetForm({
       )}
       {showSide && (
         <div className="flex gap-1.5" role="group" aria-label="Side">
-          {(["left", "right"] as const).map((s) => (
+          {(["right", "left"] as const).map((s) => (
             <Chip
               key={s}
               selected={side === s}

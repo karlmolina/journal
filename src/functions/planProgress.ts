@@ -70,12 +70,16 @@ const setsOf = (name: string, sets: WorkoutSet[]) => {
 export const setsDone = (exercise: PlannedExercise, sets: WorkoutSet[]) =>
   countSets(exercise.name, exercise.unilateral ?? false, sets);
 
-// The side to do next: left first, then whichever side is behind.
+// One side at a time starts with the right, then the left.
+export const FIRST_SIDE: Side = "right";
+export const SECOND_SIDE: Side = "left";
+
+// The side to do next: the first side, then whichever side is behind.
 export function nextSide(name: string, sets: WorkoutSet[]): Side {
   const mine = setsOf(name, sets);
-  const left = mine.filter((s) => s.side === "left").length;
-  const right = mine.filter((s) => s.side === "right").length;
-  return left <= right ? "left" : "right";
+  const first = mine.filter((s) => s.side === FIRST_SIDE).length;
+  const second = mine.filter((s) => s.side === SECOND_SIDE).length;
+  return first <= second ? FIRST_SIDE : SECOND_SIDE;
 }
 
 export const sideLabel = (side: Side) =>

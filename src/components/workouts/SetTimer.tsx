@@ -4,7 +4,11 @@ import type { SetInput, Side, WorkoutSet } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
 import { onGrid } from "../../hooks/useClock";
 import { formatClock } from "../../functions/formatDuration";
-import { sideLabel } from "../../functions/planProgress";
+import {
+  FIRST_SIDE,
+  SECOND_SIDE,
+  sideLabel,
+} from "../../functions/planProgress";
 import SetForm from "./SetForm";
 import ExerciseInput from "./ExerciseInput";
 import ExerciseHowTo from "./ExerciseHowTo";
@@ -431,12 +435,12 @@ export default function SetTimer({
     });
   };
 
-  // After the left side, go straight to the right; rest after the right.
+  // After the first side, go straight to the second; rest after that.
   // In a superset, go straight to the next exercise and rest after the round.
   const restAfter = (set: SetInput) =>
-    set.side === "left" ? { rest: 0 } : afterSet(set);
+    set.side === FIRST_SIDE ? { rest: 0 } : afterSet(set);
 
-  // What comes after a saved set: the right side after the left, otherwise
+  // What comes after a saved set: the second side after the first, otherwise
   // the rest, or the next exercise straight on in a superset.
   const afterSaving = (
     set: SetInput,
@@ -444,8 +448,8 @@ export default function SetTimer({
     logged: boolean,
     current?: Rest,
   ): Phase => {
-    if (set.side === "left")
-      return { phase: "ready", switchTo: "right", logged };
+    if (set.side === FIRST_SIDE)
+      return { phase: "ready", switchTo: SECOND_SIDE, logged };
     const { rest: target, next } = afterSet(set);
     if (next) setName(next);
     if (target > 0)
@@ -482,11 +486,11 @@ export default function SetTimer({
     setState(afterSaving(set, at, true));
   };
 
-  // Starts the right side straight after the left: one tap saves the left
-  // side with the timer's time and the usual numbers (fix them later in the
-  // set list), and starts the right side's timer.
-  const startRightSide = () => {
-    if (state.phase !== "running" || state.side !== "left") return;
+  // Starts the second side straight after the first: one tap saves the
+  // first side with the timer's time and the usual numbers (fix them later
+  // in the set list), and starts the second side's timer.
+  const startSecondSide = () => {
+    if (state.phase !== "running" || state.side !== FIRST_SIDE) return;
     const at = Date.now();
     const { reps = null, weight = null } = prefillFor(state.exercise);
     onSave({
@@ -494,14 +498,14 @@ export default function SetTimer({
       reps,
       weight,
       duration_seconds: since(state.startedAt, at) || null,
-      side: "left",
+      side: FIRST_SIDE,
       rest_seconds: state.restSeconds ?? null,
     });
     setState({
       phase: "running",
       exercise: state.exercise,
       startedAt: at + COUNTDOWN * 1000,
-      side: "right",
+      side: SECOND_SIDE,
       restSeconds: null,
     });
   };
@@ -568,21 +572,21 @@ export default function SetTimer({
         ) : (
           bigClock(since(state.startedAt))
         )}
-        {countdown > 0 ? null : state.side === "left" ? (
+        {countdown > 0 ? null : state.side === FIRST_SIDE ? (
           <>
             <button
               type="button"
               className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
-              onClick={startRightSide}
+              onClick={startSecondSide}
             >
-              Start right side
+              Start {SECOND_SIDE} side
             </button>
             <button
               type="button"
               className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
               onClick={stopSet}
             >
-              Finish left side
+              Finish {FIRST_SIDE} side
             </button>
           </>
         ) : (
