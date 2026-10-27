@@ -11,17 +11,13 @@ const fieldClass =
 
 // A field that reads like "10 reps": the number sits right up against its
 // unit. Tapping anywhere in the box focuses the input, and dragging up or down
-// on it changes the number, so it doesn't scroll the page.
+// on it turns a scroll wheel of values instead of scrolling the page.
 const unitFieldClass =
   "flex flex-1 min-w-0 items-baseline gap-1 rounded-xl bg-base-content/8 px-3 py-2.5 transition focus-within:bg-base-content/12 cursor-ns-resize touch-none";
 const unitInputClass =
   "w-full min-w-0 bg-transparent text-right font-semibold outline-none";
 const unitClass =
   "shrink-0 text-sm font-medium text-base-content/45 dark:text-base-content/65";
-
-// How much one drag step changes the weight, and the time in seconds.
-const WEIGHT_STEP = 5;
-const TIME_STEP = 5;
 
 const weightLabel = WEIGHT_UNIT === "lb" ? "lbs" : WEIGHT_UNIT;
 
@@ -72,19 +68,29 @@ export default function SetForm({
   const [exercise, setExercise] = useState(initial?.exercise_name ?? "");
   const [reps, setReps] = useState(text(initial?.reps));
   const [weight, setWeight] = useState(text(initial?.weight));
-  const dragReps = useDragAdjust(reps, setReps, 1, 1);
-  const dragWeight = useDragAdjust(weight, setWeight, WEIGHT_STEP, 0);
+  const dragReps = useDragAdjust({
+    value: reps,
+    onChange: setReps,
+    label: "Reps",
+    min: 1,
+  });
+  const dragWeight = useDragAdjust({
+    value: weight,
+    onChange: setWeight,
+    label: `Weight (${weightLabel})`,
+    min: 0,
+  });
   const [time, setTime] = useState(
     initial?.duration_seconds ? formatClock(initial.duration_seconds) : "",
   );
-  const dragTime = useDragAdjust(
-    time,
-    setTime,
-    TIME_STEP,
-    0,
-    parseClock,
-    (n) => (n > 0 ? formatClock(n) : ""),
-  );
+  const dragTime = useDragAdjust({
+    value: time,
+    onChange: setTime,
+    label: "Time",
+    min: 0,
+    parse: parseClock,
+    format: (n) => (n > 0 ? formatClock(n) : ""),
+  });
   // One-side-at-a-time sets say which side; tapping the chosen side again
   // clears it.
   const [side, setSide] = useState<Side | null>(initial?.side ?? null);
@@ -135,7 +141,7 @@ export default function SetForm({
       {bigTime && (
         <label
           className="self-center my-1 rounded-2xl bg-base-content/6 px-4 py-1 transition focus-within:bg-base-content/12 cursor-ns-resize touch-none"
-          {...dragTime}
+          {...dragTime.bind}
         >
           <input
             className="w-32 bg-transparent text-center text-3xl font-extrabold tracking-tight tabular-nums outline-none placeholder:text-base-content/30"
@@ -170,7 +176,7 @@ export default function SetForm({
         </div>
       )}
       <div className="flex items-center gap-2">
-        <label className={unitFieldClass} {...dragReps}>
+        <label className={unitFieldClass} {...dragReps.bind}>
           <input
             className={unitInputClass}
             inputMode="numeric"
@@ -188,7 +194,7 @@ export default function SetForm({
         >
           ×
         </span>
-        <label className={unitFieldClass} {...dragWeight}>
+        <label className={unitFieldClass} {...dragWeight.bind}>
           <input
             className={unitInputClass}
             inputMode="decimal"
@@ -270,6 +276,9 @@ export default function SetForm({
           )}
         </div>
       )}
+      {dragTime.picker}
+      {dragReps.picker}
+      {dragWeight.picker}
     </form>
   );
 }
