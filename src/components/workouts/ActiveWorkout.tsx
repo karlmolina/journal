@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import type {
   PlanChanges,
   SetInput,
-  Side,
   Workout,
   WorkoutSet,
 } from "../../hooks/useWorkouts";
@@ -17,7 +16,6 @@ import {
   describeTarget,
   endExercise,
   nextSide,
-  sideLabel,
   setsDone,
   swapExercise,
   type SessionExercise,
@@ -36,58 +34,9 @@ import {
 } from "../../functions/supersets";
 import ExerciseInput from "./ExerciseInput";
 import SetList from "./SetList";
-import SetTimer, { type TimerPhase } from "./SetTimer";
+import SetTimer, { ExerciseHeader, type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
-
-// A preview of what comes after the current set. Only the current set has
-// a start button, so this is a plain card to read ahead.
-function UpNextCard({
-  exercise,
-  side,
-  detail,
-  howTo,
-  now,
-}: {
-  exercise: Step;
-  // The side it starts on, for exercises done one side at a time.
-  side: Side | null;
-  detail: string;
-  howTo?: Exercise;
-  // It's what you do once the rest is over, so its name is the title.
-  now: boolean;
-}) {
-  return (
-    <section className="rounded-2xl px-4 py-3 sm:px-5 flex flex-col gap-0.5 ring-1 ring-base-content/10 dark:ring-base-content/15">
-      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-        Up next
-      </p>
-      <p
-        className={
-          now
-            ? "text-4xl font-extrabold leading-tight tracking-tight"
-            : "font-bold leading-tight"
-        }
-      >
-        {exercise.name}
-        {!now && side && ` · ${sideLabel(side)}`}
-      </p>
-      {now && side && (
-        <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
-          {sideLabel(side)}
-        </p>
-      )}
-      <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
-        {detail}
-      </p>
-      {howTo && (
-        <div className="mt-1.5">
-          <ExerciseHowTo exercise={howTo} />
-        </div>
-      )}
-    </section>
-  );
-}
 
 // Brings the current exercise's card to the top of the screen.
 function scrollToTop(el: HTMLElement | null) {
@@ -170,18 +119,21 @@ const actionClass =
 const fieldClass =
   "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 
-// Under the selected exercise: swap it for another for this workout, or end
-// it before all its sets are done.
+// At the foot of each exercise's card: do it now instead of the current
+// one, swap it for another for this workout, or end it before all its sets
+// are done.
 function StepActions({
   step,
   complete,
   suggestions,
+  onPick,
   onSwap,
   onEnd,
 }: {
   step: Step;
   complete: boolean;
   suggestions: string[];
+  onPick?: () => void;
   onSwap: (name: string) => void;
   onEnd: (ended: boolean) => void;
 }) {
@@ -231,6 +183,11 @@ function StepActions({
 
   return (
     <div className="flex flex-wrap justify-center gap-1">
+      {onPick && (
+        <button type="button" className={actionClass} onClick={onPick}>
+          Do this now
+        </button>
+      )}
       <button
         type="button"
         className={actionClass}
@@ -267,145 +224,6 @@ function StepActions({
         )
       )}
     </div>
-  );
-}
-
-function PlanChecklist({
-  exercises,
-  sets,
-  supersets,
-  selected,
-  suggestions,
-  onSelect,
-  onLink,
-  onSwap,
-  onEnd,
-}: {
-  exercises: Step[];
-  sets: WorkoutSet[];
-  supersets: Supersets;
-  selected: number | null;
-  suggestions: string[];
-  onSelect: (i: number) => void;
-  onLink: (i: number, linked: boolean) => void;
-  onSwap: (i: number, name: string) => void;
-  onEnd: (i: number, ended: boolean) => void;
-}) {
-  const groupOf = (i: number) =>
-    exercises[i] && supersetOf(exercises[i].name, supersets);
-  const members = (group: string[]) =>
-    exercises.filter((e) => supersetOf(e.name, [group]));
-  // The rest after a round: the longest any of its exercises asks for.
-  const roundRest = (group: string[]) =>
-    Math.max(0, ...members(group).map((e) => e.rest_seconds));
-  // Which round you're on: one past the fewest sets of anything unfinished.
-  const roundOf = (group: string[]) => {
-    const all = members(group);
-    const rounds = Math.max(...all.map((e) => e.planned_sets));
-    const open = all.filter((e) => setsDone(e, sets) < e.sets);
-    if (open.length === 0) return "Done";
-    const round = Math.min(...open.map((e) => setsDone(e, sets))) + 1;
-    return `Round ${Math.min(round, rounds)} of ${rounds}`;
-  };
-
-  // Exercises next to each other in the same superset share one box.
-  const runs: { group?: string[]; indices: number[] }[] = [];
-  exercises.forEach((_, i) => {
-    const group = groupOf(i) || undefined;
-    const last = runs.at(-1);
-    if (group && last?.group === group) last.indices.push(i);
-    else runs.push({ group, indices: [i] });
-  });
-  const row = (i: number) => {
-    const e = exercises[i];
-    const done = setsDone(e, sets);
-    const complete = done >= e.sets;
-    const group = groupOf(i);
-    return (
-      <div key={i} className="flex flex-col gap-1">
-        <button
-          type="button"
-          className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition cursor-pointer ${
-            selected === i ? "bg-primary/15" : "hover:bg-base-content/6"
-          }`}
-          onClick={() => onSelect(i)}
-          aria-pressed={selected === i}
-        >
-          <span
-            className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-              complete
-                ? "bg-primary text-primary-content"
-                : "bg-base-content/10 text-base-content/60 dark:text-base-content/80"
-            }`}
-            aria-hidden="true"
-          >
-            {complete ? "✓" : i + 1}
-          </span>
-          <span className="flex-1 min-w-0">
-            <span
-              className={`block font-bold truncate ${complete ? "text-base-content/50 dark:text-base-content/75 line-through" : ""}`}
-            >
-              {e.name}
-            </span>
-            <span className="block text-xs font-semibold text-base-content/55 dark:text-base-content/75 tabular-nums">
-              {e.swapped_from && `Instead of ${e.swapped_from} · `}
-              {describeTarget({ ...e, sets: e.planned_sets })}
-              {e.ended && " · finished early"}
-              {!group && e.rest_seconds > 0 && ` · rest ${e.rest_seconds}s`}
-            </span>
-          </span>
-          <span className="text-sm font-bold tabular-nums text-base-content/60 dark:text-base-content/80">
-            {Math.min(done, e.planned_sets)}/{e.planned_sets}
-          </span>
-        </button>
-        {selected === i && (
-          <StepActions
-            // A fresh form for each exercise.
-            key={e.name}
-            step={e}
-            complete={complete}
-            suggestions={suggestions}
-            onSwap={(name) => onSwap(i, name)}
-            onEnd={(ended) => onEnd(i, ended)}
-          />
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <ol className="mt-2 flex flex-col gap-1">
-      {runs.map(({ group, indices }) => (
-        <li key={indices[0]} className="flex flex-col gap-1">
-          {indices[0] > 0 && (
-            <SupersetLink
-              linked={false}
-              onToggle={() => onLink(indices[0], false)}
-            />
-          )}
-          {group ? (
-            <SupersetGroup
-              size={group.length}
-              progress={roundOf(group)}
-              rest={roundRest(group)}
-            >
-              <div className="flex flex-col gap-0.5">
-                {indices.map((i, k) => (
-                  <div key={i} className="flex flex-col gap-0.5">
-                    {k > 0 && (
-                      <SupersetLink linked onToggle={() => onLink(i, true)} />
-                    )}
-                    {row(i)}
-                  </div>
-                ))}
-              </div>
-            </SupersetGroup>
-          ) : (
-            row(indices[0])
-          )}
-        </li>
-      ))}
-    </ol>
   );
 }
 
@@ -529,58 +347,15 @@ export default function ActiveWorkout({
     )
       setPicked(null);
   };
-  // What comes after the current set (running or about to start, which is
-  // the selected exercise on its next side): the right side after a left,
-  // the next exercise in its superset, else the next unfinished exercise
-  // after this one, or one skipped earlier.
-  const upNextStep = ((): { index: number; side: Side | null } | null => {
-    if (selectedIndex === null) return null;
-    const current = exercises[selectedIndex];
-    const currentSide = sideFor(current.name);
-    if (currentSide === "left") return { index: selectedIndex, side: "right" };
-    const step = (index: number) => ({
-      index,
-      side: sideFor(exercises[index].name),
-    });
-    const unfinished = (i: number) =>
-      setsDone(exercises[i], sets) < exercises[i].sets;
-    const group = supersetOf(current.name, supersets);
-    if (group) {
-      // Count the current set as done to see who follows it.
-      const all = [
-        ...sets,
-        { exercise_name: current.name, side: currentSide } as WorkoutSet,
-      ];
-      const { next } = nextInSuperset(
-        current.name,
-        group,
-        (n) => done(n, all),
-        targetOf,
-      );
-      const i = indexOf(next ?? "");
-      if (i !== -1 && i !== selectedIndex && unfinished(i)) return step(i);
-    }
-    const open = (i: number) =>
-      i !== selectedIndex &&
-      !group?.some(
-        (n) => n.trim().toLowerCase() === exercises[i].name.toLowerCase(),
-      ) &&
-      unfinished(i);
-    const after = exercises.findIndex((_, i) => i > selectedIndex && open(i));
-    if (after !== -1) return step(after);
-    const before = exercises.findIndex((_, i) => open(i));
-    return before === -1 ? null : step(before);
-  })();
-  const upNext = upNextStep ? exercises[upNextStep.index] : undefined;
   const [timerPhase, setTimerPhase] = useState<TimerPhase>("ready");
   const setBusy = timerPhase === "running" || timerPhase === "logging";
-  // While resting, Up next is the exercise you're about to do.
+  // Rest gets a card of its own, just above the exercise that's next.
   const resting = timerPhase === "resting" && !!selected;
 
-  // Keep the current exercise at the top: when the workout opens and
-  // whenever a set starts.
+  // Keep the current exercise at the top: when the workout opens, when the
+  // plan moves on to another exercise and whenever a set starts.
   const currentCard = useRef<HTMLElement>(null);
-  useEffect(() => scrollToTop(currentCard.current), []);
+  useEffect(() => scrollToTop(currentCard.current), [selectedIndex]);
   useEffect(() => {
     if (setBusy) scrollToTop(currentCard.current);
   }, [setBusy]);
@@ -603,6 +378,255 @@ export default function ActiveWorkout({
     hour: "numeric",
     minute: "2-digit",
   });
+
+  const timer = (
+    <SetTimer
+      workoutId={workout.id}
+      storageKey={timerKey}
+      now={now}
+      clockOrigin={clockOrigin}
+      exercise={selected?.name ?? initialExercise ?? ""}
+      target={target || undefined}
+      notes={selected?.notes || undefined}
+      goal={selected?.goal || undefined}
+      suggestions={suggestions}
+      prefillFor={prefillFor}
+      afterSet={afterSet}
+      sideFor={sideFor}
+      supersetWith={supersetWith}
+      onSuperset={(name, partner) =>
+        onSupersetsChange(joinSupersets(supersets, name, partner))
+      }
+      onLeaveSuperset={(name) =>
+        onSupersetsChange(leaveSuperset(supersets, name))
+      }
+      lookup={lookup}
+      exerciseNotes={exerciseNotes}
+      onSave={handleSave}
+      onPhaseChange={setTimerPhase}
+    />
+  );
+
+  const setList = (list: WorkoutSet[], newestFirst = false) => (
+    <SetList
+      sets={list}
+      suggestions={suggestions}
+      onUpdate={onUpdateSet}
+      onRemove={onRemoveSets}
+      onSplit={onSplitSet}
+      isUnilateral={isUnilateral}
+      newestFirst={newestFirst}
+    />
+  );
+
+  // Sets of something that isn't in the plan, under the plan's exercises.
+  const inPlan = (name: string) => indexOf(name) !== -1;
+  const otherSets = sets.filter((s) => !inPlan(s.exercise_name));
+  const setsOf = (name: string) =>
+    sets.filter(
+      (s) => s.exercise_name.trim().toLowerCase() === name.trim().toLowerCase(),
+    );
+
+  const groupOf = (i: number) => supersetOf(exercises[i].name, supersets);
+  const members = (group: string[]) =>
+    exercises.filter((e) => supersetOf(e.name, [group]));
+  // The rest after a round: the longest any of its exercises asks for.
+  const roundRest = (group: string[]) =>
+    Math.max(0, ...members(group).map((e) => e.rest_seconds));
+  // Which round you're on: one past the fewest sets of anything unfinished.
+  const roundOf = (group: string[]) => {
+    const all = members(group);
+    const rounds = Math.max(...all.map((e) => e.planned_sets));
+    const open = all.filter((e) => setsDone(e, sets) < e.sets);
+    if (open.length === 0) return "Done";
+    const round = Math.min(...open.map((e) => setsDone(e, sets))) + 1;
+    return `Round ${Math.min(round, rounds)} of ${rounds}`;
+  };
+
+  // Every exercise in the plan's order, each a card of its own: the ones
+  // done sit above the current one with their sets, still editable, and
+  // what's still to come sits below.
+  const card = (i: number) => {
+    const e = exercises[i];
+    const doneSets = setsDone(e, sets);
+    const complete = doneSets >= e.sets;
+    const current = i === selectedIndex;
+    const logged = setsOf(e.name);
+    const label = (
+      <p className="flex justify-between gap-2 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 tabular-nums">
+        <span>
+          Exercise {i + 1} of {exercises.length}
+          {e.swapped_from && ` · instead of ${e.swapped_from}`}
+        </span>
+        <span>
+          {complete
+            ? e.ended
+              ? "Finished early"
+              : "Done"
+            : `${Math.min(doneSets, e.planned_sets)} of ${e.planned_sets} sets`}
+        </span>
+      </p>
+    );
+    const loggedSets = logged.length > 0 && (
+      <SetList
+        sets={logged}
+        suggestions={suggestions}
+        onUpdate={onUpdateSet}
+        onRemove={onRemoveSets}
+        onSplit={onSplitSet}
+        isUnilateral={isUnilateral}
+        hideNames
+      />
+    );
+    const actions = (
+      <StepActions
+        // A fresh form for each exercise.
+        key={e.name}
+        step={e}
+        complete={complete}
+        suggestions={suggestions}
+        // Not mid-set: the timer stays with the set it's timing.
+        onPick={
+          !current && !complete && !setBusy ? () => setPicked(i) : undefined
+        }
+        onSwap={(name) =>
+          onPlanChange(
+            swapExercise(
+              workout.plan_changes,
+              i,
+              name,
+              e.swapped_from ?? e.name,
+            ),
+            workout.supersets
+              ? renameInSupersets(workout.supersets, e.name, name.trim())
+              : undefined,
+          )
+        }
+        onEnd={(ended) => {
+          onPlanChange(endExercise(workout.plan_changes, i, ended));
+          // Move on to what's next once it's done.
+          if (ended && current) setPicked(null);
+        }}
+      />
+    );
+
+    if (current)
+      return (
+        <>
+          {/* The timer keeps its place in this card from phase to phase, so
+              Stop set doesn't rebuild it. While resting the card is the rest
+              and the exercise gets the card under it. */}
+          <section
+            ref={currentCard}
+            className={`${resting ? restCardClass : cardClass} scroll-mt-4 flex flex-col gap-3`}
+          >
+            {!resting && label}
+            {timer}
+            {!resting && loggedSets}
+            {!resting && !setBusy && actions}
+          </section>
+          {resting && (
+            <section className={`${cardClass} flex flex-col gap-3`}>
+              {label}
+              <ExerciseHeader
+                name={e.name}
+                side={sideFor(e.name)}
+                target={target || undefined}
+                notes={e.notes || undefined}
+                goal={e.goal || undefined}
+                lookup={lookup}
+                exerciseNotes={exerciseNotes}
+              />
+              {loggedSets}
+              {actions}
+            </section>
+          )}
+        </>
+      );
+
+    const group = groupOf(i);
+    return (
+      <section className={`${cardClass} flex flex-col gap-2`}>
+        {label}
+        <div>
+          <p
+            className={`text-xl font-bold leading-tight ${complete ? "text-base-content/70 dark:text-base-content/85" : ""}`}
+          >
+            {e.name}
+          </p>
+          <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
+            {describeTarget({ ...e, sets: e.planned_sets })}
+            {!group && e.rest_seconds > 0 && ` · rest ${e.rest_seconds}s`}
+          </p>
+          {!complete && e.notes && (
+            <p className="text-sm font-medium text-base-content/60 dark:text-base-content/80">
+              {e.notes}
+            </p>
+          )}
+          {!complete && e.goal && (
+            <p className="text-sm font-medium text-base-content/60 dark:text-base-content/80">
+              Goal: {e.goal}
+            </p>
+          )}
+        </div>
+        {!complete && <ExerciseHowTo exercise={lookup(e.name)} />}
+        {loggedSets}
+        {actions}
+      </section>
+    );
+  };
+
+  // Exercises next to each other in the same superset share one outline.
+  const runs: { group?: string[]; indices: number[] }[] = [];
+  exercises.forEach((_, i) => {
+    const group = groupOf(i);
+    const last = runs.at(-1);
+    if (group && last?.group === group) last.indices.push(i);
+    else runs.push({ group, indices: [i] });
+  });
+  const link = (i: number, linked: boolean) => (
+    <SupersetLink
+      linked={linked}
+      onToggle={() =>
+        onSupersetsChange(
+          linked
+            ? splitSuperset(supersets, exercises[i].name)
+            : joinSupersets(
+                supersets,
+                exercises[i - 1].name,
+                exercises[i].name,
+              ),
+        )
+      }
+    />
+  );
+  const timeline = (
+    <ol className="flex flex-col gap-1">
+      {runs.map(({ group, indices }) => (
+        <li key={indices[0]} className="flex flex-col gap-1">
+          {indices[0] > 0 && link(indices[0], false)}
+          {group ? (
+            <SupersetGroup
+              size={group.length}
+              progress={roundOf(group)}
+              rest={roundRest(group)}
+            >
+              <div className="flex flex-col gap-1 pt-1">
+                {indices.map((i, k) => (
+                  <div key={i} className="flex flex-col gap-1">
+                    {k > 0 && link(i, true)}
+                    {card(i)}
+                  </div>
+                ))}
+              </div>
+            </SupersetGroup>
+          ) : (
+            card(indices[0])
+          )}
+        </li>
+      ))}
+    </ol>
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -669,138 +693,48 @@ export default function ActiveWorkout({
         )}
       </section>
 
-      {planned && (
-        <section className={cardClass}>
-          <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-            {planned.planTitle} · {planned.session.day}
-          </p>
-          <h2 className="font-bold">{planned.session.focus}</h2>
-          <PlanChecklist
-            exercises={exercises}
-            sets={sets}
-            supersets={supersets}
-            selected={selectedIndex}
-            suggestions={suggestions}
-            onSelect={setPicked}
-            onSwap={(i, name) =>
-              onPlanChange(
-                swapExercise(
-                  workout.plan_changes,
-                  i,
-                  name,
-                  exercises[i].swapped_from ?? exercises[i].name,
-                ),
-                workout.supersets
-                  ? renameInSupersets(
-                      workout.supersets,
-                      exercises[i].name,
-                      name.trim(),
-                    )
-                  : undefined,
-              )
-            }
-            onEnd={(i, ended) => {
-              onPlanChange(endExercise(workout.plan_changes, i, ended));
-              // Move on to what's next once it's done.
-              if (ended) {
-                setPicked(null);
-                scrollToTop(currentCard.current);
-              }
-            }}
-            onLink={(i, linked) =>
-              onSupersetsChange(
-                linked
-                  ? splitSuperset(supersets, exercises[i].name)
-                  : joinSupersets(
-                      supersets,
-                      exercises[i - 1].name,
-                      exercises[i].name,
-                    ),
-              )
-            }
-          />
-          {auto === null && exercises.length > 0 && (
-            <p className="mt-2 text-sm font-bold text-center text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
-              Every planned set is done. Nice work.
+      {planned ? (
+        <>
+          <div className="px-1 pt-1">
+            <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+              {planned.planTitle} · {planned.session.day}
             </p>
+            <h2 className="font-bold">{planned.session.focus}</h2>
+          </div>
+          {timeline}
+          {selectedIndex === null && (
+            <>
+              {exercises.length > 0 && (
+                <p className="text-sm font-bold text-center text-base-content/70 dark:text-base-content/85">
+                  Every planned set is done. Nice work.
+                </p>
+              )}
+              <section
+                ref={currentCard}
+                className={`${resting ? restCardClass : cardClass} scroll-mt-4`}
+              >
+                {timer}
+              </section>
+            </>
           )}
-        </section>
-      )}
-
-      <section
-        ref={currentCard}
-        className={`${resting ? restCardClass : cardClass} scroll-mt-4`}
-      >
-        <SetTimer
-          workoutId={workout.id}
-          storageKey={timerKey}
-          now={now}
-          clockOrigin={clockOrigin}
-          exercise={selected?.name ?? initialExercise ?? ""}
-          target={target || undefined}
-          notes={selected?.notes || undefined}
-          goal={selected?.goal || undefined}
-          suggestions={suggestions}
-          prefillFor={prefillFor}
-          afterSet={afterSet}
-          sideFor={sideFor}
-          supersetWith={supersetWith}
-          onSuperset={(name, partner) =>
-            onSupersetsChange(joinSupersets(supersets, name, partner))
-          }
-          onLeaveSuperset={(name) =>
-            onSupersetsChange(leaveSuperset(supersets, name))
-          }
-          lookup={lookup}
-          exerciseNotes={exerciseNotes}
-          onSave={handleSave}
-          onPhaseChange={setTimerPhase}
-        />
-      </section>
-
-      {resting ? (
-        <UpNextCard
-          key={selected.name}
-          exercise={selected}
-          side={sideFor(selected.name)}
-          detail={[
-            target,
-            selected.notes,
-            selected.goal && `Goal: ${selected.goal}`,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-          howTo={lookup(selected.name)}
-          now
-        />
+          {otherSets.length > 0 && (
+            <section className={cardClass}>
+              <p className="mb-2 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+                Not in the plan
+              </p>
+              {setList(otherSets)}
+            </section>
+          )}
+        </>
       ) : (
-        upNextStep &&
-        upNext && (
-          <UpNextCard
-            key={upNext.name}
-            exercise={upNext}
-            side={upNextStep.side}
-            detail={[describeTarget(upNext), upNext.notes]
-              .filter(Boolean)
-              .join(" · ")}
-            howTo={lookup(upNext.name)}
-            now={false}
-          />
-        )
-      )}
-
-      {sets.length > 0 && (
-        <section className={cardClass}>
-          <SetList
-            sets={sets}
-            suggestions={suggestions}
-            onUpdate={onUpdateSet}
-            onRemove={onRemoveSets}
-            onSplit={onSplitSet}
-            isUnilateral={isUnilateral}
-            newestFirst
-          />
-        </section>
+        <>
+          <section ref={currentCard} className={`${cardClass} scroll-mt-4`}>
+            {timer}
+          </section>
+          {sets.length > 0 && (
+            <section className={cardClass}>{setList(sets, true)}</section>
+          )}
+        </>
       )}
 
       <div className="flex justify-center pb-6">

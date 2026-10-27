@@ -78,6 +78,17 @@ function readSaved(key: string, workoutId: string): Phase {
   return { phase: "ready" };
 }
 
+function writeSaved(key: string, workoutId: string, state: Phase) {
+  try {
+    localStorage.setItem(
+      key,
+      JSON.stringify({ workoutId, state } satisfies Saved),
+    );
+  } catch {
+    // The timer still works; it just won't survive a reload.
+  }
+}
+
 // A buzz when the planned rest is up (no sound); the screen shows it too.
 function restTargetAlert() {
   navigator.vibrate?.([200, 100, 200]);
@@ -211,6 +222,75 @@ function SupersetControl({
   );
 }
 
+// What the plan says: the set and target, then its tip and the goal, each
+// on a line of its own.
+function PlanLines({
+  target,
+  notes,
+  goal,
+}: {
+  target?: string;
+  notes?: string;
+  goal?: string;
+}) {
+  if (!target && !notes && !goal) return null;
+  return (
+    <div className="flex flex-col gap-0.5 text-sm text-base-content/60 dark:text-base-content/80">
+      {target && <p className="font-semibold tabular-nums">{target}</p>}
+      {notes && <p className="font-medium">{notes}</p>}
+      {goal && <p className="font-medium">Goal: {goal}</p>}
+    </div>
+  );
+}
+
+// The exercise you're on, its plan and how it's done. The set timer shows it
+// the same while a set runs, while it's filled in and before the next one,
+// so the card doesn't jump around on Stop set; during a rest it heads the
+// next exercise's card.
+export function ExerciseHeader({
+  name,
+  side,
+  target,
+  notes,
+  goal,
+  lookup,
+  exerciseNotes,
+}: {
+  name: string;
+  side?: Side | null;
+  target?: string;
+  notes?: string;
+  goal?: string;
+  lookup?: (exercise: string) => Exercise | undefined;
+  exerciseNotes?: ExerciseNotesProps;
+}) {
+  return (
+    <div className="w-full flex flex-col items-center text-center">
+      {/* The biggest text on the screen: what you're doing now. */}
+      <p className="text-4xl font-extrabold leading-tight tracking-tight">
+        {name}
+      </p>
+      {side && (
+        <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
+          {sideLabel(side)}
+        </p>
+      )}
+      <PlanLines target={target} notes={notes} goal={goal} />
+      <div className="w-full mt-2 flex flex-col gap-2 text-left">
+        <ExerciseHowTo exercise={lookup?.(name)} />
+        {exerciseNotes && (
+          <ExerciseNote
+            key={name}
+            exercise={name}
+            regions={lookup?.(name)?.body_regions ?? []}
+            {...exerciseNotes}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SetTimer({
   workoutId,
   storageKey,
@@ -232,9 +312,16 @@ export default function SetTimer({
   onSave,
   onPhaseChange,
 }: SetTimerProps) {
-  const [state, setState] = useState<Phase>(() =>
+  const [state, setStateNow] = useState<Phase>(() =>
     readSaved(storageKey, workoutId),
   );
+  // Saved straight away, not after the next render: in a plan the timer
+  // moves to the next exercise's card as a set is saved, and the timer that
+  // picks up there reads where this one left off.
+  const setState = (next: Phase) => {
+    writeSaved(storageKey, workoutId, next);
+    setStateNow(next);
+  };
   const [name, setName] = useState(exercise);
   // Follow the plan when it moves on to the next exercise.
   const [prevExercise, setPrevExercise] = useState(exercise);
@@ -243,16 +330,10 @@ export default function SetTimer({
     if (exercise) setName(exercise);
   }
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({ workoutId, state } satisfies Saved),
-      );
-    } catch {
-      // The timer still works; it just won't survive a reload.
-    }
-  }, [storageKey, workoutId, state]);
+  useEffect(
+    () => writeSaved(storageKey, workoutId, state),
+    [storageKey, workoutId, state],
+  );
 
   const rest = state.phase === "running" ? undefined : state.rest;
   // Whole seconds from `from` to `to`, on the workout clock's ticks.
@@ -265,7 +346,7 @@ export default function SetTimer({
   useEffect(() => {
     if (!restDue) return;
     restTargetAlert();
-    setState((s) =>
+    setStateNow((s) =>
       s.phase !== "running" && s.rest
         ? { ...s, rest: { ...s.rest, alerted: true } }
         : s,
@@ -420,42 +501,16 @@ export default function SetTimer({
 
   const startLabel = side ? `Start ${side} side` : "Start set";
 
-  // What the plan says: the set and target, then its tip and the goal, each
-  // on a line of its own.
-  const planLines = (target || notes || goal) && (
-    <div className="flex flex-col gap-0.5 text-sm text-base-content/60 dark:text-base-content/80">
-      {target && <p className="font-semibold tabular-nums">{target}</p>}
-      {notes && <p className="font-medium">{notes}</p>}
-      {goal && <p className="font-medium">Goal: {goal}</p>}
-    </div>
-  );
-
-  // The same heading while a set runs, while it's filled in and during the
-  // rest after it, so the card doesn't jump around on Stop set.
   const header = (exerciseName: string, setSide?: Side | null) => (
-    <div className="w-full flex flex-col items-center text-center">
-      {/* The biggest text on the screen: what you're doing now. */}
-      <p className="text-4xl font-extrabold leading-tight tracking-tight">
-        {exerciseName}
-      </p>
-      {setSide && (
-        <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
-          {sideLabel(setSide)}
-        </p>
-      )}
-      {planLines}
-      <div className="w-full mt-2 flex flex-col gap-2 text-left">
-        <ExerciseHowTo exercise={lookup?.(exerciseName)} />
-        {exerciseNotes && (
-          <ExerciseNote
-            key={exerciseName}
-            exercise={exerciseName}
-            regions={lookup?.(exerciseName)?.body_regions ?? []}
-            {...exerciseNotes}
-          />
-        )}
-      </div>
-    </div>
+    <ExerciseHeader
+      name={exerciseName}
+      side={setSide}
+      target={target}
+      notes={notes}
+      goal={goal}
+      lookup={lookup}
+      exerciseNotes={exerciseNotes}
+    />
   );
 
   const bigClock = (seconds: number, muted = false) => (
@@ -548,7 +603,7 @@ export default function SetTimer({
   if (state.phase === "resting") {
     const goal = state.rest.target;
     return (
-      // Its own card: the exercise coming next is on the Up next card.
+      // Its own card: the exercise coming next has the card under it.
       <div className="flex flex-col items-center text-center">
         <p className="text-xl font-extrabold">Resting</p>
         <p
@@ -619,7 +674,7 @@ export default function SetTimer({
             onChange={setName}
             suggestions={suggestions}
           />
-          {planLines}
+          <PlanLines target={target} notes={notes} goal={goal} />
           <ExerciseHowTo exercise={lookup?.(name)} />
           {exerciseNotes && name.trim() && (
             <ExerciseNote
