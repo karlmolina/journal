@@ -12,3 +12,9 @@ export function niceTicks(min: number, max: number, count = 4) {
   }
   return ticks;
 }
+
+// The eight categorical line colors live in index.css, stepped for light and
+// dark. Past eight, lines fold into a gray "Other".
+export const SERIES_COLORS = 8;
+export const seriesColor = (i: number) =>
+  i < SERIES_COLORS ? `var(--series-${i + 1})` : "var(--series-other)";
