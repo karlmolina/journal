@@ -68,8 +68,27 @@ body {
 .animate-entry-in {
   animation: entry-in 220ms ease-out;
 }
+/* A bottom sheet slides up over a page that fades dim. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+.animate-fade-in {
+  animation: fade-in 150ms ease-out;
+}
+.animate-sheet-up {
+  animation: sheet-up 220ms ease-out;
+}
 @media (prefers-reduced-motion: reduce) {
-  .animate-entry-in {
+  .animate-entry-in,
+  .animate-fade-in,
+  .animate-sheet-up {
     animation: none;
   }
 }

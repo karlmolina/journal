@@ -113,14 +113,20 @@ export default function SetForm({
   };
   const key = JSON.stringify(values);
   const saved = useRef(key);
+  // The latest change not yet saved, so closing the form doesn't drop it.
+  const unsaved = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!onChange || !canAdd || key === saved.current) return;
-    const id = setTimeout(() => {
+    const save = () => {
+      unsaved.current = null;
       saved.current = key;
       onChange(JSON.parse(key));
-    }, 600);
+    };
+    unsaved.current = save;
+    const id = setTimeout(save, 600);
     return () => clearTimeout(id);
   }, [onChange, canAdd, key]);
+  useEffect(() => () => unsaved.current?.(), []);
 
   // The fields keep their values afterwards, so the next set of the same
   // exercise is one tap away.
