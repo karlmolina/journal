@@ -48,52 +48,75 @@ import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 
-// Brings the current exercise's card to the top of the screen, gliding
-// there unless reduced motion is asked for. A glide can stop short when
-// the page changes height on the way, so once the page stops moving it
-// checks where the card landed and goes again, unless you've taken over.
+// Brings the current exercise's card to the top of the screen in one glide
+// (a jump with reduced motion). Cards swap, the rest card comes and goes and
+// sets fold away right as you tap, so it waits for the page to hold still
+// before picking where to go. Asked again before then, the latest ask wins.
+// Only a glide that ends well off target (the page changed on the way) gets
+// one more, and touching the page cancels it all.
 let stopScrolling: (() => void) | null = null;
-function scrollToTop(el: HTMLElement | null) {
-  // The latest call wins.
+function scrollToTop(target: () => HTMLElement | null) {
   stopScrolling?.();
   const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches
     ? "auto"
     : "smooth";
-  let tries = 0;
-  let lastY = NaN;
+  let frame = 0;
   let timer = 0;
   const stop = () => {
     stopScrolling = null;
+    cancelAnimationFrame(frame);
     clearTimeout(timer);
     removeEventListener("touchstart", stop);
     removeEventListener("wheel", stop);
   };
-  const settle = () => {
-    if (!el?.isConnected) return stop();
-    // Still gliding.
-    if (scrollY !== lastY) {
-      lastY = scrollY;
-      timer = setTimeout(settle, 120);
-      return;
-    }
+  stopScrolling = stop;
+  addEventListener("touchstart", stop, { passive: true });
+  addEventListener("wheel", stop, { passive: true });
+  // How far the card is from where it should be, and whether the page can
+  // still scroll that way.
+  const offset = () => {
+    const el = target();
+    if (!el?.isConnected) return null;
     const off =
       el.getBoundingClientRect().top -
       parseFloat(getComputedStyle(el).scrollMarginTop || "0");
     const atBottom = innerHeight + scrollY >= document.body.scrollHeight - 1;
-    if (Math.abs(off) <= 2 || (off > 0 && atBottom) || ++tries > 3)
-      return stop();
-    el.scrollIntoView({ behavior, block: "start" });
-    lastY = NaN;
-    timer = setTimeout(settle, 120);
+    return off > 0 && atBottom ? 0 : off;
   };
-  stopScrolling = stop;
-  requestAnimationFrame(() => {
-    if (!el || stopScrolling !== stop) return;
-    el.scrollIntoView({ behavior, block: "start" });
-    addEventListener("touchstart", stop, { passive: true });
-    addEventListener("wheel", stop, { passive: true });
-    timer = setTimeout(settle, 120);
-  });
+  const glide = (corrected: boolean) => {
+    const off = offset();
+    if (off === null || Math.abs(off) <= 2) return stop();
+    target()!.scrollIntoView({ behavior, block: "start" });
+    // Wait for the glide to end, then look once more.
+    let lastY = NaN;
+    const ended = () => {
+      if (scrollY !== lastY) {
+        lastY = scrollY;
+        timer = setTimeout(ended, 100);
+        return;
+      }
+      const left = offset();
+      if (!corrected && left !== null && Math.abs(left) > 24) glide(true);
+      else stop();
+    };
+    timer = setTimeout(ended, 100);
+  };
+  // Hold off until the card and the page keep the same place and size for a
+  // few frames, or a third of a second has gone by.
+  const started = performance.now();
+  let last = "";
+  let still = 0;
+  const wait = () => {
+    const el = target();
+    const now = el
+      ? `${el.getBoundingClientRect().top + scrollY}:${document.body.scrollHeight}`
+      : "";
+    still = now === last ? still + 1 : 0;
+    last = now;
+    if (still >= 3 || performance.now() - started > 350) glide(false);
+    else frame = requestAnimationFrame(wait);
+  };
+  frame = requestAnimationFrame(wait);
 }
 
 const cardClass =
@@ -457,14 +480,26 @@ export default function ActiveWorkout({
   // plan moves on to another exercise and whenever a set starts.
   const currentCard = useRef<HTMLElement>(null);
   const [restSlot, setRestSlot] = useState<HTMLElement | null>(null);
-  useEffect(() => scrollToTop(currentCard.current), [selectedIndex]);
   // During a rest its card is the top.
+  const restRef = useRef(restSlot);
+  restRef.current = restSlot;
+  const toCurrent = () => restRef.current ?? currentCard.current;
+  // When the plan moves on, a rest starts or a set starts; one scroll for
+  // all of them, once the page settles.
+  const seen = useRef<{ index: number | null; rest: boolean; busy: boolean }>(
+    null,
+  );
   useEffect(() => {
-    if (restSlot) scrollToTop(restSlot);
-  }, [restSlot]);
-  useEffect(() => {
-    if (setBusy) scrollToTop(currentCard.current);
-  }, [setBusy]);
+    const before = seen.current;
+    seen.current = { index: selectedIndex, rest: !!restSlot, busy: setBusy };
+    if (
+      !before ||
+      before.index !== selectedIndex ||
+      (restSlot && !before.rest) ||
+      (setBusy && !before.busy)
+    )
+      scrollToTop(toCurrent);
+  });
   // While the rest card above empties and goes, hold the exercise where it
   // was on screen so it glides up from there rather than jumping.
   const cardTop = useRef<{ el: HTMLElement; top: number } | null>(null);
@@ -1037,7 +1072,7 @@ export default function ActiveWorkout({
           <button
             type="button"
             className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition"
-            onClick={() => scrollToTop(restSlot ?? currentCard.current)}
+            onClick={() => scrollToTop(toCurrent)}
           >
             {awayFrom === "above" ? "↑" : "↓"} Current exercise
           </button>
@@ -1058,8 +1093,10 @@ export default function ActiveWorkout({
           {elapsed}
         </button>
       </div>
-      {/* Room to scroll the current exercise to the top near the end. */}
-      <div aria-hidden className="h-[75dvh]" />
+      {/* Room to scroll the current exercise to the top near the end. Sized
+          to the small viewport so it holds still while the browser bar
+          slides away mid-scroll. */}
+      <div aria-hidden className="h-[75svh]" />
     </div>
   );
 }
