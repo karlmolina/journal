@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import WheelPicker, { ROW_PX } from "../components/WheelPicker";
+import WheelPicker, { DETAIL_ROW_PX, ROW_PX } from "../components/WheelPicker";
 
 // Movement below this is still a tap, which focuses the field for typing.
 const DEAD_ZONE_PX = 8;
@@ -11,6 +11,9 @@ const MIN_SPEED = 0.002;
 // How long the wheel takes to settle onto a row, and to fade away, in ms.
 const SETTLE_MS = 180;
 const CLOSE_MS = 200;
+// After letting go, the wheel stays up at least this long, in ms, so a finger
+// that comes back to it keeps turning it instead of starting over.
+const REGRAB_MS = 500;
 
 function parseNumber(value: string) {
   const n = Number(value);
@@ -34,6 +37,8 @@ interface DragAdjustOptions {
   // that doesn't parse starts the wheel at 0.
   parse?: (value: string) => number | null;
   format?: (n: number) => string;
+  // A line shown under each value on the wheel, like what a score means.
+  detail?: (n: number) => string;
 }
 
 // Drag up or down on a number field to turn a scroll wheel of values that
@@ -49,23 +54,31 @@ export default function useDragAdjust({
   max = Infinity,
   parse = parseNumber,
   format = formatNumber,
+  detail,
 }: DragAdjustOptions) {
+  const rowPx = detail ? DETAIL_ROW_PX : ROW_PX;
   const drag = useRef<{
     id: number;
     y: number;
     start: number;
+    // Where the wheel was when this touch landed, in rows.
+    from: number;
     moved: boolean;
     // Recent moves, to tell how fast the finger was going when it let go.
     samples: { t: number; y: number }[];
   } | null>(null);
   // The value the wheel started from, and how far it has turned, in rows.
-  const [wheel, setWheel] = useState<{
-    start: number;
-    position: number;
-    closing: boolean;
-  } | null>(null);
+  type Wheel = { start: number; position: number; closing: boolean };
+  const [wheel, setWheelState] = useState<Wheel | null>(null);
+  // The same, for event handlers that run before the next render.
+  const current = useRef<Wheel | null>(null);
+  const setWheel = (next: Wheel | null) => {
+    current.current = next;
+    setWheelState(next);
+  };
   const frame = useRef(0);
   const closeTimer = useRef(0);
+  const releasedAt = useRef(0);
 
   useEffect(
     () => () => {
@@ -87,10 +100,17 @@ export default function useDragAdjust({
     setWheel({ start, position, closing: false });
   };
 
+  // Waits out the rest of the regrab time, then fades the wheel away.
   const close = (start: number, row: number) => {
     show(start, row);
-    setWheel({ start, position: row, closing: true });
-    closeTimer.current = window.setTimeout(() => setWheel(null), CLOSE_MS);
+    const wait = releasedAt.current + REGRAB_MS - CLOSE_MS - performance.now();
+    closeTimer.current = window.setTimeout(
+      () => {
+        setWheel({ start, position: row, closing: true });
+        closeTimer.current = window.setTimeout(() => setWheel(null), CLOSE_MS);
+      },
+      Math.max(0, wait),
+    );
   };
 
   // Eases from where the wheel is onto the nearest row, then fades it away.
@@ -131,17 +151,35 @@ export default function useDragAdjust({
 
   const onPointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    // A new touch while the wheel is still coasting picks up from there.
     cancelAnimationFrame(frame.current);
     clearTimeout(closeTimer.current);
-    setWheel(null);
+    const samples = [{ t: e.timeStamp, y: e.clientY }];
+    // A touch while the wheel is still up, coasting or just let go of, keeps
+    // turning it from where it is.
+    const shown = current.current;
+    if (shown) {
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      const { start, position } = shown;
+      drag.current = {
+        id: e.pointerId,
+        y: e.clientY,
+        start,
+        from: position,
+        moved: true,
+        samples,
+      };
+      setWheel({ start, position, closing: false });
+      return;
+    }
     const parsed = parse(value);
     drag.current = {
       id: e.pointerId,
       y: e.clientY,
       start: parsed === null ? Math.min(max, Math.max(min, 0)) : parsed,
+      from: 0,
       moved: false,
-      samples: [{ t: e.timeStamp, y: e.clientY }],
+      samples,
     };
   };
 
@@ -158,7 +196,7 @@ export default function useDragAdjust({
     }
     d.samples.push({ t: e.timeStamp, y: e.clientY });
     if (d.samples.length > 8) d.samples.shift();
-    show(d.start, clamp(d.start, dy / ROW_PX));
+    show(d.start, clamp(d.start, d.from + dy / rowPx));
   };
 
   const onPointerEnd = (e: React.PointerEvent<HTMLElement>) => {
@@ -166,20 +204,29 @@ export default function useDragAdjust({
     if (!d || d.id !== e.pointerId) return;
     drag.current = null;
     if (!d.moved) return;
-    const position = clamp(d.start, (d.y - e.clientY) / ROW_PX);
+    releasedAt.current = performance.now();
+    const position = clamp(d.start, d.from + (d.y - e.clientY) / rowPx);
     // Speed over the last tenth of a second; a finger that stopped before
     // letting go doesn't flick.
     const recent = d.samples.find((s) => s.t >= e.timeStamp - 100);
     const elapsed = recent ? e.timeStamp - recent.t : 0;
     const speed =
       e.type === "pointerup" && recent && elapsed > 0
-        ? (recent.y - e.clientY) / ROW_PX / elapsed
+        ? (recent.y - e.clientY) / rowPx / elapsed
         : 0;
     coast(d.start, position, speed);
   };
 
+  const bind = {
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: onPointerEnd,
+    onPointerCancel: onPointerEnd,
+  };
+
   const picker = wheel && (
     <WheelPicker
+      bind={bind}
       label={label}
       position={wheel.position}
       closing={wheel.closing}
@@ -187,16 +234,9 @@ export default function useDragAdjust({
         row >= lowest(wheel.start) && row <= highest(wheel.start)
       }
       rowText={(row) => format(wheel.start + row) || "0"}
+      rowDetail={detail && ((row) => detail(wheel.start + row))}
     />
   );
 
-  return {
-    bind: {
-      onPointerDown,
-      onPointerMove,
-      onPointerUp: onPointerEnd,
-      onPointerCancel: onPointerEnd,
-    },
-    picker,
-  };
+  return { bind, picker };
 }

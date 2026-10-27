@@ -109,6 +109,7 @@ function NightForm({
     max: 10,
     parse: (text) => parseQuality(text) ?? 5,
     format: String,
+    detail: (n) => QUALITY_WORDS[n],
   });
 
   const q = parseQuality(quality);
