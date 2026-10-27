@@ -21,6 +21,7 @@ import { planSupersets, type Supersets } from "../../functions/supersets";
 import {
   applyPlanChanges,
   lastSetOf,
+  dayLabel,
   nextSessionIndex,
   plannedReps,
 } from "../../functions/planProgress";
@@ -44,7 +45,7 @@ function UpNext({
         {index === next ? "Up next" : "From your plan"} · {plan.plan.title}
       </p>
       <p className="text-lg font-bold leading-snug">
-        {session.day}: {session.focus}
+        {dayLabel(index)}: {session.focus}
       </p>
       <p className="text-sm font-medium text-base-content/60 dark:text-base-content/80">
         {session.exercises.length}{" "}
@@ -53,9 +54,9 @@ function UpNext({
       </p>
       {sessions.length > 1 && (
         <div className="flex flex-wrap gap-1.5 mt-2" aria-label="Plan days">
-          {sessions.map((s, i) => (
+          {sessions.map((_, i) => (
             <Chip key={i} selected={i === index} onClick={() => setChosen(i)}>
-              {s.day}
+              {dayLabel(i)}
             </Chip>
           ))}
         </div>
@@ -65,7 +66,7 @@ function UpNext({
         className="btn btn-primary btn-lg rounded-full font-bold mt-3 active:scale-95 transition"
         onClick={() => onStart(index)}
       >
-        Start {session.day}
+        Start {dayLabel(index)}
       </button>
     </section>
   );
@@ -159,6 +160,7 @@ export default function Session() {
           planTitle: plan.plan.title,
           session: {
             ...session,
+            day: dayLabel(active!.plan_session!),
             exercises: applyPlanChanges(
               session.exercises,
               active?.plan_changes ?? null,
@@ -207,6 +209,19 @@ export default function Session() {
   );
 
   // A past workout's supersets: its own, or else its plan session's.
+  // "Day 2 · Upper body" for a workout that followed a plan day.
+  const planDayOf = useCallback(
+    (w: Workout) => {
+      if (!w.plan_id || w.plan_session == null) return undefined;
+      const session = plans.find((p) => p.id === w.plan_id)?.plan.sessions[
+        w.plan_session
+      ];
+      const day = dayLabel(w.plan_session);
+      return session ? `${day} · ${session.focus}` : day;
+    },
+    [plans],
+  );
+
   const supersetsOf = useCallback(
     (w: Workout): Supersets => {
       if (w.supersets) return w.supersets;
@@ -315,6 +330,7 @@ export default function Session() {
                 key={w.id}
                 workout={w}
                 supersets={supersetsOf(w)}
+                planDay={planDayOf(w)}
                 bodyPartsOf={bodyPartsOf}
                 suggestions={suggestions}
                 isUnilateral={isUnilateral}

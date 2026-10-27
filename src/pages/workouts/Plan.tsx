@@ -19,6 +19,7 @@ import { buildPlanPrompt, parsePlanReply } from "../../functions/planPrompt";
 import {
   bestWeight,
   describeTarget,
+  dayLabel,
   nextSessionIndex,
 } from "../../functions/planProgress";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
@@ -300,7 +301,7 @@ function ReviseForm({
       <textarea
         className={`${fieldClass} resize-none`}
         rows={3}
-        placeholder="Like: Swap running for cycling, make Thursday 30 minutes, and add more core work."
+        placeholder="Like: Swap running for cycling, make Day 3 shorter, and add more core work."
         value={instruction}
         onChange={(e) => setInstruction(e.target.value)}
         aria-label="What to change"
@@ -485,7 +486,7 @@ function PlanView({
                       Up next ·{" "}
                     </span>
                   )}
-                  {s.day} · {s.duration_minutes} min
+                  {dayLabel(i)} · {s.duration_minutes} min
                 </p>
                 <h3 className="text-lg font-bold leading-snug">{s.focus}</h3>
               </div>

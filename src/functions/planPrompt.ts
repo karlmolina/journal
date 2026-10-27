@@ -12,6 +12,7 @@ import type {
 } from "../hooks/useWorkoutPlans";
 import type { Workout } from "../hooks/useWorkouts";
 import { libraryRegion, regionLabel } from "./bodyRegions";
+import { dayLabel } from "./planProgress";
 
 type Plan = WorkoutPlan["plan"];
 
@@ -19,7 +20,7 @@ const FOUR_WEEKS_MS = 28 * 86_400_000;
 
 const COACH = `You're a strength coach with a physical therapy background. Write a weekly training plan for me; I'll paste your reply into my workout app.
 
-Fit my goals, days, minutes and equipment. Work around my injuries: favour the rehab exercises listed for them, keep loads and ranges pain-free, and never load an injury with high pain. Use my recent sets for starting loads. Use exact names from my library when one fits, otherwise short standard names. Put warm-ups in the sessions. Use supersets where they save time or suit the goal (2 exercises, or a circuit of 3-6); the app does one set of each in turn, then rests, so give them the same sets and rest. Every exercise gets a goal for the next 6-8 weeks and one progression rule; progress injured areas by pain, not the calendar. Don't diagnose anything.`;
+Fit my goals, days, minutes and equipment. Work around my injuries: favour the rehab exercises listed for them, keep loads and ranges pain-free, and never load an injury with high pain. Use my recent sets for starting loads. Use exact names from my library when one fits, otherwise short standard names. Sessions are numbered days (Day 1, Day 2...) that I do in order, resting as needed, not weekdays. Put warm-ups in the sessions. Use supersets where they save time or suit the goal (2 exercises, or a circuit of 3-6); the app does one set of each in turn, then rests, so give them the same sets and rest. Every exercise gets a goal for the next 6-8 weeks and one progression rule; progress injured areas by pain, not the calendar. Don't diagnose anything.`;
 
 const REVISING = `My current plan is below in the same format. Make the change I ask for, however big or small, keep everything else as it is, and reply with the whole plan.`;
 
@@ -28,10 +29,10 @@ const FORMAT = `Reply with only one code block in exactly this format, nothing e
 # Plan title
 > Two or three sentences on the approach and how to progress week to week.
 ! A safety note specific to me (one line each, or none)
-## Day | Focus | Minutes
+## Day 1 | Focus | Minutes
 Name | SetsxReps | Weight | Rest | Goal | Progression | Cue
 
-One "##" line per session, then one line per exercise:
+One "##" line per session (Day 1, Day 2...), then one line per exercise:
 - SetsxReps: "3x8-10", "3x30 sec" or "1x5 km". For one-side exercises it's per side.
 - Weight: pounds to use now, or "-" for bodyweight, timed or cardio work.
 - Rest: seconds after each set (after the round in a superset).
@@ -41,7 +42,7 @@ One "##" line per session, then one line per exercise:
 - Start the name with [A], [B]... for exercises in the same superset (list them together), and with [1] for exercises done one arm or leg at a time.
 
 Example:
-## Mon | Lower body | 45
+## Day 1 | Lower body | 45
 Goblet squat | 3x8-10 | 35 | 90 | 3x10 at 50 lb | Add 5 lb when all sets hit 10 | Sit between heels
 [A][1] Split squat | 2x8 | - | 0 | 2x12 | Add 2 reps a week |
 [A] Dead bug | 2x10 | - | 60 | 3x12 slow | Add 2 reps a week | Low back down`;
@@ -71,8 +72,8 @@ export function planToText(plan: Plan) {
     `# ${plan.title}`,
     ...(plan.summary ? [`> ${plan.summary}`] : []),
     ...plan.safety_notes.map((n) => `! ${n}`),
-    ...plan.sessions.flatMap((s) => [
-      `## ${s.day} | ${s.focus} | ${s.duration_minutes}`,
+    ...plan.sessions.flatMap((s, i) => [
+      `## ${dayLabel(i)} | ${s.focus} | ${s.duration_minutes}`,
       ...s.exercises.map(exerciseLine),
     ]),
   ].join("\n");
@@ -215,18 +216,19 @@ export function parsePlanReply(reply: string): ImportResult {
     const line = raw.trim();
     if (!line) continue;
     if (/^##(?!#)/.test(line)) {
-      const where = `Session ${sessions.length + 1}`;
-      const [day, focus, minutes] = line
+      // Days are numbered by position, whatever the bot called them; a
+      // line without the day ("## Focus | 45") works too.
+      const day = dayLabel(sessions.length);
+      const parts = line
         .replace(/^##\s*/, "")
         .split("|")
         .map((p) => p.trim());
+      const [focus, minutes] = parts.length >= 3 ? parts.slice(1) : parts;
       const mins = parseInt(minutes ?? "", 10);
-      if (!day) errors.push(`${where}: the day is missing.`);
-      if (!focus) errors.push(`${where} (${day}): the focus is missing.`);
-      if (!(mins > 0))
-        errors.push(`${where} (${day}): minutes should be a number.`);
+      if (!focus) errors.push(`${day}: the focus is missing.`);
+      if (!(mins > 0)) errors.push(`${day}: minutes should be a number.`);
       sessions.push({
-        day: day ?? "",
+        day,
         focus: focus ?? "",
         duration_minutes: mins > 0 ? mins : 0,
         exercises: [],
@@ -252,7 +254,7 @@ export function parsePlanReply(reply: string): ImportResult {
         else if (/^[A-Z]$/.test(t)) superset = t;
         name = name.slice(tag[0].length);
       }
-      const at = `${session.day || `Session ${sessions.length}`}, ${name || `exercise ${session.exercises.length + 1}`}`;
+      const at = `${session.day}, ${name || `exercise ${session.exercises.length + 1}`}`;
       const setsReps = (fields[1] ?? "").match(/^(\d+)\s*[x×]\s*(.+)$/i);
       const weight = blank(fields[2]) ? null : parseFloat(fields[2]);
       const rest = blank(fields[3]) ? 0 : parseInt(fields[3], 10);
@@ -293,7 +295,7 @@ export function parsePlanReply(reply: string): ImportResult {
   for (const s of sessions)
     if (s.exercises.length === 0)
       errors.push(
-        `${s.day || "A session"} has no exercises. The reply may have been cut off.`,
+        `${s.day} has no exercises. The reply may have been cut off.`,
       );
 
   if (errors.length > 0) return { ok: false, errors };

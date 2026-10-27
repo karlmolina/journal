@@ -23,6 +23,10 @@ function lineage(plan: WorkoutPlan, plans: WorkoutPlan[]) {
   return ids;
 }
 
+// Plan sessions are numbered days done in order, not weekdays. Older plans
+// named them "Mon", "Wed"..., so the label always comes from the position.
+export const dayLabel = (index: number) => `Day ${index + 1}`;
+
 // The session after the last one you did, wrapping around to the first.
 // `workouts` is newest first.
 export function nextSessionIndex(
