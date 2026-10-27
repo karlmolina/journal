@@ -405,11 +405,9 @@ export default function ActiveWorkout({
   };
   const [timerPhase, setTimerPhase] = useState<TimerPhase>("ready");
   const setBusy = timerPhase === "running" || timerPhase === "logging";
-  // A rest, or the set just stopped, gets a card of its own just above the
-  // exercise that's next. The stopped set is fixed there, not in its list.
+  // A rest gets a card of its own just above the exercise that's next.
   const [slot, setSlot] = useState<SlotContent>("none");
   const resting = slot !== "none" && !!selected;
-  const fixing = resting && slot === "lastSet" ? sets.at(-1)?.id : undefined;
 
   // Keep the current exercise at the top: when the workout opens, when the
   // plan moves on to another exercise and whenever a set starts.
@@ -440,18 +438,18 @@ export default function ActiveWorkout({
       : null;
   });
 
-  // Where the current exercise is when it isn't scrolled to the top, for
-  // the button that brings it back.
+  // Where the current exercise is when it's off screen, for the button
+  // that brings it back.
   const [awayFrom, setAwayFrom] = useState<"above" | "below" | null>(null);
   useEffect(() => {
     const check = () => {
-      const el = restSlot ?? currentCard.current;
+      const el = currentCard.current;
       if (!el) return setAwayFrom(null);
-      // Scrolled to the top leaves it its scroll margin below the edge.
-      const offset =
-        el.getBoundingClientRect().top -
-        parseFloat(getComputedStyle(el).scrollMarginTop || "0");
-      setAwayFrom(offset < -2 ? "above" : offset > 2 ? "below" : null);
+      // Off screen, or so nearly that the button would cover it.
+      const { top, bottom } = el.getBoundingClientRect();
+      setAwayFrom(
+        bottom < 96 ? "above" : top > innerHeight - 96 ? "below" : null,
+      );
     };
     check();
     window.addEventListener("scroll", check, { passive: true });
@@ -558,7 +556,7 @@ export default function ActiveWorkout({
     const doneSets = setsDone(e, sets);
     const complete = doneSets >= e.sets;
     const current = i === selectedIndex;
-    const logged = setsOf(e.name).filter((s) => s.id !== fixing);
+    const logged = setsOf(e.name);
     // Whether it was swapped in, and how far along it is; the current
     // exercise says which set is next under its title.
     const status = complete

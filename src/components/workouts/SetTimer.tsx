@@ -11,6 +11,7 @@ import {
 } from "../../functions/planProgress";
 import SetForm from "./SetForm";
 import ExerciseInput from "./ExerciseInput";
+import BottomSheet from "../BottomSheet";
 import ExerciseHowTo from "./ExerciseHowTo";
 import ExerciseNote, { type ExerciseNotesProps } from "./ExerciseNote";
 
@@ -152,7 +153,7 @@ interface SetTimerProps {
 }
 
 export type TimerPhase = Phase["phase"];
-export type SlotContent = "none" | "rest" | "lastSet";
+export type SlotContent = "none" | "rest";
 
 // Shows what the current exercise is in a superset with, and adds more
 // exercises to it (any number: a superset of three or more is a circuit).
@@ -410,14 +411,7 @@ export default function SetTimer({
   };
 
   const busy = state.phase === "running" || state.phase === "logging";
-  const slot: SlotContent =
-    (state.phase === "ready" || state.phase === "resting") &&
-    state.logged &&
-    lastSet
-      ? "lastSet"
-      : state.phase === "resting"
-        ? "rest"
-        : "none";
+  const slot: SlotContent = state.phase === "resting" ? "rest" : "none";
   // Told before paint, so the cards around the timer change in the same frame.
   useLayoutEffect(() => onSlotChange?.(slot), [slot, onSlotChange]);
   useLayoutEffect(
@@ -425,14 +419,16 @@ export default function SetTimer({
     [state.phase, onPhaseChange],
   );
 
-  const startSet = () => {
+  // Straight on from another set (the second side, or the next exercise in
+  // a superset), timing starts after a short countdown.
+  const startSet = (countIn = false) => {
     const n = name.trim();
     if (!n || busy) return;
     const at = Date.now();
     setState({
       phase: "running",
       exercise: n,
-      startedAt: at,
+      startedAt: countIn ? at + COUNTDOWN * 1000 : at,
       side: sideFor(n),
       restSeconds: restUntil(at),
       rest,
@@ -636,14 +632,21 @@ export default function SetTimer({
       </div>
     );
 
-  // The set just stopped: its time on the big clock, and its numbers, all
-  // fixable. Changes save as they're made.
+  // The set just stopped, in a drawer: its time on the big clock and its
+  // numbers, all fixable, saving as they change. Closing it goes on to the
+  // next side or exercise when no rest comes between.
+  const straightOn =
+    state.phase === "ready" && !!(state.switchTo || state.supersetNext);
+  const closeDone = () => {
+    if (state.phase !== "ready" && state.phase !== "resting") return;
+    if (straightOn) startSet(true);
+    else setState({ ...state, logged: false });
+  };
   const justDone = state.logged && lastSet && onUpdateSet && (
-    <div className="flex flex-col gap-1">
-      <p className="text-sm font-bold text-base-content/60 dark:text-base-content/80">
-        {lastSet.exercise_name}
-        {lastSet.side && ` · ${sideLabel(lastSet.side)}`} done
-      </p>
+    <BottomSheet
+      title={`${lastSet.exercise_name}${lastSet.side ? ` · ${sideLabel(lastSet.side)}` : ""} done`}
+      onClose={closeDone}
+    >
       <SetForm
         key={lastSet.id}
         suggestions={suggestions}
@@ -652,14 +655,27 @@ export default function SetTimer({
         initial={lastSet}
         onChange={(changes) => onUpdateSet(lastSet, changes)}
       />
-    </div>
+      <button
+        type="button"
+        className="btn btn-primary btn-lg rounded-full font-bold w-full mt-3 active:scale-[0.98] transition"
+        onClick={closeDone}
+        autoFocus
+      >
+        {straightOn
+          ? state.phase === "ready" && state.switchTo
+            ? `Start ${state.switchTo} side`
+            : `Start ${name.trim()}`
+          : state.phase === "resting"
+            ? "Rest"
+            : "Done"}
+      </button>
+    </BottomSheet>
   );
 
   if (state.phase === "resting") {
     const goal = state.rest.target;
     const restBlock = (
       <div className="flex flex-col items-center text-center">
-        {justDone && <div className="w-full text-left mb-3">{justDone}</div>}
         <p className="text-xl font-extrabold">Resting</p>
         <p
           className={`my-1 text-3xl font-extrabold tracking-tight tabular-nums ${rested >= goal ? "text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]" : ""}`}
@@ -685,7 +701,7 @@ export default function SetTimer({
         <button
           type="button"
           className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
-          onClick={startSet}
+          onClick={() => startSet()}
           disabled={!name.trim()}
         >
           {startLabel}
@@ -709,6 +725,7 @@ export default function SetTimer({
       return (
         <div className="flex flex-col">
           {restSlot && createPortal(restBlock, restSlot)}
+          {justDone}
           {header(name.trim(), side)}
           <div className="w-full mt-2 flex flex-col items-center">{start}</div>
         </div>
@@ -716,6 +733,7 @@ export default function SetTimer({
     return (
       <div className="flex flex-col items-center text-center">
         {restBlock}
+        {justDone}
         <div className="w-full mt-2 flex flex-col items-center">{start}</div>
       </div>
     );
@@ -727,10 +745,7 @@ export default function SetTimer({
   const editing = state.editing || !name.trim();
   return (
     <div className="flex flex-col gap-2">
-      {justDone &&
-        (restSlot === undefined
-          ? justDone
-          : restSlot && createPortal(justDone, restSlot))}
+      {justDone}
       {state.rest && (
         <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold tabular-nums">
           Resting {formatClock(rested)} · target{" "}
@@ -773,7 +788,7 @@ export default function SetTimer({
       <button
         type="button"
         className="btn btn-primary btn-lg rounded-full font-bold active:scale-[0.98] transition"
-        onClick={startSet}
+        onClick={() => startSet()}
         disabled={!name.trim()}
       >
         {startLabel}
