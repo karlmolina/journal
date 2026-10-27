@@ -134,6 +134,8 @@ interface SetTimerProps {
   // A card of its own for the rest (null until it's on the page); without
   // one the rest shows in place.
   restSlot?: HTMLElement | null;
+  // In a plan, Swap exercise on the card picks another exercise instead.
+  hideChange?: boolean;
 }
 
 export type TimerPhase = Phase["phase"];
@@ -320,6 +322,7 @@ export default function SetTimer({
   onSave,
   onPhaseChange,
   restSlot,
+  hideChange = false,
 }: SetTimerProps) {
   const [state, setStateNow] = useState<Phase>(() =>
     readSaved(storageKey, workoutId),
@@ -685,15 +688,17 @@ export default function SetTimer({
         >
           {startLabel}
         </button>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
-          onClick={() =>
-            setState({ phase: "ready", rest: state.rest, editing: true })
-          }
-        >
-          Change exercise
-        </button>
+        {!hideChange && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
+            onClick={() =>
+              setState({ phase: "ready", rest: state.rest, editing: true })
+            }
+          >
+            Change exercise
+          </button>
+        )}
       </>
     );
     // With a rest card to go in, the rest goes there and the start button
@@ -767,7 +772,7 @@ export default function SetTimer({
       >
         {startLabel}
       </button>
-      {!editing && (
+      {!editing && !hideChange && (
         <button
           type="button"
           className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 self-center"

@@ -433,6 +433,8 @@ export default function ActiveWorkout({
       onSave={handleSave}
       onPhaseChange={setTimerPhase}
       restSlot={restCard}
+      // A plan's exercise cards have Swap exercise instead.
+      hideChange={restCard !== undefined}
     />
   );
 
