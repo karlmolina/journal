@@ -1,5 +1,5 @@
 // src/main.tsx
-import React from "react";
+import React, { Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import App from "./App";
@@ -31,11 +31,17 @@ const Injuries = React.lazy(workoutPages.injuries);
 const Progress = React.lazy(workoutPages.progress);
 const Plan = React.lazy(workoutPages.plan);
 
-const prefetchWorkoutPages = () =>
-  Object.values(workoutPages).forEach((load) => load().catch(() => {}));
+// Sleep is its own section, loaded the same way.
+const sleepPage = () => import("./pages/Sleep");
+const Sleep = React.lazy(sleepPage);
+
+const prefetchPages = () =>
+  [...Object.values(workoutPages), sleepPage].forEach((load) =>
+    load().catch(() => {}),
+  );
 if ("requestIdleCallback" in window)
-  requestIdleCallback(prefetchWorkoutPages, { timeout: 5000 });
-else setTimeout(prefetchWorkoutPages, 2000);
+  requestIdleCallback(prefetchPages, { timeout: 5000 });
+else setTimeout(prefetchPages, 2000);
 
 reportUncaughtErrors();
 
@@ -81,6 +87,16 @@ ReactDOM.createRoot(document.getElementById("root")!, {
                 <Route path="progress" element={<Progress />} />
                 <Route path="plan" element={<Plan />} />
               </Route>
+              <Route
+                path="/sleep"
+                element={
+                  <MembersOnly>
+                    <Suspense fallback={null}>
+                      <Sleep />
+                    </Suspense>
+                  </MembersOnly>
+                }
+              />
               <Route
                 path="/invites"
                 element={

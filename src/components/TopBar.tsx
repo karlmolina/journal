@@ -134,10 +134,15 @@ const SECTIONS = [
       </>
     ),
   },
+  {
+    to: "/sleep",
+    label: "Sleep",
+    icon: <path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" />,
+  },
 ];
 
-// Switches between the journal and workouts. Icons only on narrow screens so
-// the title and both menus still fit on one row.
+// Switches between the journal, workouts and sleep. Icons only on narrow
+// screens so the title and both menus still fit on one row.
 function SectionTabs() {
   return (
     <nav className="flex items-center gap-0.5 rounded-full bg-base-content/8 p-1">

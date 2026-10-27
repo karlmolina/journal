@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 export const LAST_PAGE_KEY = "journal_last_page";
 
 // Pages worth coming back to; sign-in and the root redirect are not.
-const SAVED = /^\/(journal|workouts|invites)(\/|$|\?)/;
+const SAVED = /^\/(journal|workouts|sleep|invites)(\/|$|\?)/;
 
 export function readLastPage(): string | null {
   try {
