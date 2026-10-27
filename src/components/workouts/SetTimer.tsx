@@ -30,6 +30,8 @@ type Phase =
       phase: "ready";
       // Still resting, after choosing to change the next exercise.
       rest?: Rest;
+      // Picking another exercise, so the name is a field, not the title.
+      editing?: boolean;
       switchTo?: Side;
       supersetNext?: string;
     }
@@ -430,7 +432,10 @@ export default function SetTimer({
   // rest after it, so the card doesn't jump around on Stop set.
   const header = (exerciseName: string, setSide?: Side | null) => (
     <div className="w-full flex flex-col items-center text-center">
-      <p className="text-xl font-extrabold leading-tight">{exerciseName}</p>
+      {/* The biggest text on the screen: what you're doing now. */}
+      <p className="text-4xl font-extrabold leading-tight tracking-tight">
+        {exerciseName}
+      </p>
       {setSide && (
         <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
           {sideLabel(setSide)}
@@ -453,7 +458,7 @@ export default function SetTimer({
 
   const bigClock = (seconds: number, muted = false) => (
     <p
-      className={`my-2 text-5xl font-extrabold tracking-tight tabular-nums text-center ${muted ? "text-base-content/45 dark:text-base-content/70" : ""}`}
+      className={`my-2 text-3xl font-extrabold tracking-tight tabular-nums text-center ${muted ? "text-base-content/45 dark:text-base-content/70" : ""}`}
       role="timer"
     >
       {formatClock(seconds)}
@@ -547,7 +552,7 @@ export default function SetTimer({
           Rest
         </p>
         <p
-          className={`my-1 text-5xl font-extrabold tracking-tight tabular-nums ${rested >= goal ? "text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]" : ""}`}
+          className={`my-1 text-3xl font-extrabold tracking-tight tabular-nums ${rested >= goal ? "text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]" : ""}`}
           role="timer"
         >
           {formatClock(rested)}
@@ -574,7 +579,9 @@ export default function SetTimer({
         <button
           type="button"
           className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
-          onClick={() => setState({ phase: "ready", rest: state.rest })}
+          onClick={() =>
+            setState({ phase: "ready", rest: state.rest, editing: true })
+          }
         >
           Change exercise
         </button>
@@ -582,6 +589,10 @@ export default function SetTimer({
     );
   }
 
+  // The exercise is a title until you choose to change it. With none yet,
+  // it's a field, and stays one while you type.
+  if (!state.editing && !name.trim()) setState({ ...state, editing: true });
+  const editing = state.editing || !name.trim();
   return (
     <div className="flex flex-col gap-2">
       {state.rest && (
@@ -600,22 +611,28 @@ export default function SetTimer({
           Superset: straight on to {state.supersetNext}, no rest.
         </p>
       )}
-      <ExerciseInput
-        className={fieldClass}
-        value={name}
-        onChange={setName}
-        suggestions={suggestions}
-      />
-      {planLines}
-      <ExerciseHowTo exercise={lookup?.(name)} />
-      {exerciseNotes && name.trim() && (
-        <ExerciseNote
-          // Prefixed: the superset control below is keyed by the name too.
-          key={`note:${name.trim().toLowerCase()}`}
-          exercise={name}
-          regions={lookup?.(name)?.body_regions ?? []}
-          {...exerciseNotes}
-        />
+      {editing ? (
+        <>
+          <ExerciseInput
+            className={fieldClass}
+            value={name}
+            onChange={setName}
+            suggestions={suggestions}
+          />
+          {planLines}
+          <ExerciseHowTo exercise={lookup?.(name)} />
+          {exerciseNotes && name.trim() && (
+            <ExerciseNote
+              // Prefixed: the superset control below is keyed by the name too.
+              key={`note:${name.trim().toLowerCase()}`}
+              exercise={name}
+              regions={lookup?.(name)?.body_regions ?? []}
+              {...exerciseNotes}
+            />
+          )}
+        </>
+      ) : (
+        header(name.trim(), side)
       )}
       <button
         type="button"
@@ -625,6 +642,15 @@ export default function SetTimer({
       >
         {startLabel}
       </button>
+      {!editing && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 self-center"
+          onClick={() => setState({ ...state, editing: true })}
+        >
+          Change exercise
+        </button>
+      )}
       <SupersetControl
         key={name.trim().toLowerCase()}
         exercise={name.trim()}
