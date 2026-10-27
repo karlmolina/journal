@@ -11,7 +11,7 @@ import {
 import { formatClock } from "../../functions/formatDuration";
 import SetForm from "./SetForm";
 import SupersetTag from "./SupersetTag";
-import { bodyPartLabel } from "../../functions/bodyPartScores";
+import { bodyPartLabel, groupRegions } from "../../functions/bodyPartScores";
 
 // The rest timed before a set, shown after what was done.
 function RestNote({
@@ -118,6 +118,16 @@ export default function SetList({
         const found = dense && bodyPartsOf ? bodyPartsOf(name) : [];
         const parts =
           found.length > 0 ? found : dense && bodyPartsOf ? ["other"] : [];
+        // Muscle groups, each with the specific body parts behind it unless
+        // they just repeat the group's name.
+        const groups = groupRegions(parts).map(({ group, regions }) => {
+          const label = bodyPartLabel(group);
+          const stem = (l: string) => l.toLowerCase().replace(/s$/, "");
+          const detail = regions
+            .map(bodyPartLabel)
+            .filter((l) => stem(l) !== stem(label));
+          return { label, detail };
+        });
         return (
           <div key={name}>
             {dense ? (
@@ -142,17 +152,30 @@ export default function SetList({
             ) : (
               !hideNames && <p className="font-bold">{name}</p>
             )}
-            {parts.length > 0 && (
+            {groups.length > 0 && (
               <ul
                 className="mt-1 flex flex-wrap gap-1"
-                aria-label={`Works ${parts.map(bodyPartLabel).join(", ")}`}
+                aria-label={`Works ${groups
+                  .map((g) =>
+                    g.detail.length > 0
+                      ? `${g.label} (${g.detail.join(", ")})`
+                      : g.label,
+                  )
+                  .join(", ")}`}
               >
-                {parts.map((part, i) => (
+                {groups.map((g, i) => (
                   <li
-                    key={part}
-                    className={`rounded-md px-1.5 text-[11px] leading-[18px] font-semibold ${i === 0 ? "bg-primary/12 text-primary dark:bg-primary/25 dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]" : "bg-base-content/8 text-base-content/65 dark:bg-base-content/12 dark:text-base-content/80"}`}
+                    key={g.label}
+                    aria-hidden="true"
+                    className={`rounded-md px-1.5 text-[11px] leading-[18px] ${i === 0 ? "bg-primary/12 text-primary dark:bg-primary/25 dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]" : "bg-base-content/8 text-base-content/65 dark:bg-base-content/12 dark:text-base-content/80"}`}
                   >
-                    {bodyPartLabel(part)}
+                    <span className="font-bold">{g.label}</span>
+                    {g.detail.length > 0 && (
+                      <span className="font-medium opacity-80">
+                        {" "}
+                        · {g.detail.join(", ").toLowerCase()}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
