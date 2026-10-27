@@ -755,37 +755,66 @@ export default function ActiveWorkout({
 
   return (
     <div className="flex flex-col gap-3">
-      <section
-        className={`${cardClass} flex flex-col items-center text-center`}
-      >
-        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-          {paused ? "Paused" : "In progress"} · started {started}
-        </p>
-        <p
-          className={`mt-0.5 mb-2 text-3xl font-extrabold tracking-tight tabular-nums transition-opacity ${
-            paused ? "opacity-50" : ""
+      {/* The workout clock floats in the corner; tap it to pause or end the
+          workout. */}
+      <div className="sticky top-3 z-30 h-0 flex justify-end pointer-events-none">
+        <button
+          type="button"
+          className={`pointer-events-auto h-7 rounded-full px-2.5 text-xs font-bold tabular-nums shadow-md ring-1 ring-base-content/10 bg-base-100 dark:bg-base-300 cursor-pointer transition active:scale-95 ${
+            paused ? "text-base-content/50 dark:text-base-content/70" : ""
           }`}
-          role="timer"
-          aria-live="off"
+          onClick={() => setFinishing(true)}
+          aria-label={`Workout time ${elapsed}${paused ? ", paused" : ""}. Open to pause or finish.`}
         >
+          {paused && "Paused · "}
           {elapsed}
-        </p>
-
-        {finishing ? (
-          <div className="w-full flex flex-col gap-2 mt-1">
+        </button>
+      </div>
+      {finishing && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 dark:bg-black/70 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+          onClick={() => setFinishing(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="Workout"
+            className="w-full max-w-md rounded-2xl bg-base-100 dark:bg-base-200 p-4 flex flex-col items-center text-center gap-2 shadow-xl ring-1 ring-base-content/10"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.key === "Escape" && setFinishing(false)}
+          >
+            <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+              {paused ? "Paused" : "In progress"} · started {started}
+            </p>
+            <p
+              className={`text-3xl font-extrabold tracking-tight tabular-nums ${
+                paused ? "opacity-50" : ""
+              }`}
+              role="timer"
+              aria-live="off"
+            >
+              {elapsed}
+            </p>
+            <button
+              type="button"
+              className="btn btn-sm rounded-full font-bold bg-base-content/8 border-0 shadow-none"
+              onClick={paused ? onResume : onPause}
+            >
+              {paused ? "Resume" : "Pause"}
+            </button>
             <textarea
               className="w-full resize-none rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65 text-left"
               rows={2}
               placeholder="How did it go? (optional)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              autoFocus
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full">
               <button
                 type="button"
                 className="btn btn-ghost rounded-full font-bold flex-1"
                 onClick={() => setFinishing(false)}
+                autoFocus
               >
                 Keep going
               </button>
@@ -794,29 +823,12 @@ export default function ActiveWorkout({
                 className="btn btn-primary rounded-full font-bold flex-1"
                 onClick={() => onFinish(notes)}
               >
-                Save workout
+                Finish workout
               </button>
             </div>
-          </div>
-        ) : (
-          <div className="flex gap-2 w-full mt-1">
-            <button
-              type="button"
-              className="btn rounded-full font-bold flex-1 bg-base-content/8 border-0 shadow-none"
-              onClick={paused ? onResume : onPause}
-            >
-              {paused ? "Resume" : "Pause"}
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary rounded-full font-bold flex-1"
-              onClick={() => setFinishing(true)}
-            >
-              Finish
-            </button>
-          </div>
-        )}
-      </section>
+          </section>
+        </div>
+      )}
 
       {planned ? (
         <>
@@ -830,9 +842,18 @@ export default function ActiveWorkout({
           {selectedIndex === null && (
             <>
               {exercises.length > 0 && (
-                <p className="text-sm font-bold text-center text-base-content/70 dark:text-base-content/85">
-                  Every planned set is done. Nice work.
-                </p>
+                <div className="flex flex-col items-center">
+                  <p className="text-sm font-bold text-center text-base-content/70 dark:text-base-content/85">
+                    Every planned set is done. Nice work.
+                  </p>
+                  <button
+                    type="button"
+                    className={actionClass}
+                    onClick={() => setFinishing(true)}
+                  >
+                    Finish workout
+                  </button>
+                </div>
               )}
               <section
                 ref={currentCard}
