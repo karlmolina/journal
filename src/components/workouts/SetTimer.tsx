@@ -530,7 +530,7 @@ export default function SetTimer({
     </p>
   );
 
-  const startLabel = side ? `Start ${side} side` : "Start set";
+  const startLabel = side ? `Start ${side} side` : "Start";
 
   const header = (exerciseName: string, setSide?: Side | null) => (
     <ExerciseHeader
@@ -683,7 +683,7 @@ export default function SetTimer({
           onClick={startSet}
           disabled={!name.trim()}
         >
-          {side ? startLabel : "Start next set"}
+          {startLabel}
         </button>
         <button
           type="button"
