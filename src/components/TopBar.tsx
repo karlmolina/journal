@@ -139,9 +139,20 @@ const SECTIONS = [
     label: "Sleep",
     icon: <path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" />,
   },
+  {
+    to: "/meals",
+    label: "Meals",
+    icon: (
+      <>
+        <path d="M3 2v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V2" />
+        <path d="M7 2v20" />
+        <path d="M21 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3Zm0 0v7" />
+      </>
+    ),
+  },
 ];
 
-// Switches between the journal, workouts and sleep. Icons only on narrow
+// Switches between the journal, workouts, sleep and meals. Icons only on narrow
 // screens so the title and both menus still fit on one row.
 function SectionTabs() {
   return (
