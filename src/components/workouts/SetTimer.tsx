@@ -47,6 +47,9 @@ type Phase =
       phase: "running";
       exercise: string;
       startedAt: number;
+      // Set when the start was pushed back for a countdown (straight on
+      // from the set before), so a plain Start never shows one.
+      countdown?: boolean;
       side?: Side | null;
       // The rest before this set, and the rest itself to carry on with if
       // the set is thrown away.
@@ -401,7 +404,7 @@ export default function SetTimer({
 
   // Seconds left before a set straight after another starts timing.
   const countdown =
-    state.phase === "running"
+    state.phase === "running" && state.countdown
       ? Math.min(
           COUNTDOWN,
           Math.max(
@@ -418,7 +421,7 @@ export default function SetTimer({
   }, [countdown]);
   const startNow = () => {
     if (state.phase === "running")
-      setState({ ...state, startedAt: Date.now() });
+      setState({ ...state, startedAt: Date.now(), countdown: false });
   };
 
   const busy = state.phase === "running" || state.phase === "logging";
@@ -508,6 +511,7 @@ export default function SetTimer({
       phase: "running",
       exercise: n,
       startedAt: Date.now() + COUNTDOWN * 1000,
+      countdown: true,
       side: sideFor(n),
       restSeconds: null,
     });
