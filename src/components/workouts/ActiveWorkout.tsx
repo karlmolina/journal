@@ -464,11 +464,14 @@ export default function ActiveWorkout({
           {e.swapped_from && ` · instead of ${e.swapped_from}`}
         </span>
         <span>
+          {/* The current exercise says which set is next under its title. */}
           {complete
             ? e.ended
               ? "Finished early"
               : "Done"
-            : `${Math.min(doneSets, e.planned_sets)} of ${e.planned_sets} sets`}
+            : !current &&
+              doneSets > 0 &&
+              `${Math.min(doneSets, e.planned_sets)} of ${e.planned_sets} sets done`}
         </span>
       </p>
     );
