@@ -113,9 +113,11 @@ interface SetTimerProps {
   // Your own notes on exercises.
   exerciseNotes?: ExerciseNotesProps;
   onSave: (set: SetInput) => void;
-  // Whether a set is under way (running or being filled in).
-  onBusyChange?: (busy: boolean) => void;
+  // What the timer is doing: ready, running, logging or resting.
+  onPhaseChange?: (phase: TimerPhase) => void;
 }
+
+export type TimerPhase = Phase["phase"];
 
 // Shows what the current exercise is in a superset with, and adds more
 // exercises to it (any number: a superset of three or more is a circuit).
@@ -228,7 +230,7 @@ export default function SetTimer({
   lookup,
   exerciseNotes,
   onSave,
-  onBusyChange,
+  onPhaseChange,
 }: SetTimerProps) {
   const [state, setState] = useState<Phase>(() =>
     readSaved(storageKey, workoutId),
@@ -276,7 +278,7 @@ export default function SetTimer({
   const restUntil = (at: number) => (rest ? since(rest.since, at) : null);
 
   const busy = state.phase === "running" || state.phase === "logging";
-  useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
+  useEffect(() => onPhaseChange?.(state.phase), [state.phase, onPhaseChange]);
 
   const startSet = () => {
     const n = name.trim();
@@ -546,11 +548,9 @@ export default function SetTimer({
   if (state.phase === "resting") {
     const goal = state.rest.target;
     return (
+      // Its own card: the exercise coming next is on the Up next card.
       <div className="flex flex-col items-center text-center">
-        {name.trim() && header(name.trim(), side)}
-        <p className="mt-3 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-          Rest
-        </p>
+        <p className="text-xl font-extrabold">Resting</p>
         <p
           className={`my-1 text-3xl font-extrabold tracking-tight tabular-nums ${rested >= goal ? "text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]" : ""}`}
           role="timer"

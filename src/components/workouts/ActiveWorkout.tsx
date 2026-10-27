@@ -36,7 +36,7 @@ import {
 } from "../../functions/supersets";
 import ExerciseInput from "./ExerciseInput";
 import SetList from "./SetList";
-import SetTimer from "./SetTimer";
+import SetTimer, { type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 
@@ -45,24 +45,40 @@ import SupersetGroup from "./SupersetGroup";
 function UpNextCard({
   exercise,
   side,
+  detail,
   howTo,
+  now,
 }: {
   exercise: Step;
   // The side it starts on, for exercises done one side at a time.
   side: Side | null;
+  detail: string;
   howTo?: Exercise;
+  // It's what you do once the rest is over, so its name is the title.
+  now: boolean;
 }) {
   return (
     <section className="rounded-2xl px-4 py-3 sm:px-5 flex flex-col gap-0.5 ring-1 ring-base-content/10 dark:ring-base-content/15">
       <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
         Up next
       </p>
-      <p className="font-bold leading-tight">
+      <p
+        className={
+          now
+            ? "text-4xl font-extrabold leading-tight tracking-tight"
+            : "font-bold leading-tight"
+        }
+      >
         {exercise.name}
-        {side && ` · ${sideLabel(side)}`}
+        {!now && side && ` · ${sideLabel(side)}`}
       </p>
+      {now && side && (
+        <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
+          {sideLabel(side)}
+        </p>
+      )}
       <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
-        {[describeTarget(exercise), exercise.notes].filter(Boolean).join(" · ")}
+        {detail}
       </p>
       {howTo && (
         <div className="mt-1.5">
@@ -82,6 +98,9 @@ function scrollToTop(el: HTMLElement | null) {
 
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
+// Tinted so it's plain you're resting, not doing an exercise.
+const restCardClass =
+  "rounded-2xl bg-primary/10 dark:bg-primary/15 px-4 py-4 sm:px-5";
 
 // Rest between sets when the plan doesn't say.
 const DEFAULT_REST = 90;
@@ -553,7 +572,10 @@ export default function ActiveWorkout({
     return before === -1 ? null : step(before);
   })();
   const upNext = upNextStep ? exercises[upNextStep.index] : undefined;
-  const [setBusy, setSetBusy] = useState(false);
+  const [timerPhase, setTimerPhase] = useState<TimerPhase>("ready");
+  const setBusy = timerPhase === "running" || timerPhase === "logging";
+  // While resting, Up next is the exercise you're about to do.
+  const resting = timerPhase === "resting" && !!selected;
 
   // Keep the current exercise at the top: when the workout opens and
   // whenever a set starts.
@@ -705,7 +727,10 @@ export default function ActiveWorkout({
         </section>
       )}
 
-      <section ref={currentCard} className={`${cardClass} scroll-mt-4`}>
+      <section
+        ref={currentCard}
+        className={`${resting ? restCardClass : cardClass} scroll-mt-4`}
+      >
         <SetTimer
           workoutId={workout.id}
           storageKey={timerKey}
@@ -729,17 +754,39 @@ export default function ActiveWorkout({
           lookup={lookup}
           exerciseNotes={exerciseNotes}
           onSave={handleSave}
-          onBusyChange={setSetBusy}
+          onPhaseChange={setTimerPhase}
         />
       </section>
 
-      {upNextStep && upNext && (
+      {resting ? (
         <UpNextCard
-          key={upNext.name}
-          exercise={upNext}
-          side={upNextStep.side}
-          howTo={lookup(upNext.name)}
+          key={selected.name}
+          exercise={selected}
+          side={sideFor(selected.name)}
+          detail={[
+            target,
+            selected.notes,
+            selected.goal && `Goal: ${selected.goal}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          howTo={lookup(selected.name)}
+          now
         />
+      ) : (
+        upNextStep &&
+        upNext && (
+          <UpNextCard
+            key={upNext.name}
+            exercise={upNext}
+            side={upNextStep.side}
+            detail={[describeTarget(upNext), upNext.notes]
+              .filter(Boolean)
+              .join(" · ")}
+            howTo={lookup(upNext.name)}
+            now={false}
+          />
+        )
       )}
 
       {sets.length > 0 && (
