@@ -365,6 +365,27 @@ export default function ActiveWorkout({
     if (setBusy) scrollToTop(currentCard.current);
   }, [setBusy]);
 
+  // Where the current exercise is when it's scrolled off screen, for the
+  // button that brings it back.
+  const [awayFrom, setAwayFrom] = useState<"above" | "below" | null>(null);
+  useEffect(() => {
+    const check = () => {
+      const el = restSlot ?? currentCard.current;
+      if (!el) return setAwayFrom(null);
+      const { top, bottom } = el.getBoundingClientRect();
+      setAwayFrom(
+        bottom < 0 ? "above" : top > window.innerHeight ? "below" : null,
+      );
+    };
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check);
+    return () => {
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
+  }, [restSlot, selectedIndex]);
+
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [notes, setNotes] = useState("");
@@ -804,6 +825,17 @@ export default function ActiveWorkout({
           </button>
         )}
       </div>
+      {awayFrom && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none">
+          <button
+            type="button"
+            className="pointer-events-auto btn btn-sm rounded-full font-semibold border-0 shadow-md bg-base-100 text-base-content/75 dark:bg-base-300 dark:text-base-content/85 ring-1 ring-base-content/10"
+            onClick={() => scrollToTop(restSlot ?? currentCard.current)}
+          >
+            {awayFrom === "above" ? "↑" : "↓"} Current exercise
+          </button>
+        </div>
+      )}
       {/* Room to scroll the current exercise to the top near the end. */}
       <div aria-hidden className="h-[75dvh]" />
     </div>
