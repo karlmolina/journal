@@ -57,6 +57,8 @@ interface SetListProps {
   // The latest exercise on top and its latest set first, for a workout in
   // progress. Set numbers still count up from the first set.
   newestFirst?: boolean;
+  // The sets of one exercise in a card that already names it.
+  hideNames?: boolean;
 }
 
 // What a set did, in the dense row: the load, then its time when it has one.
@@ -88,6 +90,7 @@ export default function SetList({
   supersetTags,
   bodyPartsOf,
   newestFirst = false,
+  hideNames = false,
 }: SetListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const groups = groupSets(sets).map(({ name, sets }) => ({
@@ -137,7 +140,7 @@ export default function SetList({
                 </span>
               </div>
             ) : (
-              <p className="font-bold">{name}</p>
+              !hideNames && <p className="font-bold">{name}</p>
             )}
             {parts.length > 0 && (
               <ul
