@@ -15,7 +15,9 @@ import {
   currentExerciseIndex,
   describeTarget,
   endExercise,
+  FIRST_SIDE,
   nextSide,
+  SECOND_SIDE,
   setsDone,
   swapExercise,
   type SessionExercise,
@@ -319,9 +321,10 @@ export default function ActiveWorkout({
     const last = sets.at(-1);
     const group = last && supersetOf(last.exercise_name, supersets);
     if (last && group) {
-      // A left side is followed by the right before moving on.
+      // A first side is followed by the second before moving on.
       const i =
-        last.side === "left" && nextSide(last.exercise_name, sets) === "right"
+        last.side === FIRST_SIDE &&
+        nextSide(last.exercise_name, sets) === SECOND_SIDE
           ? indexOf(last.exercise_name)
           : indexOf(
               nextInSuperset(last.exercise_name, group, done, targetOf).next ??
