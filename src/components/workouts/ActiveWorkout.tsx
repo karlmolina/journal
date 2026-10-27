@@ -567,7 +567,7 @@ export default function ActiveWorkout({
         onPick={
           !current && !complete && !setBusy ? () => setPicked(i) : undefined
         }
-        onSwap={(name) =>
+        onSwap={(name) => {
           onPlanChange(
             swapExercise(
               workout.plan_changes,
@@ -578,8 +578,19 @@ export default function ActiveWorkout({
             workout.supersets
               ? renameInSupersets(workout.supersets, e.name, name.trim())
               : undefined,
-          )
-        }
+          );
+          // Swapping one that's done means it was the other exercise all
+          // along, so its sets go with it.
+          if (complete)
+            for (const s of logged)
+              onUpdateSet(s, {
+                exercise_name: name.trim(),
+                reps: s.reps,
+                weight: s.weight,
+                duration_seconds: s.duration_seconds,
+                side: s.side,
+              });
+        }}
         onEnd={(ended) => {
           onPlanChange(endExercise(workout.plan_changes, i, ended));
           // Move on to what's next once it's done.
