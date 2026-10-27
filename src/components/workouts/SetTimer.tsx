@@ -330,6 +330,7 @@ export function ExerciseHeader({
   goal,
   lookup,
   exerciseNotes,
+  foldHowTo,
 }: {
   name: string;
   side?: Side | null;
@@ -338,6 +339,7 @@ export function ExerciseHeader({
   goal?: string;
   lookup?: (exercise: string) => Exercise | undefined;
   exerciseNotes?: ExerciseNotesProps;
+  foldHowTo?: boolean;
 }) {
   return (
     <div className="w-full flex flex-col">
@@ -352,7 +354,7 @@ export function ExerciseHeader({
       )}
       <PlanLines target={target} notes={notes} goal={goal} />
       <div className="w-full mt-2 flex flex-col gap-2 text-left">
-        <ExerciseHowTo exercise={lookup?.(name)} />
+        <ExerciseHowTo exercise={lookup?.(name)} folded={foldHowTo} />
         {exerciseNotes && (
           <ExerciseNote
             key={name}
@@ -584,6 +586,8 @@ export default function SetTimer({
       goal={goal}
       lookup={lookup}
       exerciseNotes={exerciseNotes}
+      // Room for the set just finished, without scrolling to it.
+      foldHowTo={state.phase === "done"}
     />
   );
 

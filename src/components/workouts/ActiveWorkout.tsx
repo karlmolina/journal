@@ -49,18 +49,14 @@ import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 
-// Brings the current exercise's card to the top of the screen (or the set
-// just finished to the middle) in one glide
-// (a jump with reduced motion). Cards swap, the rest card comes and goes and
+// Brings the current exercise's card (or the set just finished) to the top
+// of the screen in one glide (a jump with reduced motion). Cards swap, the rest card comes and goes and
 // sets fold away right as you tap, so it waits for the page to hold still
 // before picking where to go. Asked again before then, the latest ask wins.
 // Only a glide that ends well off target (the page changed on the way) gets
 // one more, and touching the page cancels it all.
 let stopScrolling: (() => void) | null = null;
-function scrollToTop(
-  target: () => HTMLElement | null,
-  block: "start" | "center" = "start",
-) {
+function scrollToTop(target: () => HTMLElement | null) {
   stopScrolling?.();
   const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches
     ? "auto"
@@ -83,17 +79,14 @@ function scrollToTop(
     const el = target();
     if (!el?.isConnected) return null;
     const r = el.getBoundingClientRect();
-    const off =
-      block === "center"
-        ? r.top + r.height / 2 - innerHeight / 2
-        : r.top - parseFloat(getComputedStyle(el).scrollMarginTop || "0");
+    const off = r.top - parseFloat(getComputedStyle(el).scrollMarginTop || "0");
     const atBottom = innerHeight + scrollY >= document.body.scrollHeight - 1;
     return (off > 0 && atBottom) || (off < 0 && scrollY <= 0) ? 0 : off;
   };
   const glide = (corrected: boolean) => {
     const off = offset();
     if (off === null || Math.abs(off) <= 2) return stop();
-    target()!.scrollIntoView({ behavior, block });
+    target()!.scrollIntoView({ behavior, block: "start" });
     // Wait for the glide to end, then look once more.
     let lastY = NaN;
     const ended = () => {
@@ -508,13 +501,12 @@ export default function ActiveWorkout({
   const toCurrent = () => currentCard.current;
   // When the plan moves on, a rest starts or a set starts; one scroll for
   // all of them, once the page settles.
-  // A set just finished goes to the middle instead, with the button on
-  // under it, and stays there until you go on.
+  // A set just finished stays where it is (the how-to folds to make room
+  // for it) until you go on.
   const seen = useRef<{
     index: number | null;
     rest: boolean;
     busy: boolean;
-    done: boolean;
   }>(null);
   useEffect(() => {
     const before = seen.current;
@@ -522,12 +514,9 @@ export default function ActiveWorkout({
       index: selectedIndex,
       rest: resting,
       busy: setBusy,
-      done: !!doneBlock,
     };
-    if (doneBlock && !before?.done)
-      scrollToTop(() => doneRef.current, "center");
-    else if (phaseNow.current === "done") return;
-    else if (
+    if (phaseNow.current === "done") return;
+    if (
       !before ||
       before.index !== selectedIndex ||
       (resting && !before.rest) ||
@@ -1109,7 +1098,7 @@ export default function ActiveWorkout({
             className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition animate-fade-in"
             onClick={() =>
               doneBlock
-                ? scrollToTop(() => doneRef.current, "center")
+                ? scrollToTop(() => doneRef.current)
                 : scrollToTop(toCurrent)
             }
           >

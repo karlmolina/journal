@@ -2,12 +2,21 @@ import { useState } from "react";
 import type { Exercise } from "../../hooks/useExercises";
 
 // The library's description of an exercise, two lines until tapped open.
-export default function ExerciseHowTo({ exercise }: { exercise?: Exercise }) {
+// Folded, it's just the link, to make room (for the set just finished).
+export default function ExerciseHowTo({
+  exercise,
+  folded = false,
+}: {
+  exercise?: Exercise;
+  folded?: boolean;
+}) {
   const [open, setOpen] = useState(false);
-  // Close again when the workout moves on to another exercise.
+  // Close again when the workout moves on to another exercise, or folds it.
   const [shownFor, setShownFor] = useState(exercise?.id);
-  if (exercise?.id !== shownFor) {
+  const [wasFolded, setWasFolded] = useState(folded);
+  if (exercise?.id !== shownFor || folded !== wasFolded) {
     setShownFor(exercise?.id);
+    setWasFolded(folded);
     setOpen(false);
   }
 
@@ -15,7 +24,8 @@ export default function ExerciseHowTo({ exercise }: { exercise?: Exercise }) {
     return null;
   const more = exercise.steps.length > 0 || !!exercise.equipment;
   // Short descriptions fit in two lines, so there's nothing to open.
-  const toggles = more || (exercise.description?.length ?? 0) > 90;
+  const toggles = more || folded || (exercise.description?.length ?? 0) > 90;
+  const shut = folded && !open;
 
   return (
     // The whole box is a tap target; the button inside is for keyboards.
@@ -23,7 +33,7 @@ export default function ExerciseHowTo({ exercise }: { exercise?: Exercise }) {
       className={`w-full rounded-xl bg-base-content/5 px-3 py-2 text-left text-sm font-medium text-base-content/75 dark:text-base-content/85 ${toggles ? "cursor-pointer" : ""}`}
       onClick={() => toggles && setOpen(!open)}
     >
-      {exercise.description && (
+      {exercise.description && !shut && (
         <p className={open ? "" : "line-clamp-2"}>{exercise.description}</p>
       )}
       {open && exercise.steps.length > 0 && (
@@ -41,10 +51,10 @@ export default function ExerciseHowTo({ exercise }: { exercise?: Exercise }) {
       {toggles && (
         <button
           type="button"
-          className="mt-0.5 block text-xs font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] cursor-pointer"
+          className={`${shut ? "" : "mt-0.5 "}block text-xs font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] cursor-pointer`}
           aria-expanded={open}
         >
-          {open ? "Show less" : more ? "How to do it" : "Show more"}
+          {open ? "Show less" : more || shut ? "How to do it" : "Show more"}
         </button>
       )}
     </div>
