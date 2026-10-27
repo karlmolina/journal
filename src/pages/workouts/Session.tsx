@@ -16,7 +16,7 @@ import useExercises from "../../hooks/useExercises";
 import useExerciseNotes from "../../hooks/useExerciseNotes";
 import useInjuries from "../../hooks/useInjuries";
 import useWorkoutPlans, { type WorkoutPlan } from "../../hooks/useWorkoutPlans";
-import { guessBodyParts, muscleGroups } from "../../functions/bodyPartScores";
+import { guessBodyParts } from "../../functions/bodyPartScores";
 import { planSupersets, type Supersets } from "../../functions/supersets";
 import {
   applyPlanChanges,
@@ -221,14 +221,14 @@ export default function Session() {
     [plans],
   );
 
-  // The muscle groups an exercise works, from its library body parts or a
-  // guess from its name.
+  // The body parts an exercise works, from the library or a guess from its
+  // name. Past workout cards sum them up by muscle group.
   const bodyPartsOf = useCallback(
     (name: string) => {
       const exercise = lookup(name);
       if (exercise?.category === "cardio") return ["cardio"];
       const regions = exercise?.body_regions ?? [];
-      return muscleGroups(regions.length > 0 ? regions : guessBodyParts(name));
+      return regions.length > 0 ? regions : guessBodyParts(name);
     },
     [lookup],
   );

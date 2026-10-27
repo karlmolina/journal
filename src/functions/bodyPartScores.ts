@@ -44,6 +44,17 @@ export function muscleGroups(regions: string[]) {
   return [...new Set(regions.map((r) => MUSCLE_GROUPS[r] ?? r))];
 }
 
+// Regions under their muscle groups, main group first: knee, quad, glute,
+// hip becomes Legs (knee, quad) then Glutes (glute, hip).
+export function groupRegions(regions: string[]) {
+  const groups = new Map<string, string[]>();
+  for (const r of regions) {
+    const group = MUSCLE_GROUPS[r] ?? r;
+    groups.set(group, [...(groups.get(group) ?? []), r]);
+  }
+  return [...groups].map(([group, regions]) => ({ group, regions }));
+}
+
 // Guesses for common lifts that aren't in the library, checked in order so
 // "leg curl" lands on hamstrings before "curl" lands on arms.
 const GUESSES: [RegExp, string[]][] = [
@@ -97,7 +108,7 @@ export function bodyPartScores(
   const scores = new Map<string, number>();
   let cardio: { part: string; score: number; seconds: number } | null = null;
   for (const set of sets) {
-    const parts = partsOf(set.exercise_name);
+    const parts = muscleGroups(partsOf(set.exercise_name));
     const each = set.side ? 0.5 : 1;
     if (parts[0] === "cardio") {
       cardio ??= { part: "cardio", score: 0, seconds: 0 };
