@@ -214,7 +214,7 @@ function NightRow({
   onSelect: () => void;
 }) {
   return (
-    <li>
+    <li className="animate-entry-in">
       <button
         type="button"
         onClick={onSelect}

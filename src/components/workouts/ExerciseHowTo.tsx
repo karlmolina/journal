@@ -27,14 +27,14 @@ export default function ExerciseHowTo({ exercise }: { exercise?: Exercise }) {
         <p className={open ? "" : "line-clamp-2"}>{exercise.description}</p>
       )}
       {open && exercise.steps.length > 0 && (
-        <ol className="mt-1.5 list-decimal pl-5 flex flex-col gap-0.5">
+        <ol className="mt-1.5 list-decimal pl-5 flex flex-col gap-0.5 animate-expand-in">
           {exercise.steps.map((step, i) => (
             <li key={i}>{step}</li>
           ))}
         </ol>
       )}
       {open && exercise.equipment && (
-        <p className="mt-1.5">
+        <p className="mt-1.5 animate-expand-in">
           <span className="font-bold">Equipment:</span> {exercise.equipment}
         </p>
       )}

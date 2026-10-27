@@ -407,7 +407,7 @@ export default function Journal() {
         onSignOut={() => signOut(userId)}
       />
 
-      <div className="relative flex-1 min-h-0">
+      <div className="relative flex-1 min-h-0 animate-fade-in">
         <div
           ref={scrollRef}
           onScroll={handleListScroll}
@@ -472,7 +472,7 @@ export default function Journal() {
             type="button"
             onClick={jumpToBottom}
             aria-label="Scroll to latest entry"
-            className="btn btn-circle btn-primary absolute bottom-3 left-1/2 -translate-x-1/2 shadow-lg active:scale-95 transition"
+            className="btn btn-circle btn-primary absolute bottom-3 left-1/2 -translate-x-1/2 shadow-lg active:scale-95 transition animate-fade-in"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

@@ -667,7 +667,7 @@ export default function ActiveWorkout({
   // time on the big clock, side, reps and weight, saving as they change.
   const fixing = fixingLast ? sets.at(-1) : undefined;
   const fixingEditor = (s: WorkoutSet) => (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 animate-fade-in">
       <div className="flex flex-col gap-1 rounded-2xl bg-base-content/5 p-3">
         <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
           Just done{s.side && ` · ${sideLabel(s.side)}`}
@@ -961,14 +961,14 @@ export default function ActiveWorkout({
     <div className="flex flex-col gap-3">
       {finishing && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 dark:bg-black/70 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 dark:bg-black/70 animate-fade-in p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
           onClick={() => setFinishing(false)}
         >
           <section
             role="dialog"
             aria-modal="true"
             aria-label="Workout"
-            className="w-full max-w-md rounded-2xl bg-base-100 dark:bg-base-200 p-4 flex flex-col items-center text-center gap-2 shadow-xl ring-1 ring-base-content/10"
+            className="w-full max-w-md rounded-2xl bg-base-100 dark:bg-base-200 p-4 flex flex-col items-center text-center gap-2 shadow-xl ring-1 ring-base-content/10 animate-pop-in"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.key === "Escape" && setFinishing(false)}
           >
@@ -1111,7 +1111,7 @@ export default function ActiveWorkout({
         {awayFrom ? (
           <button
             type="button"
-            className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition"
+            className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition animate-fade-in"
             onClick={() =>
               doneBlock
                 ? scrollToTop(() => doneRef.current, "center")

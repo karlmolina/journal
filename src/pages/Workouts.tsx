@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import TopBar from "../components/TopBar";
 import { useAuth } from "../context/AuthContext";
 import signOut from "../functions/signOut";
@@ -15,6 +15,7 @@ const TABS = [
 // Shell for the workouts section: the top bar, its own tabs, and the page.
 export default function Workouts() {
   const { user } = useAuth();
+  const { pathname } = useLocation();
 
   return (
     <div className="max-w-xl mx-auto px-2 sm:px-6 min-h-dvh flex flex-col pb-[env(safe-area-inset-bottom)]">
@@ -49,7 +50,10 @@ export default function Workouts() {
           </div>
         }
       >
-        <Outlet />
+        {/* Keyed so each tab fades in as it opens. */}
+        <div key={pathname} className="flex flex-1 flex-col animate-fade-in">
+          <Outlet />
+        </div>
       </Suspense>
     </div>
   );

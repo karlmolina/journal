@@ -126,7 +126,7 @@ export default function InjuryCard({
   const day = daysBetween(injury.started_on, injury.healed_on ?? today()) + 1;
 
   return (
-    <div className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-3 sm:px-5 sm:py-4 flex flex-col gap-3">
+    <div className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-3 sm:px-5 sm:py-4 flex flex-col gap-3 animate-entry-in">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
@@ -198,7 +198,7 @@ export default function InjuryCard({
         ))}
 
       {showMore && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 animate-expand-in">
           {injury.notes && (
             <p className="font-medium whitespace-pre-wrap">{injury.notes}</p>
           )}
