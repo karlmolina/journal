@@ -270,7 +270,7 @@ export default function TopBar({ userPhoto, onSignOut }: TopBarProps) {
           >
             {membership?.admin && (
               <li>
-                <Link to="/invites">Invite codes</Link>
+                <Link to="/invites">Invites</Link>
               </li>
             )}
             <li>
