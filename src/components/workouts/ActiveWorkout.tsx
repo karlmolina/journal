@@ -41,12 +41,51 @@ import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 
 // Brings the current exercise's card to the top of the screen, gliding
-// there unless reduced motion is asked for.
+// there unless reduced motion is asked for. A glide can stop short when
+// the page changes height on the way, so once the page stops moving it
+// checks where the card landed and goes again, unless you've taken over.
+let stopScrolling: (() => void) | null = null;
 function scrollToTop(el: HTMLElement | null) {
+  // The latest call wins.
+  stopScrolling?.();
   const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches
     ? "auto"
     : "smooth";
-  requestAnimationFrame(() => el?.scrollIntoView({ behavior, block: "start" }));
+  let tries = 0;
+  let lastY = NaN;
+  let timer = 0;
+  const stop = () => {
+    stopScrolling = null;
+    clearTimeout(timer);
+    removeEventListener("touchstart", stop);
+    removeEventListener("wheel", stop);
+  };
+  const settle = () => {
+    if (!el?.isConnected) return stop();
+    // Still gliding.
+    if (scrollY !== lastY) {
+      lastY = scrollY;
+      timer = setTimeout(settle, 120);
+      return;
+    }
+    const off =
+      el.getBoundingClientRect().top -
+      parseFloat(getComputedStyle(el).scrollMarginTop || "0");
+    const atBottom = innerHeight + scrollY >= document.body.scrollHeight - 1;
+    if (Math.abs(off) <= 2 || (off > 0 && atBottom) || ++tries > 3)
+      return stop();
+    el.scrollIntoView({ behavior, block: "start" });
+    lastY = NaN;
+    timer = setTimeout(settle, 120);
+  };
+  stopScrolling = stop;
+  requestAnimationFrame(() => {
+    if (!el || stopScrolling !== stop) return;
+    el.scrollIntoView({ behavior, block: "start" });
+    addEventListener("touchstart", stop, { passive: true });
+    addEventListener("wheel", stop, { passive: true });
+    timer = setTimeout(settle, 120);
+  });
 }
 
 const cardClass =
@@ -441,9 +480,22 @@ export default function ActiveWorkout({
   // Where the current exercise is when it's off screen, for the button
   // that brings it back.
   const [awayFrom, setAwayFrom] = useState<"above" | "below" | null>(null);
+  const [clockCovers, setClockCovers] = useState(false);
   useEffect(() => {
     const check = () => {
       const el = currentCard.current;
+      // The current exercise's main button under the corner clock.
+      const corner = innerHeight - 96;
+      setClockCovers(
+        [...(el?.querySelectorAll(".btn-primary") ?? [])].some((b) => {
+          const r = b.getBoundingClientRect();
+          return (
+            r.bottom > corner &&
+            r.top < innerHeight &&
+            r.right > innerWidth - 140
+          );
+        }),
+      );
       if (!el) return setAwayFrom(null);
       // Off screen, or so nearly that the button would cover it.
       const { top, bottom } = el.getBoundingClientRect();
@@ -458,7 +510,7 @@ export default function ActiveWorkout({
       window.removeEventListener("scroll", check);
       window.removeEventListener("resize", check);
     };
-  }, [restSlot, selectedIndex]);
+  }, [restSlot, selectedIndex, timerPhase]);
 
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -782,21 +834,6 @@ export default function ActiveWorkout({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* The workout clock floats in the corner; tap it to pause or end the
-          workout. */}
-      <div className="sticky top-3 z-30 h-0 flex justify-end pointer-events-none">
-        <button
-          type="button"
-          className={`pointer-events-auto h-7 rounded-full px-2.5 text-xs font-bold tabular-nums shadow-md ring-1 ring-base-content/10 bg-base-100 dark:bg-base-300 cursor-pointer transition active:scale-95 ${
-            paused ? "text-base-content/50 dark:text-base-content/70" : ""
-          }`}
-          onClick={() => setFinishing(true)}
-          aria-label={`Workout time ${elapsed}${paused ? ", paused" : ""}. Open to pause or finish.`}
-        >
-          {paused && "Paused · "}
-          {elapsed}
-        </button>
-      </div>
       {finishing && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 dark:bg-black/70 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
@@ -933,8 +970,12 @@ export default function ActiveWorkout({
           </button>
         )}
       </div>
-      {awayFrom && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none">
+      {/* Along the bottom: the way back to the current exercise in the
+          middle, and the workout clock in the corner, which opens pause and
+          finish. The clock steps aside while a button sits under it. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none">
+        <span />
+        {awayFrom ? (
           <button
             type="button"
             className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition"
@@ -942,8 +983,23 @@ export default function ActiveWorkout({
           >
             {awayFrom === "above" ? "↑" : "↓"} Current exercise
           </button>
-        </div>
-      )}
+        ) : (
+          <span />
+        )}
+        <button
+          type="button"
+          className={`justify-self-end h-10 rounded-full px-4 text-base font-bold tabular-nums shadow-lg ring-1 ring-base-content/10 bg-base-100 dark:bg-base-300 cursor-pointer transition active:scale-95 ${
+            clockCovers ? "opacity-0" : "pointer-events-auto"
+          } ${paused ? "text-base-content/50 dark:text-base-content/70" : ""}`}
+          onClick={() => setFinishing(true)}
+          aria-label={`Workout time ${elapsed}${paused ? ", paused" : ""}. Open to pause or finish.`}
+          aria-hidden={clockCovers || undefined}
+          tabIndex={clockCovers ? -1 : undefined}
+        >
+          {paused && "Paused · "}
+          {elapsed}
+        </button>
+      </div>
       {/* Room to scroll the current exercise to the top near the end. */}
       <div aria-hidden className="h-[75dvh]" />
     </div>
