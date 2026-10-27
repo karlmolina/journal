@@ -36,81 +36,39 @@ import {
 } from "../../functions/supersets";
 import ExerciseInput from "./ExerciseInput";
 import SetList from "./SetList";
-import SetTimer, { type SetTimerControl } from "./SetTimer";
+import SetTimer from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 
-// The exercise after the current one, as one big card: tap it to start.
-// While a set is under way it can't start yet, so it's a quiet preview.
+// A preview of what comes after the current set. Only the current set has
+// a start button, so this is a plain card to read ahead.
 function UpNextCard({
   exercise,
   side,
   howTo,
-  waiting,
-  onStart,
 }: {
   exercise: Step;
   // The side it starts on, for exercises done one side at a time.
   side: Side | null;
   howTo?: Exercise;
-  // A set is under way; it has to be saved first.
-  waiting: boolean;
-  onStart: () => void;
 }) {
-  const start = () => !waiting && onStart();
-  if (waiting)
-    return (
-      <section className="rounded-2xl px-4 py-3 sm:px-5 ring-1 ring-base-content/10 dark:ring-base-content/15">
-        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-          Up next, after this set
-        </p>
-        <p className="font-bold leading-tight">
-          {exercise.name}
-          {side && ` · ${sideLabel(side)}`}
-        </p>
-        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
-          {describeTarget(exercise)}
-        </p>
-      </section>
-    );
   return (
-    <section
-      role="button"
-      tabIndex={0}
-      aria-label={`Up next: ${exercise.name}. Start it`}
-      className="rounded-3xl bg-primary/10 dark:bg-primary/20 ring-2 ring-primary/40 px-4 py-5 sm:px-5 flex flex-col gap-1 transition cursor-pointer hover:bg-primary/15 active:scale-[0.98]"
-      onClick={start}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          start();
-        }
-      }}
-    >
-      <p className="text-xs font-bold tracking-wide text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
+    <section className="rounded-2xl px-4 py-3 sm:px-5 flex flex-col gap-0.5 ring-1 ring-base-content/10 dark:ring-base-content/15">
+      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
         Up next
       </p>
-      <p className="text-2xl font-extrabold leading-tight">{exercise.name}</p>
-      {side && (
-        <p className="font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
-          {sideLabel(side)}
-        </p>
-      )}
+      <p className="font-bold leading-tight">
+        {exercise.name}
+        {side && ` · ${sideLabel(side)}`}
+      </p>
       <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
         {[describeTarget(exercise), exercise.notes].filter(Boolean).join(" · ")}
       </p>
-      {/* Opening the how-to shouldn't start the exercise. */}
       {howTo && (
-        <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-1.5">
           <ExerciseHowTo exercise={howTo} />
         </div>
       )}
-      <span className="mt-3 flex items-center justify-center gap-2 rounded-full py-3 text-lg font-bold bg-primary text-primary-content">
-        <svg viewBox="0 0 24 24" className="size-5 fill-current" aria-hidden>
-          <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" />
-        </svg>
-        Start {exercise.name}
-      </span>
     </section>
   );
 }
@@ -595,7 +553,6 @@ export default function ActiveWorkout({
     return before === -1 ? null : step(before);
   })();
   const upNext = upNextStep ? exercises[upNextStep.index] : undefined;
-  const timer = useRef<SetTimerControl>(null);
   const [setBusy, setSetBusy] = useState(false);
 
   // Keep the current exercise at the top: when the workout opens and
@@ -772,7 +729,6 @@ export default function ActiveWorkout({
           lookup={lookup}
           exerciseNotes={exerciseNotes}
           onSave={handleSave}
-          control={timer}
           onBusyChange={setSetBusy}
         />
       </section>
@@ -783,12 +739,6 @@ export default function ActiveWorkout({
           exercise={upNext}
           side={upNextStep.side}
           howTo={lookup(upNext.name)}
-          // The other side of the current exercise comes after this set.
-          waiting={setBusy || upNextStep.index === selectedIndex}
-          onStart={() => {
-            setPicked(upNextStep.index);
-            timer.current?.start(upNext.name);
-          }}
         />
       )}
 
