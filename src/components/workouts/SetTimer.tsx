@@ -600,7 +600,16 @@ export default function SetTimer({
             className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
             onClick={stopSet}
           >
-            Stop set
+            {/* Named for what's next: rest, when the plan has one. */}
+            {restAfter({
+              exercise_name: state.exercise,
+              reps: null,
+              weight: null,
+              duration_seconds: null,
+              side: state.side ?? null,
+            }).rest > 0
+              ? "Rest"
+              : "Stop set"}
           </button>
         )}
       </div>
