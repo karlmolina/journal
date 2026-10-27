@@ -34,7 +34,7 @@ import {
 } from "../../functions/supersets";
 import ExerciseInput from "./ExerciseInput";
 import SetList from "./SetList";
-import SetTimer, { type TimerPhase } from "./SetTimer";
+import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 
@@ -262,7 +262,7 @@ function StepActions({
             className={actionClass}
             onClick={() => onEnd(true)}
           >
-            Finish exercise
+            End early
           </button>
         )
       )}
@@ -392,8 +392,11 @@ export default function ActiveWorkout({
   };
   const [timerPhase, setTimerPhase] = useState<TimerPhase>("ready");
   const setBusy = timerPhase === "running" || timerPhase === "logging";
-  // Rest gets a card of its own, just above the exercise that's next.
-  const resting = timerPhase === "resting" && !!selected;
+  // A rest, or the set just stopped, gets a card of its own just above the
+  // exercise that's next. The stopped set is fixed there, not in its list.
+  const [slot, setSlot] = useState<SlotContent>("none");
+  const resting = slot !== "none" && !!selected;
+  const fixing = resting && slot === "lastSet" ? sets.at(-1)?.id : undefined;
 
   // Keep the current exercise at the top: when the workout opens, when the
   // plan moves on to another exercise and whenever a set starts.
@@ -475,6 +478,9 @@ export default function ActiveWorkout({
       lookup={lookup}
       exerciseNotes={exerciseNotes}
       onSave={handleSave}
+      lastSet={sets.at(-1)}
+      onUpdateSet={onUpdateSet}
+      onSlotChange={setSlot}
       onPhaseChange={setTimerPhase}
       restSlot={restCard}
       // A plan's exercise cards have Swap exercise instead.
@@ -523,23 +529,20 @@ export default function ActiveWorkout({
     const doneSets = setsDone(e, sets);
     const complete = doneSets >= e.sets;
     const current = i === selectedIndex;
-    const logged = setsOf(e.name);
-    const label = (
+    const logged = setsOf(e.name).filter((s) => s.id !== fixing);
+    // Whether it was swapped in, and how far along it is; the current
+    // exercise says which set is next under its title.
+    const status = complete
+      ? e.ended
+        ? "Finished early"
+        : "Done"
+      : !current && doneSets > 0
+        ? `${Math.min(doneSets, e.planned_sets)} of ${e.planned_sets} sets done`
+        : null;
+    const label = (e.swapped_from || status) && (
       <p className="flex justify-between gap-2 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 tabular-nums">
-        <span>
-          Exercise {i + 1} of {exercises.length}
-          {e.swapped_from && ` · instead of ${e.swapped_from}`}
-        </span>
-        <span>
-          {/* The current exercise says which set is next under its title. */}
-          {complete
-            ? e.ended
-              ? "Finished early"
-              : "Done"
-            : !current &&
-              doneSets > 0 &&
-              `${Math.min(doneSets, e.planned_sets)} of ${e.planned_sets} sets done`}
-        </span>
+        <span>{e.swapped_from && `Instead of ${e.swapped_from}`}</span>
+        <span>{status}</span>
       </p>
     );
     const loggedSets = logged.length > 0 && (

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { SetInput, Side } from "../../hooks/useWorkouts";
+import type { SetInput, Side, WorkoutSet } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
 import { onGrid } from "../../hooks/useClock";
 import { formatClock } from "../../functions/formatDuration";
@@ -35,6 +35,8 @@ type Phase =
       editing?: boolean;
       switchTo?: Side;
       supersetNext?: string;
+      // The set just stopped, to fix its numbers until the next one starts.
+      logged?: boolean;
     }
   | {
       phase: "running";
@@ -57,7 +59,7 @@ type Phase =
       stoppedAt?: number;
       rest?: Rest;
     }
-  | { phase: "resting"; rest: Rest };
+  | { phase: "resting"; rest: Rest; logged?: boolean };
 
 interface Saved {
   workoutId: string;
@@ -129,6 +131,13 @@ interface SetTimerProps {
   // Your own notes on exercises.
   exerciseNotes?: ExerciseNotesProps;
   onSave: (set: SetInput) => void;
+  // The workout's latest set, which a stopped set becomes, and a way to
+  // fix it.
+  lastSet?: WorkoutSet;
+  onUpdateSet?: (set: WorkoutSet, changes: SetInput) => void;
+  // What there is to show in the rest card: a rest, and the set just
+  // stopped.
+  onSlotChange?: (content: SlotContent) => void;
   // What the timer is doing: ready, running, logging or resting.
   onPhaseChange?: (phase: TimerPhase) => void;
   // A card of its own for the rest (null until it's on the page); without
@@ -139,6 +148,7 @@ interface SetTimerProps {
 }
 
 export type TimerPhase = Phase["phase"];
+export type SlotContent = "none" | "rest" | "lastSet";
 
 // Shows what the current exercise is in a superset with, and adds more
 // exercises to it (any number: a superset of three or more is a circuit).
@@ -320,6 +330,9 @@ export default function SetTimer({
   lookup,
   exerciseNotes,
   onSave,
+  lastSet,
+  onUpdateSet,
+  onSlotChange,
   onPhaseChange,
   restSlot,
   hideChange = false,
@@ -393,6 +406,15 @@ export default function SetTimer({
   };
 
   const busy = state.phase === "running" || state.phase === "logging";
+  const slot: SlotContent =
+    (state.phase === "ready" || state.phase === "resting") &&
+    state.logged &&
+    lastSet
+      ? "lastSet"
+      : state.phase === "resting"
+        ? "rest"
+        : "none";
+  useEffect(() => onSlotChange?.(slot), [slot, onSlotChange]);
   useEffect(() => onPhaseChange?.(state.phase), [state.phase, onPhaseChange]);
 
   const startSet = () => {
@@ -414,25 +436,50 @@ export default function SetTimer({
   const restAfter = (set: SetInput) =>
     set.side === "left" ? { rest: 0 } : afterSet(set);
 
+  // What comes after a saved set: the right side after the left, otherwise
+  // the rest, or the next exercise straight on in a superset.
+  const afterSaving = (
+    set: SetInput,
+    restFrom: number,
+    logged: boolean,
+    current?: Rest,
+  ): Phase => {
+    if (set.side === "left")
+      return { phase: "ready", switchTo: "right", logged };
+    const { rest: target, next } = afterSet(set);
+    if (next) setName(next);
+    if (target > 0)
+      return {
+        phase: "resting",
+        rest:
+          current?.target === target ? current : { since: restFrom, target },
+        logged,
+      };
+    return {
+      phase: "ready",
+      supersetNext:
+        next && next.toLowerCase() !== set.exercise_name.toLowerCase()
+          ? next
+          : undefined,
+      logged,
+    };
+  };
+
+  // Stopping saves the set with the timer's time and the usual numbers,
+  // which can be fixed in place until the next set starts.
   const stopSet = () => {
     if (state.phase !== "running") return;
     const at = Date.now();
-    const { rest: target } = restAfter({
+    const { reps = null, weight = null } = prefillFor(state.exercise);
+    const set: SetInput = {
       exercise_name: state.exercise,
-      reps: null,
-      weight: null,
-      duration_seconds: null,
+      reps,
+      weight,
+      duration_seconds: since(state.startedAt, at) || null,
       side: state.side ?? null,
-    });
-    setState({
-      phase: "logging",
-      exercise: state.exercise,
-      seconds: since(state.startedAt, at) || null,
-      side: state.side,
-      restSeconds: state.restSeconds,
-      stoppedAt: at,
-      rest: target > 0 ? { since: at, target } : undefined,
-    });
+    };
+    onSave({ ...set, rest_seconds: state.restSeconds ?? null });
+    setState(afterSaving(set, at, true));
   };
 
   // Starts the right side straight after the left: one tap saves the left
@@ -459,70 +506,11 @@ export default function SetTimer({
     });
   };
 
-  // The exercise a set leads straight into, with no rest, in a superset.
-  const supersetNext = (set: SetInput) => {
-    if (set.side === "left") return undefined;
-    const { rest: target, next } = afterSet(set);
-    return target === 0 &&
-      next &&
-      next.toLowerCase() !== set.exercise_name.toLowerCase()
-      ? next
-      : undefined;
-  };
-
   const save = (input: SetInput) => {
     if (state.phase !== "logging") return;
-    const set = { ...input, rest_seconds: state.restSeconds ?? null };
-    onSave(set);
-    // After a timed left side the right side's timer starts after a short
-    // countdown, like the next exercise in a superset.
-    if (set.side === "left") {
-      if (!state.stoppedAt) {
-        setState({ phase: "ready", switchTo: "right" });
-        return;
-      }
-      setState({
-        phase: "running",
-        exercise: set.exercise_name,
-        startedAt: Date.now() + COUNTDOWN * 1000,
-        side: "right",
-        restSeconds: null,
-      });
-      return;
-    }
-    const { rest: target, next } = afterSet(set);
-    if (next) setName(next);
-    // In a superset with no rest before the next exercise, its set starts
-    // after a short countdown.
-    const straightOn = supersetNext(set);
-    if (straightOn) {
-      setState({
-        phase: "running",
-        exercise: straightOn,
-        startedAt: Date.now() + COUNTDOWN * 1000,
-        side: sideFor(straightOn),
-        restSeconds: null,
-      });
-      return;
-    }
+    onSave({ ...input, rest_seconds: state.restSeconds ?? null });
     setState(
-      target > 0
-        ? {
-            phase: "resting",
-            // Rest started when the set was stopped, or now for a set
-            // logged without the timer.
-            rest:
-              state.rest?.target === target
-                ? state.rest
-                : { since: state.stoppedAt ?? Date.now(), target },
-          }
-        : {
-            phase: "ready",
-            supersetNext:
-              next && next.toLowerCase() !== set.exercise_name.toLowerCase()
-                ? next
-                : undefined,
-          },
+      afterSaving(input, state.stoppedAt ?? Date.now(), false, state.rest),
     );
   };
 
@@ -547,9 +535,9 @@ export default function SetTimer({
     />
   );
 
-  const bigClock = (seconds: number, muted = false) => (
+  const bigClock = (seconds: number) => (
     <p
-      className={`my-2 text-3xl font-extrabold tracking-tight tabular-nums ${muted ? "text-base-content/45 dark:text-base-content/70" : ""}`}
+      className="my-2 text-3xl font-extrabold tracking-tight tabular-nums text-center"
       role="timer"
     >
       {formatClock(seconds)}
@@ -564,7 +552,7 @@ export default function SetTimer({
           // In the clock's place, so nothing moves when it starts.
           <>
             <p
-              className="my-2 text-3xl font-extrabold tracking-tight tabular-nums text-base-content/45 dark:text-base-content/70"
+              className="my-2 text-3xl font-extrabold tracking-tight tabular-nums text-center text-base-content/45 dark:text-base-content/70"
               role="timer"
             >
               Starting in {countdown}
@@ -594,7 +582,7 @@ export default function SetTimer({
               className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1"
               onClick={stopSet}
             >
-              Stop and fill in the left side
+              Finish left side
             </button>
           </>
         ) : (
@@ -612,52 +600,58 @@ export default function SetTimer({
               side: state.side ?? null,
             }).rest > 0
               ? "Rest"
-              : "Stop set"}
+              : "Finish"}
           </button>
         )}
       </div>
     );
 
-  if (state.phase === "logging") {
-    const straightOn = supersetNext({
-      exercise_name: state.exercise,
-      reps: null,
-      weight: null,
-      duration_seconds: null,
-      side: state.side ?? null,
-    });
+  if (state.phase === "logging")
     return (
       <div className="flex flex-col gap-2">
         {state.exercise && header(state.exercise, state.side)}
-        {state.seconds !== null && bigClock(state.seconds, true)}
-        {restClock}
         <SetForm
           suggestions={suggestions}
           hideExercise={!!state.exercise}
+          bigTime
+          aboveFields={restClock}
           initial={{
             ...prefillFor(state.exercise),
             exercise_name: state.exercise,
             duration_seconds: state.seconds,
             side: state.side ?? null,
           }}
-          submitLabel={
-            state.side === "left" && state.stoppedAt
-              ? "Save and start right side"
-              : straightOn
-                ? "Save and start next"
-                : "Save set"
-          }
+          submitLabel="Save set"
           onCancel={() => setState({ phase: "ready", rest: state.rest })}
           onAdd={save}
         />
       </div>
     );
-  }
+
+  // The set just stopped: its time on the big clock, and its numbers, all
+  // fixable. Changes save as they're made.
+  const justDone = state.logged && lastSet && onUpdateSet && (
+    <div className="flex flex-col gap-1">
+      <p className="text-sm font-bold text-base-content/60 dark:text-base-content/80">
+        {lastSet.exercise_name}
+        {lastSet.side && ` · ${sideLabel(lastSet.side)}`} done
+      </p>
+      <SetForm
+        key={lastSet.id}
+        suggestions={suggestions}
+        hideExercise
+        bigTime
+        initial={lastSet}
+        onChange={(changes) => onUpdateSet(lastSet, changes)}
+      />
+    </div>
+  );
 
   if (state.phase === "resting") {
     const goal = state.rest.target;
     const restBlock = (
       <div className="flex flex-col items-center text-center">
+        {justDone && <div className="w-full text-left mb-3">{justDone}</div>}
         <p className="text-xl font-extrabold">Resting</p>
         <p
           className={`my-1 text-3xl font-extrabold tracking-tight tabular-nums ${rested >= goal ? "text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]" : ""}`}
@@ -725,6 +719,10 @@ export default function SetTimer({
   const editing = state.editing || !name.trim();
   return (
     <div className="flex flex-col gap-2">
+      {justDone &&
+        (restSlot === undefined
+          ? justDone
+          : restSlot && createPortal(justDone, restSlot))}
       {state.rest && (
         <p className="rounded-xl bg-primary/12 px-3 py-2 text-sm font-bold tabular-nums">
           Resting {formatClock(rested)} · target{" "}
