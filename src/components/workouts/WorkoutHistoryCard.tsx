@@ -108,7 +108,7 @@ export default function WorkoutHistoryCard({
   const muted = "text-base-content/55 dark:text-base-content/75";
 
   return (
-    <div className="rounded-2xl bg-base-content/5 dark:bg-base-content/9">
+    <div className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 animate-entry-in">
       <button
         type="button"
         className="w-full text-left px-4 py-3 sm:px-5 cursor-pointer"
@@ -136,7 +136,7 @@ export default function WorkoutHistoryCard({
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`shrink-0 text-base-content/40 dark:text-base-content/70 transition-transform ${open ? "rotate-180" : ""}`}
+            className={`shrink-0 text-base-content/40 dark:text-base-content/70 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           >
             <path d="m6 9 6 6 6-6" />
           </svg>
@@ -179,7 +179,7 @@ export default function WorkoutHistoryCard({
       </button>
 
       {open && (
-        <div className="px-4 pb-3 sm:px-5 flex flex-col gap-3">
+        <div className="px-4 pb-3 sm:px-5 flex flex-col gap-3 animate-expand-in">
           {workout.notes && (
             <p className="whitespace-pre-wrap text-sm font-medium text-base-content/90 dark:text-[color-mix(in_oklab,var(--color-base-content),white_45%)]">
               {workout.notes}

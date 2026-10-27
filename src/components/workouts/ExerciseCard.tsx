@@ -42,7 +42,7 @@ export default function ExerciseCard({
     .join(" · ");
 
   return (
-    <div className="rounded-2xl bg-base-content/5 dark:bg-base-content/9">
+    <div className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 animate-entry-in">
       <button
         type="button"
         className="w-full text-left px-4 py-3 sm:px-5 sm:py-4 cursor-pointer"
@@ -61,7 +61,7 @@ export default function ExerciseCard({
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`mt-1.5 shrink-0 text-base-content/40 dark:text-base-content/70 transition-transform ${open ? "rotate-180" : ""}`}
+            className={`mt-1.5 shrink-0 text-base-content/40 dark:text-base-content/70 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           >
             <path d="m6 9 6 6 6-6" />
           </svg>
@@ -99,7 +99,7 @@ export default function ExerciseCard({
       </button>
 
       {open && (
-        <div className="px-4 pb-4 sm:px-5 flex flex-col gap-3 font-medium text-base-content/90 dark:text-[color-mix(in_oklab,var(--color-base-content),white_45%)]">
+        <div className="px-4 pb-4 sm:px-5 flex flex-col gap-3 animate-expand-in font-medium text-base-content/90 dark:text-[color-mix(in_oklab,var(--color-base-content),white_45%)]">
           {exercise.body_regions.length === 0 && (
             <p className="text-sm text-base-content/60 dark:text-base-content/80">
               No body areas yet. Tap Edit to say what it works.

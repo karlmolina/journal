@@ -107,6 +107,47 @@ function writeSaved(key: string, workoutId: string, state: Phase) {
 // superset, starts timing.
 const COUNTDOWN = 3;
 
+// The start button during a rest is the rest's progress bar too: it fills
+// toward the planned rest and starts the set whenever it's tapped. The label
+// is drawn twice, once on each side of the fill, so it reads on both.
+function RestStartButton({
+  label,
+  progress,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  progress: number;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  const filled = Math.min(1, Math.max(0, progress)) * 100;
+  const text = "absolute inset-0 flex items-center justify-center";
+  return (
+    <button
+      type="button"
+      className="btn btn-primary btn-lg rounded-full font-bold w-full relative overflow-hidden border-0 active:scale-[0.98] transition"
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <span
+        aria-hidden
+        className={`${text} bg-[color-mix(in_oklab,var(--color-primary)_22%,var(--color-base-100))] text-primary dark:bg-[color-mix(in_oklab,var(--color-primary)_30%,var(--color-base-100))] dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]`}
+      >
+        {label}
+      </span>
+      <span
+        aria-hidden
+        className={`${text} bg-primary text-primary-content transition-[clip-path] duration-1000 ease-linear`}
+        style={{ clipPath: `inset(0 ${100 - filled}% 0 0)` }}
+      >
+        {label}
+      </span>
+      <span className="sr-only">{label}</span>
+    </button>
+  );
+}
+
 // A buzz when the planned rest is up (no sound); the screen shows it too.
 function restTargetAlert() {
   navigator.vibrate?.([200, 100, 200]);
@@ -147,14 +188,13 @@ interface SetTimerProps {
   // Goes between the exercise's title and its clock or start button: its
   // sets so far.
   aboveClock?: React.ReactNode;
-  // What there is to show in the rest card: a rest, and the set just
-  // stopped.
+  // Whether a rest is on.
   onSlotChange?: (content: SlotContent) => void;
   // What the timer is doing: ready, running, logging or resting.
   onPhaseChange?: (phase: TimerPhase) => void;
-  // A card of its own for the rest (null until it's on the page); without
-  // one the rest shows in place.
-  restSlot?: HTMLElement | null;
+  // In a plan's exercise card the rest goes under the title and sets, just
+  // over the start button; otherwise it heads the timer.
+  restInCard?: boolean;
   // Just under the set just finished, for the button that goes on to the
   // rest or the next set; without one it shows in place.
   doneSlot?: HTMLElement | null;
@@ -349,7 +389,7 @@ export default function SetTimer({
   aboveClock,
   onSlotChange,
   onPhaseChange,
-  restSlot,
+  restInCard = false,
   doneSlot,
   hideChange = false,
 }: SetTimerProps) {
@@ -657,38 +697,31 @@ export default function SetTimer({
 
   if (state.phase === "resting") {
     const goal = state.rest.target;
+    // The rest's clock, in the set clock's place; the start button under it
+    // fills as it goes.
     const restBlock = (
       <div className="flex flex-col items-center text-center">
-        <p className="text-xl font-extrabold">Resting</p>
+        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
+          {rested >= goal
+            ? `Rested · target ${formatClock(goal)} reached`
+            : `Resting · target ${formatClock(goal)}`}
+        </p>
         <p
-          className={`my-1 text-3xl font-extrabold tracking-tight tabular-nums ${rested >= goal ? "text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]" : ""}`}
+          className="my-1 text-3xl font-extrabold tracking-tight tabular-nums"
           role="timer"
         >
           {formatClock(rested)}
-        </p>
-        <div className="w-full h-1.5 rounded-full bg-base-content/10 overflow-hidden mb-1">
-          <div
-            className="h-full bg-primary transition-[width] duration-300"
-            style={{ width: `${Math.min(1, rested / goal) * 100}%` }}
-          />
-        </div>
-        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
-          {rested >= goal
-            ? `Target ${formatClock(goal)} reached. Go when you're ready.`
-            : `Target ${formatClock(goal)}`}
         </p>
       </div>
     );
     const start = (
       <>
-        <button
-          type="button"
-          className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
+        <RestStartButton
+          label={startLabel}
+          progress={goal > 0 ? rested / goal : 1}
           onClick={startSet}
           disabled={!name.trim()}
-        >
-          {startLabel}
-        </button>
+        />
         {!hideChange && (
           <button
             type="button"
@@ -702,15 +735,17 @@ export default function SetTimer({
         )}
       </>
     );
-    // With a rest card to go in, the rest goes there and the start button
-    // stays with the exercise it starts.
-    if (restSlot !== undefined)
+    // In the next exercise's card: what it is and its sets, then the rest
+    // and the button that starts it.
+    if (restInCard)
       return (
         <div className="flex flex-col">
-          {restSlot && createPortal(restBlock, restSlot)}
           {header(name.trim(), side)}
           {aboveClock}
-          <div className="w-full mt-2 flex flex-col items-center">{start}</div>
+          <div className="w-full mt-2 flex flex-col items-center">
+            {restBlock}
+            {start}
+          </div>
         </div>
       );
     return (

@@ -474,7 +474,7 @@ export default function ActiveWorkout({
     setTimerPhase(phase);
   }, []);
   const setBusy = timerPhase === "running" || timerPhase === "logging";
-  // A rest gets a card of its own just above the exercise that's next.
+  // A rest shows in the next exercise's card, on its start button.
   const [slot, setSlot] = useState<SlotContent>("none");
   const [fixingLast, setFixingLast] = useState(false);
   const resting = slot !== "none" && !!selected;
@@ -500,16 +500,12 @@ export default function ActiveWorkout({
   // Keep the current exercise at the top: when the workout opens, when the
   // plan moves on to another exercise and whenever a set starts.
   const currentCard = useRef<HTMLElement>(null);
-  const [restSlot, setRestSlot] = useState<HTMLElement | null>(null);
   // Under the set just finished, for the button on to the rest or next set.
   const [doneSlot, setDoneSlot] = useState<HTMLElement | null>(null);
   const doneBlock = (timerPhase === "done" && doneSlot?.parentElement) || null;
   const doneRef = useRef(doneBlock);
   doneRef.current = doneBlock;
-  // During a rest its card is the top.
-  const restRef = useRef(restSlot);
-  restRef.current = restSlot;
-  const toCurrent = () => restRef.current ?? currentCard.current;
+  const toCurrent = () => currentCard.current;
   // When the plan moves on, a rest starts or a set starts; one scroll for
   // all of them, once the page settles.
   // A set just finished goes to the middle instead, with the button on
@@ -524,7 +520,7 @@ export default function ActiveWorkout({
     const before = seen.current;
     seen.current = {
       index: selectedIndex,
-      rest: !!restSlot,
+      rest: resting,
       busy: setBusy,
       done: !!doneBlock,
     };
@@ -534,14 +530,14 @@ export default function ActiveWorkout({
     else if (
       !before ||
       before.index !== selectedIndex ||
-      (restSlot && !before.rest) ||
+      (resting && !before.rest) ||
       (setBusy && !before.busy)
     )
       scrollToTop(toCurrent);
   });
-  // While the rest card above comes in, fills, empties and goes, hold the
-  // exercise where it was on screen so the page glides from there rather
-  // than jumping.
+  // While a rest starts and ends, the cards above can change (the set just
+  // finished leaves); hold the exercise where it was on screen so the page
+  // glides from there rather than jumping.
   const cardTop = useRef<{ el: HTMLElement; top: number } | null>(null);
   const wasResting = useRef(resting);
   useLayoutEffect(() => {
@@ -565,9 +561,9 @@ export default function ActiveWorkout({
   useEffect(() => {
     const check = () => {
       const el = currentCard.current;
-      // The rest card sits above the exercise; together they're where you
-      // are. Just after a set it's that set and the button under it.
-      const parts = (doneBlock ? [doneBlock] : [restSlot, el]).filter(
+      // The current exercise is where you are. Just after a set it's that
+      // set and the button under it.
+      const parts = (doneBlock ? [doneBlock] : [el]).filter(
         (p): p is HTMLElement => !!p,
       );
       // Main buttons near the bottom edge, where the floating buttons sit.
@@ -613,7 +609,7 @@ export default function ActiveWorkout({
       window.removeEventListener("scroll", check);
       window.removeEventListener("resize", check);
     };
-  }, [restSlot, selectedIndex, timerPhase, doneBlock]);
+  }, [selectedIndex, timerPhase, doneBlock]);
 
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -634,9 +630,9 @@ export default function ActiveWorkout({
     minute: "2-digit",
   });
 
-  // In a plan the rest gets a card of its own above the exercise (null until
-  // it's on the page); otherwise it shows in place.
-  const timer = (restCard?: HTMLElement | null, aboveClock?: ReactNode) => (
+  // In a plan the rest shows in the exercise's card, under its title and
+  // sets; otherwise it heads the timer.
+  const timer = (inPlan = false, aboveClock?: ReactNode) => (
     <SetTimer
       workoutId={workout.id}
       storageKey={timerKey}
@@ -664,17 +660,17 @@ export default function ActiveWorkout({
       aboveClock={aboveClock}
       onSlotChange={setSlot}
       onPhaseChange={onPhaseChange}
-      restSlot={restCard}
+      restInCard={inPlan}
       doneSlot={doneSlot}
       // A plan's exercise cards have Swap exercise instead.
-      hideChange={restCard !== undefined}
+      hideChange={inPlan}
     />
   );
 
   // The set just stopped, fixable in place until the next one starts: its
   // time on the big clock, side, reps and weight, saving as they change.
   const fixingEditor = (s: WorkoutSet) => (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 animate-fade-in">
       <div className="flex flex-col gap-1 rounded-2xl bg-base-content/5 p-3">
         <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
           Just done{s.side && ` · ${sideLabel(s.side)}`}
@@ -813,24 +809,16 @@ export default function ActiveWorkout({
 
     if (current)
       return (
-        <>
-          {/* Rest gets a card of its own just above, and the timer, with
-              the start button, stays in this one from phase to phase. */}
-          {resting && (
-            <section
-              ref={setRestSlot}
-              className={`${restCardClass} scroll-mt-4`}
-            />
-          )}
-          <section
-            ref={currentCard}
-            className={`${restCardClass} scroll-mt-4 flex flex-col gap-3`}
-          >
-            {label}
-            {timer(resting ? restSlot : null, loggedSets)}
-            {!setBusy && actions}
-          </section>
-        </>
+        // The timer, with the rest and the start button, stays in this card
+        // from phase to phase.
+        <section
+          ref={currentCard}
+          className={`${restCardClass} scroll-mt-4 flex flex-col gap-3`}
+        >
+          {label}
+          {timer(true, loggedSets)}
+          {!setBusy && actions}
+        </section>
       );
 
     const group = groupOf(i);
@@ -968,14 +956,14 @@ export default function ActiveWorkout({
     <div className="flex flex-col gap-3">
       {finishing && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 dark:bg-black/70 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 dark:bg-black/70 animate-fade-in p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
           onClick={() => setFinishing(false)}
         >
           <section
             role="dialog"
             aria-modal="true"
             aria-label="Workout"
-            className="w-full max-w-md rounded-2xl bg-base-100 dark:bg-base-200 p-4 flex flex-col items-center text-center gap-2 shadow-xl ring-1 ring-base-content/10"
+            className="w-full max-w-md rounded-2xl bg-base-100 dark:bg-base-200 p-4 flex flex-col items-center text-center gap-2 shadow-xl ring-1 ring-base-content/10 animate-pop-in"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.key === "Escape" && setFinishing(false)}
           >
@@ -1118,7 +1106,7 @@ export default function ActiveWorkout({
         {awayFrom ? (
           <button
             type="button"
-            className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition"
+            className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition animate-fade-in"
             onClick={() =>
               doneBlock
                 ? scrollToTop(() => doneRef.current, "center")
