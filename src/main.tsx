@@ -7,6 +7,7 @@ import SignIn from "./pages/SignIn";
 import Journal from "./pages/Journal";
 import Workouts from "./pages/Workouts";
 import Invites from "./pages/Invites";
+import InviteLink from "./pages/InviteLink";
 import MembersOnly from "./components/MembersOnly";
 import RememberPage from "./components/RememberPage";
 import UndoToast from "./components/UndoToast";
@@ -64,6 +65,7 @@ ReactDOM.createRoot(document.getElementById("root")!, {
             <Routes>
               <Route path="/" element={<App />} />
               <Route path="/signin" element={<SignIn />} />
+              <Route path="/invite/:code" element={<InviteLink />} />
               <Route
                 path="/journal"
                 element={

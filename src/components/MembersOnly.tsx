@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import RedeemInvite from "../pages/RedeemInvite";
+import { clearPendingInvite } from "../functions/pendingInvite";
 
 // Shows the invite code screen to signed-in users who haven't joined yet, and
 // with `admin`, sends everyone but admins back to their journal.
@@ -13,6 +14,13 @@ export default function MembersOnly({
   children: React.ReactNode;
 }) {
   const { user, membership } = useAuth();
+  const member = membership?.member === true;
+
+  // Already a member (e.g. opened an invite link while signed in): the code
+  // stays unused, so forget it rather than spend it on the next account here.
+  useEffect(() => {
+    if (member) clearPendingInvite();
+  }, [member]);
 
   // Signed-out visitors are redirected by the auth hook.
   if (!user) return <>{children}</>;
