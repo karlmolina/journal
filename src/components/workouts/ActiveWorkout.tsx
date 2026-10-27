@@ -531,14 +531,15 @@ export default function ActiveWorkout({
     )
       scrollToTop(toCurrent);
   });
-  // While the rest card above empties and goes, hold the exercise where it
-  // was on screen so it glides up from there rather than jumping.
+  // While the rest card above comes in, fills, empties and goes, hold the
+  // exercise where it was on screen so the page glides from there rather
+  // than jumping.
   const cardTop = useRef<{ el: HTMLElement; top: number } | null>(null);
   const wasResting = useRef(resting);
   useLayoutEffect(() => {
     const el = currentCard.current;
     const before = cardTop.current;
-    if (wasResting.current && el && before?.el === el) {
+    if ((wasResting.current || resting) && el && before?.el === el) {
       const shift = el.getBoundingClientRect().top + scrollY - before.top;
       if (shift) scrollBy({ top: shift, behavior: "instant" });
     }
