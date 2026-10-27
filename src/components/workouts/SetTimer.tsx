@@ -628,15 +628,6 @@ export default function SetTimer({
         {state.exercise && header(state.exercise, state.side)}
         {state.seconds !== null && bigClock(state.seconds, true)}
         {restClock}
-        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80">
-          {state.seconds
-            ? "Check the numbers and save the set."
-            : "Fill in the set and save it."}
-          {state.side === "left" && state.stoppedAt
-            ? ` Saving starts the right side in ${COUNTDOWN} seconds.`
-            : straightOn &&
-              ` Saving starts ${straightOn} in ${COUNTDOWN} seconds.`}
-        </p>
         <SetForm
           suggestions={suggestions}
           hideExercise={!!state.exercise}
