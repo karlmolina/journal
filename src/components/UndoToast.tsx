@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   dismissDelete,
   pendingDelete,
@@ -8,7 +8,12 @@ import {
 
 // The "Deleted · Undo" toast for whatever was deleted last, on every page.
 export default function UndoToast() {
-  const pending = useSyncExternalStore(subscribePendingDelete, pendingDelete);
+  const current = useSyncExternalStore(subscribePendingDelete, pendingDelete);
+  // The last toast stays up while it slides away.
+  const [last, setLast] = useState(current);
+  if (current && current !== last) setLast(current);
+  const pending = current ?? last;
+  const leaving = !current;
   if (!pending) return null;
 
   return (
@@ -16,7 +21,12 @@ export default function UndoToast() {
       <div
         key={pending.id}
         role="status"
-        className="pointer-events-auto flex items-center gap-2 rounded-full bg-base-content text-base-100 shadow-lg pl-5 pr-1.5 py-1.5 text-sm font-semibold animate-entry-in"
+        className={`flex items-center gap-2 rounded-full bg-base-content text-base-100 shadow-lg pl-5 pr-1.5 py-1.5 text-sm font-semibold ${
+          leaving
+            ? "animate-toast-out"
+            : "pointer-events-auto animate-entry-in"
+        }`}
+        onAnimationEnd={() => leaving && setLast(null)}
       >
         <span>{pending.message}</span>
         <button
