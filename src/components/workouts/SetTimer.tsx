@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
 import { onGrid } from "../../hooks/useClock";
@@ -89,6 +90,10 @@ function writeSaved(key: string, workoutId: string, state: Phase) {
   }
 }
 
+// Seconds to get set before the right side, or the next exercise in a
+// superset, starts timing.
+const COUNTDOWN = 3;
+
 // A buzz when the planned rest is up (no sound); the screen shows it too.
 function restTargetAlert() {
   navigator.vibrate?.([200, 100, 200]);
@@ -126,6 +131,9 @@ interface SetTimerProps {
   onSave: (set: SetInput) => void;
   // What the timer is doing: ready, running, logging or resting.
   onPhaseChange?: (phase: TimerPhase) => void;
+  // A card of its own for the rest (null until it's on the page); without
+  // one the rest shows in place.
+  restSlot?: HTMLElement | null;
 }
 
 export type TimerPhase = Phase["phase"];
@@ -311,6 +319,7 @@ export default function SetTimer({
   exerciseNotes,
   onSave,
   onPhaseChange,
+  restSlot,
 }: SetTimerProps) {
   const [state, setStateNow] = useState<Phase>(() =>
     readSaved(storageKey, workoutId),
@@ -357,6 +366,28 @@ export default function SetTimer({
 
   // How long the rest has run, to save with the set that ends it.
   const restUntil = (at: number) => (rest ? since(rest.since, at) : null);
+
+  // Seconds left before a set straight after another starts timing.
+  const countdown =
+    state.phase === "running"
+      ? Math.min(
+          COUNTDOWN,
+          Math.max(
+            0,
+            Math.ceil((onGrid(state.startedAt, clockOrigin) - now) / 1000),
+          ),
+        )
+      : 0;
+  // A short buzz as the countdown runs out and the set starts.
+  const counted = useRef(countdown > 0);
+  useEffect(() => {
+    if (counted.current && countdown === 0) navigator.vibrate?.(150);
+    counted.current = countdown > 0;
+  }, [countdown]);
+  const startNow = () => {
+    if (state.phase === "running")
+      setState({ ...state, startedAt: Date.now() });
+  };
 
   const busy = state.phase === "running" || state.phase === "logging";
   useEffect(() => onPhaseChange?.(state.phase), [state.phase, onPhaseChange]);
@@ -419,7 +450,7 @@ export default function SetTimer({
     setState({
       phase: "running",
       exercise: state.exercise,
-      startedAt: at,
+      startedAt: at + COUNTDOWN * 1000,
       side: "right",
       restSeconds: null,
     });
@@ -440,8 +471,8 @@ export default function SetTimer({
     if (state.phase !== "logging") return;
     const set = { ...input, rest_seconds: state.restSeconds ?? null };
     onSave(set);
-    // After a timed left side the right side's timer starts straight away,
-    // like the next exercise in a superset.
+    // After a timed left side the right side's timer starts after a short
+    // countdown, like the next exercise in a superset.
     if (set.side === "left") {
       if (!state.stoppedAt) {
         setState({ phase: "ready", switchTo: "right" });
@@ -450,7 +481,7 @@ export default function SetTimer({
       setState({
         phase: "running",
         exercise: set.exercise_name,
-        startedAt: Date.now(),
+        startedAt: Date.now() + COUNTDOWN * 1000,
         side: "right",
         restSeconds: null,
       });
@@ -459,13 +490,13 @@ export default function SetTimer({
     const { rest: target, next } = afterSet(set);
     if (next) setName(next);
     // In a superset with no rest before the next exercise, its set starts
-    // right away.
+    // after a short countdown.
     const straightOn = supersetNext(set);
     if (straightOn) {
       setState({
         phase: "running",
         exercise: straightOn,
-        startedAt: Date.now(),
+        startedAt: Date.now() + COUNTDOWN * 1000,
         side: sideFor(straightOn),
         restSeconds: null,
       });
@@ -526,8 +557,27 @@ export default function SetTimer({
     return (
       <div className="flex flex-col items-center text-center">
         {header(state.exercise, state.side)}
-        {bigClock(since(state.startedAt))}
-        {state.side === "left" ? (
+        {countdown > 0 ? (
+          // In the clock's place, so nothing moves when it starts.
+          <>
+            <p
+              className="my-2 text-3xl font-extrabold tracking-tight tabular-nums text-center text-base-content/45 dark:text-base-content/70"
+              role="timer"
+            >
+              Starting in {countdown}
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
+              onClick={startNow}
+            >
+              Start now
+            </button>
+          </>
+        ) : (
+          bigClock(since(state.startedAt))
+        )}
+        {countdown > 0 ? null : state.side === "left" ? (
           <>
             <button
               type="button"
@@ -550,7 +600,16 @@ export default function SetTimer({
             className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
             onClick={stopSet}
           >
-            Stop set
+            {/* Named for what's next: rest, when the plan has one. */}
+            {restAfter({
+              exercise_name: state.exercise,
+              reps: null,
+              weight: null,
+              duration_seconds: null,
+              side: state.side ?? null,
+            }).rest > 0
+              ? "Rest"
+              : "Stop set"}
           </button>
         )}
       </div>
@@ -574,8 +633,9 @@ export default function SetTimer({
             ? "Check the numbers and save the set."
             : "Fill in the set and save it."}
           {state.side === "left" && state.stoppedAt
-            ? " Saving starts the right side right away."
-            : straightOn && ` Saving starts ${straightOn} right away.`}
+            ? ` Saving starts the right side in ${COUNTDOWN} seconds.`
+            : straightOn &&
+              ` Saving starts ${straightOn} in ${COUNTDOWN} seconds.`}
         </p>
         <SetForm
           suggestions={suggestions}
@@ -602,8 +662,7 @@ export default function SetTimer({
 
   if (state.phase === "resting") {
     const goal = state.rest.target;
-    return (
-      // Its own card: the exercise coming next has the card under it.
+    const restBlock = (
       <div className="flex flex-col items-center text-center">
         <p className="text-xl font-extrabold">Resting</p>
         <p
@@ -618,11 +677,15 @@ export default function SetTimer({
             style={{ width: `${Math.min(1, rested / goal) * 100}%` }}
           />
         </div>
-        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 mb-2 tabular-nums">
+        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
           {rested >= goal
             ? `Target ${formatClock(goal)} reached. Go when you're ready.`
             : `Target ${formatClock(goal)}`}
         </p>
+      </div>
+    );
+    const start = (
+      <>
         <button
           type="button"
           className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
@@ -640,6 +703,22 @@ export default function SetTimer({
         >
           Change exercise
         </button>
+      </>
+    );
+    // With a rest card to go in, the rest goes there and the start button
+    // stays with the exercise it starts.
+    if (restSlot !== undefined)
+      return (
+        <div className="flex flex-col items-center text-center">
+          {restSlot && createPortal(restBlock, restSlot)}
+          {header(name.trim(), side)}
+          <div className="w-full mt-2 flex flex-col items-center">{start}</div>
+        </div>
+      );
+    return (
+      <div className="flex flex-col items-center text-center">
+        {restBlock}
+        <div className="w-full mt-2 flex flex-col items-center">{start}</div>
       </div>
     );
   }
