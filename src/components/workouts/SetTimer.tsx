@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useState, type Ref } from "react";
+import { useEffect, useState } from "react";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
 import { onGrid } from "../../hooks/useClock";
@@ -111,15 +111,8 @@ interface SetTimerProps {
   // Your own notes on exercises.
   exerciseNotes?: ExerciseNotesProps;
   onSave: (set: SetInput) => void;
-  // Lets the workout start a set of another exercise, e.g. from Up next.
-  control?: Ref<SetTimerControl>;
   // Whether a set is under way (running or being filled in).
   onBusyChange?: (busy: boolean) => void;
-}
-
-export interface SetTimerControl {
-  // Starts a set of this exercise, unless one is already under way.
-  start: (exercise: string) => void;
 }
 
 // Shows what the current exercise is in a superset with, and adds more
@@ -233,7 +226,6 @@ export default function SetTimer({
   lookup,
   exerciseNotes,
   onSave,
-  control,
   onBusyChange,
 }: SetTimerProps) {
   const [state, setState] = useState<Phase>(() =>
@@ -284,10 +276,9 @@ export default function SetTimer({
   const busy = state.phase === "running" || state.phase === "logging";
   useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
 
-  const startExercise = (exerciseName: string) => {
-    const n = exerciseName.trim();
+  const startSet = () => {
+    const n = name.trim();
     if (!n || busy) return;
-    setName(n);
     const at = Date.now();
     setState({
       phase: "running",
@@ -298,8 +289,6 @@ export default function SetTimer({
       rest,
     });
   };
-  const startSet = () => startExercise(name);
-  useImperativeHandle(control, () => ({ start: startExercise }));
 
   // After the left side, go straight to the right; rest after the right.
   // In a superset, go straight to the next exercise and rest after the round.
