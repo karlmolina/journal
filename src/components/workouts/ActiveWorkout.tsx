@@ -486,26 +486,46 @@ export default function ActiveWorkout({
   // that brings it back.
   const [awayFrom, setAwayFrom] = useState<"above" | "below" | null>(null);
   const [clockCovers, setClockCovers] = useState(false);
+  const floatingBar = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const check = () => {
       const el = currentCard.current;
+      // The rest card sits above the exercise; together they're where you are.
+      const parts = [restSlot, el].filter((p): p is HTMLElement => !!p);
+      // Main buttons near the bottom edge, where the floating buttons sit.
+      const zone = innerHeight - 96;
+      const underBar = [...document.querySelectorAll(".btn-primary")]
+        .filter((b) => !floatingBar.current?.contains(b))
+        .map((b) => b.getBoundingClientRect())
+        .filter((r) => r.bottom > zone && r.top < innerHeight);
       // The current exercise's main button under the corner clock.
-      const corner = innerHeight - 96;
       setClockCovers(
-        [...(el?.querySelectorAll(".btn-primary") ?? [])].some((b) => {
-          const r = b.getBoundingClientRect();
-          return (
-            r.bottom > corner &&
-            r.top < innerHeight &&
-            r.right > innerWidth - 140
-          );
-        }),
+        parts.some((p) =>
+          [...p.querySelectorAll(".btn-primary")].some((b) => {
+            const r = b.getBoundingClientRect();
+            return (
+              r.bottom > zone &&
+              r.top < innerHeight &&
+              r.right > innerWidth - 140
+            );
+          }),
+        ),
       );
-      if (!el) return setAwayFrom(null);
-      // Off screen, or so nearly that the button would cover it.
-      const { top, bottom } = el.getBoundingClientRect();
+      if (!parts.length) return setAwayFrom(null);
+      // Off screen, or so nearly that the button would cover it. Never over
+      // a Start button either, wherever it is.
+      const top = Math.min(...parts.map((p) => p.getBoundingClientRect().top));
+      const bottom = Math.max(
+        ...parts.map((p) => p.getBoundingClientRect().bottom),
+      );
       setAwayFrom(
-        bottom < 96 ? "above" : top > innerHeight - 96 ? "below" : null,
+        underBar.length
+          ? null
+          : bottom < 96
+            ? "above"
+            : top > zone
+              ? "below"
+              : null,
       );
     };
     check();
@@ -1008,7 +1028,10 @@ export default function ActiveWorkout({
       {/* Along the bottom: the way back to the current exercise in the
           middle, and the workout clock in the corner, which opens pause and
           finish. The clock steps aside while a button sits under it. */}
-      <div className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none">
+      <div
+        ref={floatingBar}
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none"
+      >
         <span />
         {awayFrom ? (
           <button
