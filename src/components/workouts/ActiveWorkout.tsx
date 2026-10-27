@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   PlanChanges,
   SetInput,
@@ -19,6 +25,7 @@ import {
   nextSide,
   SECOND_SIDE,
   setsDone,
+  sideLabel,
   swapExercise,
   type SessionExercise,
 } from "../../functions/planProgress";
@@ -36,6 +43,7 @@ import {
 } from "../../functions/supersets";
 import ExerciseInput from "./ExerciseInput";
 import SetList from "./SetList";
+import SetForm from "./SetForm";
 import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
@@ -139,15 +147,11 @@ interface ActiveWorkoutProps {
 // A whole rest from music notation: a small block hanging from a line.
 function RestIcon() {
   return (
-    <svg width="26" height="18" viewBox="0 0 20 14" aria-hidden="true">
+    <svg width="22" height="15" viewBox="0 0 20 14" aria-hidden="true">
+      {/* One shape, the line and the block hanging from it, so a see-through
+          color doesn't darken where they'd overlap. */}
       <path
-        d="M1.5 4h17"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-      <path
-        d="M5 4h10v4.5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 5 8.5Z"
+        d="M2.125 3.375H17.875a.625.625 0 0 1 0 1.25H15V8.5A1.5 1.5 0 0 1 13.5 10h-7A1.5 1.5 0 0 1 5 8.5V4.625H2.125a.625.625 0 0 1 0-1.25Z"
         fill="currentColor"
       />
     </svg>
@@ -155,7 +159,7 @@ function RestIcon() {
 }
 
 const linkButtonClass =
-  "flex size-9 items-center justify-center rounded-full font-bold transition cursor-pointer text-base-content/55 dark:text-base-content/75 hover:text-base-content/80 dark:hover:text-base-content/95";
+  "flex size-7 items-center justify-center rounded-full font-bold transition cursor-pointer text-base-content/55 dark:text-base-content/75 hover:text-base-content/80 dark:hover:text-base-content/95";
 
 function SupersetLink({
   linked,
@@ -169,7 +173,7 @@ function SupersetLink({
       <div className="flex justify-center">
         <button
           type="button"
-          className={`${linkButtonClass} bg-base-content/5 hover:bg-base-content/10 dark:bg-base-content/8`}
+          className={linkButtonClass}
           onClick={onToggle}
           aria-pressed={false}
           aria-label="Rest between these. Tap to make them a superset."
@@ -182,7 +186,7 @@ function SupersetLink({
   // Joined with no rest: a neck of card joins the two cards, with the
   // superset sign in its waist.
   return (
-    <div className="relative flex justify-center h-9 -my-1">
+    <div className="relative flex justify-center h-8 -my-1">
       <svg
         className="absolute inset-y-0 left-1/2 -translate-x-1/2 h-full w-24 text-base-content/5 dark:text-base-content/9"
         viewBox="0 0 80 28"
@@ -446,6 +450,7 @@ export default function ActiveWorkout({
   const setBusy = timerPhase === "running" || timerPhase === "logging";
   // A rest gets a card of its own just above the exercise that's next.
   const [slot, setSlot] = useState<SlotContent>("none");
+  const [fixingLast, setFixingLast] = useState(false);
   const resting = slot !== "none" && !!selected;
 
   // Keep the current exercise at the top: when the workout opens, when the
@@ -533,7 +538,7 @@ export default function ActiveWorkout({
 
   // In a plan the rest gets a card of its own above the exercise (null until
   // it's on the page); otherwise it shows in place.
-  const timer = (restCard?: HTMLElement | null) => (
+  const timer = (restCard?: HTMLElement | null, aboveClock?: ReactNode) => (
     <SetTimer
       workoutId={workout.id}
       storageKey={timerKey}
@@ -557,14 +562,33 @@ export default function ActiveWorkout({
       lookup={lookup}
       exerciseNotes={exerciseNotes}
       onSave={handleSave}
-      lastSet={sets.at(-1)}
-      onUpdateSet={onUpdateSet}
+      onLoggedChange={setFixingLast}
+      aboveClock={aboveClock}
       onSlotChange={setSlot}
       onPhaseChange={setTimerPhase}
       restSlot={restCard}
       // A plan's exercise cards have Swap exercise instead.
       hideChange={restCard !== undefined}
     />
+  );
+
+  // The set just stopped, fixable in place until the next one starts: its
+  // time on the big clock, side, reps and weight, saving as they change.
+  const fixing = fixingLast ? sets.at(-1) : undefined;
+  const fixingEditor = (s: WorkoutSet) => (
+    <div className="flex flex-col gap-1 rounded-2xl bg-base-content/5 p-3">
+      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+        Just done{s.side && ` · ${sideLabel(s.side)}`}
+      </p>
+      <SetForm
+        key={s.id}
+        suggestions={suggestions}
+        hideExercise
+        bigTime
+        initial={s}
+        onChange={(changes) => onUpdateSet(s, changes)}
+      />
+    </div>
   );
 
   const setList = (list: WorkoutSet[], newestFirst = false) => (
@@ -624,16 +648,23 @@ export default function ActiveWorkout({
         <span>{status}</span>
       </p>
     );
+    // Its sets so far, the one just stopped last and fixable.
+    const earlier = logged.filter((s) => s.id !== fixing?.id);
     const loggedSets = logged.length > 0 && (
-      <SetList
-        sets={logged}
-        suggestions={suggestions}
-        onUpdate={onUpdateSet}
-        onRemove={onRemoveSets}
-        onSplit={onSplitSet}
-        isUnilateral={isUnilateral}
-        hideNames
-      />
+      <div className="flex flex-col gap-2">
+        {earlier.length > 0 && (
+          <SetList
+            sets={earlier}
+            suggestions={suggestions}
+            onUpdate={onUpdateSet}
+            onRemove={onRemoveSets}
+            onSplit={onSplitSet}
+            isUnilateral={isUnilateral}
+            hideNames
+          />
+        )}
+        {fixing && earlier.length < logged.length && fixingEditor(fixing)}
+      </div>
     );
     const actions = (
       <StepActions
@@ -694,8 +725,7 @@ export default function ActiveWorkout({
             className={`${restCardClass} scroll-mt-4 flex flex-col gap-3`}
           >
             {label}
-            {timer(resting ? restSlot : null)}
-            {loggedSets}
+            {timer(resting ? restSlot : null, loggedSets)}
             {!setBusy && actions}
           </section>
         </>
@@ -923,7 +953,7 @@ export default function ActiveWorkout({
                 ref={currentCard}
                 className={`${resting ? restCardClass : cardClass} scroll-mt-4`}
               >
-                {timer()}
+                {timer(undefined, fixing && fixingEditor(fixing))}
               </section>
             </>
           )}
@@ -931,10 +961,15 @@ export default function ActiveWorkout({
       ) : (
         <>
           <section ref={currentCard} className={`${cardClass} scroll-mt-4`}>
-            {timer()}
+            {timer(undefined, fixing && fixingEditor(fixing))}
           </section>
-          {sets.length > 0 && (
-            <section className={cardClass}>{setList(sets, true)}</section>
+          {sets.length > (fixing ? 1 : 0) && (
+            <section className={cardClass}>
+              {setList(
+                sets.filter((s) => s !== fixing),
+                true,
+              )}
+            </section>
           )}
         </>
       )}
