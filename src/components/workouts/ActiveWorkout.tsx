@@ -419,9 +419,6 @@ export default function ActiveWorkout({
     />
   );
 
-  // Sets of something that isn't in the plan, under the plan's exercises.
-  const inPlan = (name: string) => indexOf(name) !== -1;
-  const otherSets = sets.filter((s) => !inPlan(s.exercise_name));
   const setsOf = (name: string) =>
     sets.filter(
       (s) => s.exercise_name.trim().toLowerCase() === name.trim().toLowerCase(),
@@ -584,6 +581,51 @@ export default function ActiveWorkout({
     if (group && last?.group === group) last.indices.push(i);
     else runs.push({ group, indices: [i] });
   });
+  // Exercises done that aren't in the plan, each with a card where it was
+  // done: before the first plan exercise started after it, and never below
+  // the current one.
+  const offPlan: { name: string; at: number }[] = [];
+  for (const set of sets) {
+    if (indexOf(set.exercise_name) !== -1) continue;
+    const k = set.exercise_name.trim().toLowerCase();
+    if (offPlan.some((o) => o.name.trim().toLowerCase() === k)) continue;
+    const first = set.created_at;
+    const later = exercises.findIndex((e) => {
+      const start = setsOf(e.name)[0]?.created_at;
+      return !start || start > first;
+    });
+    const at = later === -1 ? exercises.length : later;
+    offPlan.push({
+      name: set.exercise_name,
+      at: selectedIndex === null ? at : Math.min(at, selectedIndex),
+    });
+  }
+  // Placed between runs, so a superset's outline stays whole.
+  const runStart = (i: number) =>
+    runs.find((r) => r.indices.includes(i))?.indices[0] ?? exercises.length;
+  const offPlanBefore = (start: number) =>
+    offPlan
+      .filter((o) => runStart(o.at) === start)
+      .map((o) => (
+        <li key={`off:${o.name}`}>
+          <section className={`${cardClass} flex flex-col gap-2`}>
+            <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+              Not in the plan
+            </p>
+            <p className="text-xl font-bold leading-tight">{o.name}</p>
+            <SetList
+              sets={setsOf(o.name)}
+              suggestions={suggestions}
+              onUpdate={onUpdateSet}
+              onRemove={onRemoveSets}
+              onSplit={onSplitSet}
+              isUnilateral={isUnilateral}
+              hideNames
+            />
+          </section>
+        </li>
+      ));
+
   const link = (i: number, linked: boolean) => (
     <SupersetLink
       linked={linked}
@@ -602,7 +644,8 @@ export default function ActiveWorkout({
   );
   const timeline = (
     <ol className="flex flex-col gap-1">
-      {runs.map(({ group, indices }) => (
+      {runs.map(({ group, indices }) => [
+        ...offPlanBefore(indices[0]),
         <li key={indices[0]} className="flex flex-col gap-1">
           {indices[0] > 0 && link(indices[0], false)}
           {group ? (
@@ -623,8 +666,9 @@ export default function ActiveWorkout({
           ) : (
             card(indices[0])
           )}
-        </li>
-      ))}
+        </li>,
+      ])}
+      {offPlanBefore(exercises.length)}
     </ol>
   );
 
@@ -716,14 +760,6 @@ export default function ActiveWorkout({
                 {timer}
               </section>
             </>
-          )}
-          {otherSets.length > 0 && (
-            <section className={cardClass}>
-              <p className="mb-2 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-                Not in the plan
-              </p>
-              {setList(otherSets)}
-            </section>
           )}
         </>
       ) : (
