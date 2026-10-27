@@ -5,7 +5,11 @@ import { useAuth } from "../../context/AuthContext";
 import useInjuries from "../../hooks/useInjuries";
 import { elapsedSeconds, type Workout } from "../../hooks/useWorkouts";
 import BarChart from "../../components/charts/BarChart";
-import LineChart, { type LinePoint } from "../../components/charts/LineChart";
+import LineChart, {
+  type LineSeries,
+  type LinePoint,
+} from "../../components/charts/LineChart";
+import { SERIES_COLORS, seriesColor } from "../../functions/chartScale";
 import ErrorBanner from "../../components/ErrorBanner";
 import { formatClock, formatDuration } from "../../functions/formatDuration";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
@@ -19,8 +23,6 @@ const CACHE_KEY = "progress_workouts";
 
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
-const selectClass =
-  "w-full rounded-xl bg-base-content/8 px-3 py-2.5 font-bold outline-none focus:bg-base-content/12 cursor-pointer";
 
 // Monday 00:00 local time of the week containing `ms`.
 function weekStart(ms: number) {
@@ -92,15 +94,19 @@ function exerciseSeries(workouts: Workout[], name: string) {
     return { x: at, y: secs, label: formatClock(secs) };
   });
 
-  const title =
-    metric === "weight"
-      ? `Heaviest set (${WEIGHT_UNIT})`
-      : metric === "reps"
-        ? "Most reps in a set"
-        : "Longest set";
-  const format = metric === "time" ? formatClock : (v: number) => String(v);
-  return { points, title, format };
+  // Exercises are measured in different units, so each line is its best set
+  // as a percent change from its first session; the tooltip keeps the real set.
+  const start = points.findIndex((p) => p.y > 0);
+  if (start < 0) return [];
+  const base = points[start].y;
+  return points.slice(start).map((p) => {
+    const pct = Math.round(((p.y - base) / base) * 100);
+    return { ...p, y: pct, label: `${p.label} · ${formatPercent(pct)}` };
+  });
 }
+
+const formatPercent = (v: number) =>
+  `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)}%`;
 
 export default function Progress() {
   const { user } = useAuth();
@@ -111,8 +117,6 @@ export default function Progress() {
     userId ? readUserCache<Workout[] | null>(CACHE_KEY, userId, null) : null,
   );
   const [error, setError] = useState<string | null>(null);
-  const [exercise, setExercise] = useState<string | null>(null);
-  const [injuryId, setInjuryId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -197,25 +201,41 @@ export default function Progress() {
     return [...counts.values()].sort((a, b) => b.n - a.n).map((e) => e.name);
   }, [workouts]);
 
-  const selectedExercise = exercise ?? exerciseNames[0] ?? null;
-  const series = useMemo(
+  const exerciseLines = useMemo<LineSeries[]>(
     () =>
-      workouts && selectedExercise
-        ? exerciseSeries(workouts, selectedExercise)
-        : null,
-    [workouts, selectedExercise],
+      workouts
+        ? exerciseNames
+            .map((name) => ({ name, points: exerciseSeries(workouts, name) }))
+            .filter((e) => e.points.length > 0)
+            .map((e, i) => ({
+              id: e.name.toLowerCase(),
+              name: e.name,
+              color: seriesColor(i),
+              points: e.points,
+              other: i >= SERIES_COLORS,
+            }))
+        : [],
+    [workouts, exerciseNames],
   );
 
-  const tracked = injuries
+  // Current injuries first so they get the leading colors; healed ones dashed.
+  const injuryLines: LineSeries[] = injuries
     .filter((i) => i.injury_checkins.length > 0)
-    .sort((a, b) => Number(!!a.healed_on) - Number(!!b.healed_on));
-  const injury = tracked.find((i) => i.id === injuryId) ?? tracked[0];
-  const painPoints: LinePoint[] =
-    injury?.injury_checkins.map((c) => ({
-      x: Date.parse(`${c.checked_on}T12:00:00`),
-      y: c.pain,
-      label: `pain ${c.pain}/10${c.notes ? ` · ${c.notes}` : ""}`,
-    })) ?? [];
+    .sort((a, b) => Number(!!a.healed_on) - Number(!!b.healed_on))
+    .map((i, n) => ({
+      id: i.id,
+      name: `${i.name || placeLabel(i.region, i.side)}${i.healed_on ? " (healed)" : ""}`,
+      color: seriesColor(n),
+      dashed: !!i.healed_on,
+      other: n >= SERIES_COLORS,
+      points: i.injury_checkins.map(
+        (c): LinePoint => ({
+          x: Date.parse(`${c.checked_on}T12:00:00`),
+          y: c.pain,
+          label: `${c.pain}/10`,
+        }),
+      ),
+    }));
 
   return (
     <div className="flex flex-col gap-3 pb-6">
@@ -264,68 +284,36 @@ export default function Progress() {
       </section>
 
       <section className={cardClass}>
-        <h2 className="font-bold mb-2">Exercise progress</h2>
-        {exerciseNames.length === 0 ? (
+        <h2 className="font-bold">Exercise progress</h2>
+        <p className="mt-0.5 mb-3 text-xs font-semibold text-base-content/55 dark:text-base-content/75">
+          Best set each session, as change since your first one
+        </p>
+        {workouts === null ? (
+          <Empty text="Loading…" />
+        ) : exerciseLines.length === 0 ? (
           <Empty text="Log a few sets and your progress shows up here." />
         ) : (
-          <>
-            <select
-              className={selectClass}
-              value={selectedExercise ?? ""}
-              onChange={(e) => setExercise(e.target.value)}
-              aria-label="Exercise"
-            >
-              {exerciseNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            {series && (
-              <>
-                <p className="mt-3 mb-1 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-                  {series.title}
-                </p>
-                <LineChart
-                  ariaLabel={`${series.title} for ${selectedExercise}`}
-                  points={series.points}
-                  formatY={series.format}
-                />
-              </>
-            )}
-          </>
+          <LineChart
+            ariaLabel="Best set per exercise, percent change since the first session"
+            series={exerciseLines}
+            formatY={formatPercent}
+          />
         )}
       </section>
 
       <section className={cardClass}>
-        <h2 className="font-bold mb-2">Injury pain</h2>
-        {!injury ? (
+        <h2 className="font-bold">Injury pain</h2>
+        <p className="mt-0.5 mb-3 text-xs font-semibold text-base-content/55 dark:text-base-content/75">
+          Pain at each check-in, 0 to 10
+        </p>
+        {injuryLines.length === 0 ? (
           <Empty text="Add an injury on the Injuries tab to track its pain here." />
         ) : (
-          <>
-            <select
-              className={selectClass}
-              value={injury.id}
-              onChange={(e) => setInjuryId(e.target.value)}
-              aria-label="Injury"
-            >
-              {tracked.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {placeLabel(i.region, i.side)}
-                  {i.name ? `: ${i.name}` : ""}
-                  {i.healed_on ? " (healed)" : ""}
-                </option>
-              ))}
-            </select>
-            <p className="mt-3 mb-1 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-              Pain, 0 to 10
-            </p>
-            <LineChart
-              ariaLabel="Pain over time"
-              points={painPoints}
-              yDomain={[0, 10]}
-            />
-          </>
+          <LineChart
+            ariaLabel="Pain over time per injury"
+            series={injuryLines}
+            yDomain={[0, 10]}
+          />
         )}
       </section>
     </div>

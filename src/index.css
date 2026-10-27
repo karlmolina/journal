@@ -73,3 +73,55 @@ body {
     animation: none;
   }
 }
+
+/* Chart line colors: eight categorical hues in a fixed, colorblind-checked
+   order, stepped separately for light and dark surfaces. */
+:root {
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --series-other: #a3a29c;
+}
+:root:is(
+    [data-theme="dark"],
+    [data-theme="synthwave"],
+    [data-theme="halloween"],
+    [data-theme="forest"],
+    [data-theme="black"],
+    [data-theme="luxury"],
+    [data-theme="dracula"],
+    [data-theme="business"],
+    [data-theme="night"],
+    [data-theme="coffee"],
+    [data-theme="dim"],
+    [data-theme="sunset"],
+    [data-theme="abyss"]
+  ) {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #2e9a2e;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --series-other: #6b6a65;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #2e9a2e;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --series-other: #6b6a65;
+  }
+}
