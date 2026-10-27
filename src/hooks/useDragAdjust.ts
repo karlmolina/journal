@@ -6,13 +6,24 @@ const STEP_PX = 16;
 // Movement below this is still a tap, which focuses the field for typing.
 const DEAD_ZONE_PX = 8;
 
+function parseNumber(value: string) {
+  const n = Number(value);
+  return value.trim() !== "" && Number.isFinite(n) ? n : null;
+}
+
+// Rounded so 2.5 steps don't drift into 22.499999.
+const formatNumber = (n: number) => String(Math.round(n * 100) / 100);
+
 // Drag up or down on a number field to change it a step at a time: up adds,
-// down takes away. Spread the returned handlers on the field's box.
+// down takes away. Spread the returned handlers on the field's box. Fields
+// that aren't plain numbers, like a time, bring their own parse and format.
 export default function useDragAdjust(
   value: string,
   onChange: (value: string) => void,
   step: number,
   min: number,
+  parse: (value: string) => number | null = parseNumber,
+  format: (n: number) => string = formatNumber,
 ) {
   const drag = useRef<{
     id: number;
@@ -23,11 +34,10 @@ export default function useDragAdjust(
 
   const onPointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    const n = Number(value);
     drag.current = {
       id: e.pointerId,
       y: e.clientY,
-      start: value.trim() !== "" && Number.isFinite(n) ? n : 0,
+      start: parse(value) ?? 0,
       moved: false,
     };
   };
@@ -42,8 +52,7 @@ export default function useDragAdjust(
       e.currentTarget.setPointerCapture(e.pointerId);
     }
     const next = Math.max(min, d.start + Math.trunc(dy / STEP_PX) * step);
-    // Rounded so 2.5 steps don't drift into 22.499999.
-    const text = String(Math.round(next * 100) / 100);
+    const text = format(next);
     if (text !== value) onChange(text);
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ExerciseInput from "./ExerciseInput";
 import Chip from "../Chip";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
@@ -19,8 +19,9 @@ const unitInputClass =
 const unitClass =
   "shrink-0 text-sm font-medium text-base-content/45 dark:text-base-content/65";
 
-// How much one drag step changes the weight.
+// How much one drag step changes the weight, and the time in seconds.
 const WEIGHT_STEP = 5;
+const TIME_STEP = 5;
 
 const weightLabel = WEIGHT_UNIT === "lb" ? "lbs" : WEIGHT_UNIT;
 
@@ -37,13 +38,20 @@ interface SetFormProps {
   submitLabel?: string;
   // The exercise is shown above already (the set timer), so no field for it.
   hideExercise?: boolean;
+  // The time is the set timer's big clock, made editable, in place of the
+  // small time box; aboveFields goes between it and the rest of the form.
+  bigTime?: boolean;
+  aboveFields?: React.ReactNode;
   onCancel?: () => void;
   // Editing a logged set: turn it into two, halving its time.
   onSplit?: () => void;
   // Editing a logged set: delete it, or every set of its exercise.
   onDelete?: () => void;
   onDeleteExercise?: { label: string; run: () => void };
-  onAdd: (set: SetInput) => void;
+  onAdd?: (set: SetInput) => void;
+  // Instead of a button to save: each change saves on its own, shortly
+  // after you stop typing or dragging.
+  onChange?: (set: SetInput) => void;
 }
 
 export default function SetForm({
@@ -52,11 +60,14 @@ export default function SetForm({
   isUnilateral,
   submitLabel = "Add set",
   hideExercise,
+  bigTime,
+  aboveFields,
   onCancel,
   onSplit,
   onDelete,
   onDeleteExercise,
   onAdd,
+  onChange,
 }: SetFormProps) {
   const [exercise, setExercise] = useState(initial?.exercise_name ?? "");
   const [reps, setReps] = useState(text(initial?.reps));
@@ -65,6 +76,14 @@ export default function SetForm({
   const dragWeight = useDragAdjust(weight, setWeight, WEIGHT_STEP, 0);
   const [time, setTime] = useState(
     initial?.duration_seconds ? formatClock(initial.duration_seconds) : "",
+  );
+  const dragTime = useDragAdjust(
+    time,
+    setTime,
+    TIME_STEP,
+    0,
+    parseClock,
+    (n) => (n > 0 ? formatClock(n) : ""),
   );
   // One-side-at-a-time sets say which side; tapping the chosen side again
   // clears it.
@@ -85,22 +104,50 @@ export default function SetForm({
     !invalid &&
     (parsedReps !== null || parsedWeight !== null || parsedTime !== null);
 
+  const values: SetInput = {
+    exercise_name: exercise.trim(),
+    reps: parsedReps,
+    weight: parsedWeight,
+    duration_seconds: parsedTime,
+    side,
+  };
+  const key = JSON.stringify(values);
+  const saved = useRef(key);
+  useEffect(() => {
+    if (!onChange || !canAdd || key === saved.current) return;
+    const id = setTimeout(() => {
+      saved.current = key;
+      onChange(JSON.parse(key));
+    }, 600);
+    return () => clearTimeout(id);
+  }, [onChange, canAdd, key]);
+
   // The fields keep their values afterwards, so the next set of the same
   // exercise is one tap away.
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canAdd) return;
-    onAdd({
-      exercise_name: exercise.trim(),
-      reps: parsedReps,
-      weight: parsedWeight,
-      duration_seconds: parsedTime,
-      side,
-    });
+    onAdd?.(values);
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+      {bigTime && (
+        <label
+          className="self-center my-1 rounded-2xl bg-base-content/6 px-4 py-1 transition focus-within:bg-base-content/12 cursor-ns-resize touch-none"
+          {...dragTime}
+        >
+          <input
+            className="w-32 bg-transparent text-center text-3xl font-extrabold tracking-tight tabular-nums outline-none placeholder:text-base-content/30"
+            inputMode="numeric"
+            placeholder="0:00"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            aria-label="Time, in seconds or minutes:seconds"
+          />
+        </label>
+      )}
+      {aboveFields}
       {!hideExercise && (
         <ExerciseInput
           className={fieldClass}
@@ -153,38 +200,42 @@ export default function SetForm({
             {weightLabel}
           </span>
         </label>
-        <input
-          className={`${fieldClass} flex-1`}
-          inputMode="numeric"
-          placeholder="Time"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          aria-label="Time, in seconds or minutes:seconds"
-        />
+        {!bigTime && (
+          <input
+            className={`${fieldClass} flex-1`}
+            inputMode="numeric"
+            placeholder="Time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            aria-label="Time, in seconds or minutes:seconds"
+          />
+        )}
       </div>
       {invalid && (
         <p className="text-sm font-semibold text-error">
           Use whole reps, a weight like 22.5, and time like 45 or 1:30.
         </p>
       )}
-      <div className="flex gap-2">
-        {onCancel && (
+      {onAdd && (
+        <div className="flex gap-2">
+          {onCancel && (
+            <button
+              type="button"
+              className="btn btn-ghost rounded-full font-bold flex-1"
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+          )}
           <button
-            type="button"
-            className="btn btn-ghost rounded-full font-bold flex-1"
-            onClick={onCancel}
+            type="submit"
+            className="btn btn-primary rounded-full font-bold flex-1 active:scale-[0.98] transition"
+            disabled={!canAdd}
           >
-            Cancel
+            {submitLabel}
           </button>
-        )}
-        <button
-          type="submit"
-          className="btn btn-primary rounded-full font-bold flex-1 active:scale-[0.98] transition"
-          disabled={!canAdd}
-        >
-          {submitLabel}
-        </button>
-      </div>
+        </div>
+      )}
       {onSplit && (
         <button
           type="button"
