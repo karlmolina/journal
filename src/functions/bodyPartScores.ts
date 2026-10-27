@@ -1,15 +1,48 @@
 import type { WorkoutSet } from "../hooks/useWorkouts";
 import { regionLabel } from "./bodyRegions";
 
-// Body parts named in a summary beyond the library's regions.
-const EXTRA_LABELS: Record<string, string> = {
+// The seven major muscle groups past workouts are summed up by. Each
+// library region (and "arms" from the name guesses) belongs to one.
+const MUSCLE_GROUPS: Record<string, string> = {
+  chest: "chest",
+  upper_back: "back",
+  mid_back: "back",
+  lower_back: "back",
+  neck: "back",
+  shoulder: "shoulders",
+  arms: "arms",
+  elbow: "arms",
+  wrist_hand: "arms",
+  core: "core",
+  glute: "glutes_hips",
+  hip: "glutes_hips",
+  quad: "legs",
+  hamstring: "legs",
+  knee: "legs",
+  calf: "legs",
+  ankle_foot: "legs",
+};
+
+// Labels for the groups, plus cardio and anything unknown.
+const LABELS: Record<string, string> = {
+  chest: "Chest",
+  back: "Back",
+  shoulders: "Shoulders",
   arms: "Arms",
+  core: "Core",
+  glutes_hips: "Glutes",
+  legs: "Legs",
   cardio: "Cardio",
   other: "Other",
 };
 
-export const bodyPartLabel = (key: string) =>
-  EXTRA_LABELS[key] ?? regionLabel(key);
+export const bodyPartLabel = (key: string) => LABELS[key] ?? regionLabel(key);
+
+// Regions as muscle groups, in order and without repeats, so the first is
+// still the main one.
+export function muscleGroups(regions: string[]) {
+  return [...new Set(regions.map((r) => MUSCLE_GROUPS[r] ?? r))];
+}
 
 // Guesses for common lifts that aren't in the library, checked in order so
 // "leg curl" lands on hamstrings before "curl" lands on arms.
