@@ -25,9 +25,6 @@ const dragBoxClass =
 const labelClass =
   "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
 
-// How far one drag step moves a bedtime or wake-up, in minutes.
-const TIME_STEP = 15;
-
 const DEFAULT_BEDTIME = 23 * 60;
 const DEFAULT_WOKE_AT = 7 * 60;
 
@@ -45,33 +42,35 @@ function TimeField({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const drag = useDragAdjust(
+  const drag = useDragAdjust({
     value,
     onChange,
-    TIME_STEP,
-    -Infinity,
-    parseTime,
-    formatTime,
-  );
+    label,
+    parse: parseTime,
+    format: formatTime,
+  });
   const invalid = value.trim() !== "" && parseTime(value) === null;
 
   return (
-    <label className={`${dragBoxClass} flex-1 min-w-0`} {...drag}>
-      <span className={labelClass}>{label}</span>
-      <input
-        className={`w-full min-w-0 bg-transparent text-center text-2xl font-extrabold tracking-tight tabular-nums outline-none ${
-          invalid ? "text-error" : ""
-        }`}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        // Typed times like "2330" or "11p" are tidied up once you're done.
-        onBlur={() => {
-          const t = parseTime(value);
-          if (t !== null) onChange(formatTime(t));
-        }}
-        aria-label={label}
-      />
-    </label>
+    <>
+      <label className={`${dragBoxClass} flex-1 min-w-0`} {...drag.bind}>
+        <span className={labelClass}>{label}</span>
+        <input
+          className={`w-full min-w-0 bg-transparent text-center text-2xl font-extrabold tracking-tight tabular-nums outline-none ${
+            invalid ? "text-error" : ""
+          }`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          // Typed times like "2330" or "11p" are tidied up once you're done.
+          onBlur={() => {
+            const t = parseTime(value);
+            if (t !== null) onChange(formatTime(t));
+          }}
+          aria-label={label}
+        />
+      </label>
+      {drag.picker}
+    </>
   );
 }
 
@@ -102,19 +101,21 @@ function NightForm({
   );
 
   // An empty score starts a drag from the middle, not from "no sleep".
-  const dragQuality = useDragAdjust(
-    quality,
-    setQuality,
-    1,
-    0,
-    (text) => parseQuality(text) ?? 5,
-    (n) => String(Math.min(10, n)),
-  );
+  const dragQuality = useDragAdjust({
+    value: quality,
+    onChange: setQuality,
+    label: "Sleep quality",
+    min: 0,
+    max: 10,
+    parse: (text) => parseQuality(text) ?? 5,
+    format: String,
+  });
 
   const q = parseQuality(quality);
   const bed = parseTime(bedtime);
   const woke = parseTime(wokeAt);
-  const duration = bed !== null && woke !== null ? sleepMinutes(bed, woke) : null;
+  const duration =
+    bed !== null && woke !== null ? sleepMinutes(bed, woke) : null;
   const canSave = q !== null && bed !== null && woke !== null && night !== "";
   const unchanged =
     existing !== undefined &&
@@ -144,7 +145,7 @@ function NightForm({
         />
       </label>
 
-      <label className={dragBoxClass} {...dragQuality}>
+      <label className={dragBoxClass} {...dragQuality.bind}>
         <span className={labelClass}>Sleep quality</span>
         <span className="flex items-baseline">
           <input
@@ -169,6 +170,8 @@ function NightForm({
               : "Drag up or down, or tap to type"}
         </span>
       </label>
+
+      {dragQuality.picker}
 
       <div className="flex gap-2">
         <TimeField label="Bedtime" value={bedtime} onChange={setBedtime} />
