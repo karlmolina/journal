@@ -47,7 +47,7 @@ function scrollToTop(el: HTMLElement | null) {
 
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
-// Tinted so it's plain you're resting, not doing an exercise.
+// Tinted to stand out: the rest you're in, and the exercise you're on.
 const restCardClass =
   "rounded-2xl bg-primary/10 dark:bg-primary/15 px-4 py-4 sm:px-5";
 
@@ -597,7 +597,7 @@ export default function ActiveWorkout({
           )}
           <section
             ref={currentCard}
-            className={`${cardClass} scroll-mt-4 flex flex-col gap-3`}
+            className={`${restCardClass} scroll-mt-4 flex flex-col gap-3`}
           >
             {label}
             {timer(resting ? restSlot : null)}
