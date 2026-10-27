@@ -147,15 +147,11 @@ interface ActiveWorkoutProps {
 // A whole rest from music notation: a small block hanging from a line.
 function RestIcon() {
   return (
-    <svg width="26" height="18" viewBox="0 0 20 14" aria-hidden="true">
+    <svg width="22" height="15" viewBox="0 0 20 14" aria-hidden="true">
+      {/* One shape, the line and the block hanging from it, so a see-through
+          color doesn't darken where they'd overlap. */}
       <path
-        d="M1.5 4h17"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-      <path
-        d="M5 4h10v4.5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 5 8.5Z"
+        d="M2.125 3.375H17.875a.625.625 0 0 1 0 1.25H15V8.5A1.5 1.5 0 0 1 13.5 10h-7A1.5 1.5 0 0 1 5 8.5V4.625H2.125a.625.625 0 0 1 0-1.25Z"
         fill="currentColor"
       />
     </svg>
@@ -163,7 +159,7 @@ function RestIcon() {
 }
 
 const linkButtonClass =
-  "flex size-9 items-center justify-center rounded-full font-bold transition cursor-pointer text-base-content/55 dark:text-base-content/75 hover:text-base-content/80 dark:hover:text-base-content/95";
+  "flex size-7 items-center justify-center rounded-full font-bold transition cursor-pointer text-base-content/55 dark:text-base-content/75 hover:text-base-content/80 dark:hover:text-base-content/95";
 
 function SupersetLink({
   linked,
@@ -177,7 +173,7 @@ function SupersetLink({
       <div className="flex justify-center">
         <button
           type="button"
-          className={`${linkButtonClass} bg-base-content/5 hover:bg-base-content/10 dark:bg-base-content/8`}
+          className={linkButtonClass}
           onClick={onToggle}
           aria-pressed={false}
           aria-label="Rest between these. Tap to make them a superset."
@@ -190,7 +186,7 @@ function SupersetLink({
   // Joined with no rest: a neck of card joins the two cards, with the
   // superset sign in its waist.
   return (
-    <div className="relative flex justify-center h-9 -my-1">
+    <div className="relative flex justify-center h-8 -my-1">
       <svg
         className="absolute inset-y-0 left-1/2 -translate-x-1/2 h-full w-24 text-base-content/5 dark:text-base-content/9"
         viewBox="0 0 80 28"
