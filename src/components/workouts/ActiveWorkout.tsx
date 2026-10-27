@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type {
   PlanChanges,
   SetInput,
+  Side,
   Workout,
   WorkoutSet,
 } from "../../hooks/useWorkouts";
@@ -16,6 +17,7 @@ import {
   describeTarget,
   endExercise,
   nextSide,
+  sideLabel,
   setsDone,
   swapExercise,
   type SessionExercise,
@@ -42,11 +44,14 @@ import SupersetGroup from "./SupersetGroup";
 // While a set is under way it can't start yet, so it's a quiet preview.
 function UpNextCard({
   exercise,
+  side,
   howTo,
   waiting,
   onStart,
 }: {
   exercise: Step;
+  // The side it starts on, for exercises done one side at a time.
+  side: Side | null;
   howTo?: Exercise;
   // A set is under way; it has to be saved first.
   waiting: boolean;
@@ -59,7 +64,10 @@ function UpNextCard({
         <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
           Up next, after this set
         </p>
-        <p className="font-bold leading-tight">{exercise.name}</p>
+        <p className="font-bold leading-tight">
+          {exercise.name}
+          {side && ` · ${sideLabel(side)}`}
+        </p>
         <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
           {describeTarget(exercise)}
         </p>
@@ -83,6 +91,11 @@ function UpNextCard({
         Up next
       </p>
       <p className="text-2xl font-extrabold leading-tight">{exercise.name}</p>
+      {side && (
+        <p className="font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
+          {sideLabel(side)}
+        </p>
+      )}
       <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
         {[describeTarget(exercise), exercise.notes].filter(Boolean).join(" · ")}
       </p>
@@ -539,23 +552,49 @@ export default function ActiveWorkout({
     )
       setPicked(null);
   };
-  // The next unfinished exercise after this one (or its superset), else
-  // one skipped earlier.
-  const upNextIndex = (() => {
+  // What comes after the current set (running or about to start, which is
+  // the selected exercise on its next side): the right side after a left,
+  // the next exercise in its superset, else the next unfinished exercise
+  // after this one, or one skipped earlier.
+  const upNextStep = ((): { index: number; side: Side | null } | null => {
     if (selectedIndex === null) return null;
-    const group = supersetOf(exercises[selectedIndex].name, supersets);
+    const current = exercises[selectedIndex];
+    const currentSide = sideFor(current.name);
+    if (currentSide === "left") return { index: selectedIndex, side: "right" };
+    const step = (index: number) => ({
+      index,
+      side: sideFor(exercises[index].name),
+    });
+    const unfinished = (i: number) =>
+      setsDone(exercises[i], sets) < exercises[i].sets;
+    const group = supersetOf(current.name, supersets);
+    if (group) {
+      // Count the current set as done to see who follows it.
+      const all = [
+        ...sets,
+        { exercise_name: current.name, side: currentSide } as WorkoutSet,
+      ];
+      const { next } = nextInSuperset(
+        current.name,
+        group,
+        (n) => done(n, all),
+        targetOf,
+      );
+      const i = indexOf(next ?? "");
+      if (i !== -1 && i !== selectedIndex && unfinished(i)) return step(i);
+    }
     const open = (i: number) =>
       i !== selectedIndex &&
       !group?.some(
         (n) => n.trim().toLowerCase() === exercises[i].name.toLowerCase(),
       ) &&
-      setsDone(exercises[i], sets) < exercises[i].sets;
+      unfinished(i);
     const after = exercises.findIndex((_, i) => i > selectedIndex && open(i));
-    if (after !== -1) return after;
+    if (after !== -1) return step(after);
     const before = exercises.findIndex((_, i) => open(i));
-    return before === -1 ? null : before;
+    return before === -1 ? null : step(before);
   })();
-  const upNext = upNextIndex !== null ? exercises[upNextIndex] : undefined;
+  const upNext = upNextStep ? exercises[upNextStep.index] : undefined;
   const timer = useRef<SetTimerControl>(null);
   const [setBusy, setSetBusy] = useState(false);
 
@@ -738,14 +777,16 @@ export default function ActiveWorkout({
         />
       </section>
 
-      {upNext && (
+      {upNextStep && upNext && (
         <UpNextCard
           key={upNext.name}
           exercise={upNext}
+          side={upNextStep.side}
           howTo={lookup(upNext.name)}
-          waiting={setBusy}
+          // The other side of the current exercise comes after this set.
+          waiting={setBusy || upNextStep.index === selectedIndex}
           onStart={() => {
-            setPicked(upNextIndex);
+            setPicked(upNextStep.index);
             timer.current?.start(upNext.name);
           }}
         />
