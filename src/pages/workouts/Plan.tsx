@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Chip from "../../components/Chip";
+import { CopyPrompt, PasteReply } from "../../components/ChatbotPrompt";
 import ErrorBanner from "../../components/ErrorBanner";
 import SupersetGroup from "../../components/workouts/SupersetGroup";
 import { useAuth } from "../../context/AuthContext";
@@ -34,127 +35,10 @@ const fieldClass =
 const label =
   "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
 
-// Copies the prompt for a chatbot. When the clipboard is blocked, the prompt
-// shows in a box to copy by hand.
-function CopyPrompt({
-  getPrompt,
-  disabled,
-}: {
-  getPrompt: () => string;
-  disabled?: boolean;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [manual, setManual] = useState<string | null>(null);
-
-  const copy = async () => {
-    const prompt = getPrompt();
-    try {
-      await navigator.clipboard.writeText(prompt);
-      setManual(null);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {
-      setManual(prompt);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        className="btn btn-primary rounded-full font-bold"
-        onClick={copy}
-        disabled={disabled}
-      >
-        {copied ? "Copied. Paste it into a chatbot" : "Copy prompt"}
-      </button>
-      {manual !== null && (
-        <textarea
-          className={`${fieldClass} resize-none font-mono text-xs`}
-          rows={6}
-          readOnly
-          value={manual}
-          onFocus={(e) => e.target.select()}
-          aria-label="Prompt to copy"
-        />
-      )}
-    </div>
-  );
-}
-
-// Where the chatbot's reply goes. It's checked before anything is saved, and
-// what's wrong is listed so the person can ask the bot to fix it.
-function PasteReply({
-  saving,
-  onImport,
-}: {
-  saving: boolean;
-  onImport: (plan: WorkoutPlan["plan"]) => Promise<boolean>;
-}) {
-  const [reply, setReply] = useState("");
-  const [errors, setErrors] = useState<string[]>([]);
-
-  const handleImport = async () => {
-    const result = parsePlanReply(reply);
-    if (!result.ok) {
-      setErrors(result.errors);
-      return;
-    }
-    setErrors([]);
-    if (await onImport(result.plan)) setReply("");
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <textarea
-        className={`${fieldClass} resize-none font-mono text-xs`}
-        rows={4}
-        placeholder="Paste the chatbot's reply here"
-        value={reply}
-        onChange={(e) => {
-          setReply(e.target.value);
-          setErrors([]);
-        }}
-        aria-label="Chatbot reply"
-        disabled={saving}
-      />
-      {errors.length > 0 && (
-        <div
-          role="alert"
-          className="rounded-xl bg-error/15 px-3 py-2 text-sm font-semibold"
-        >
-          <p>That reply can't be imported yet:</p>
-          <ul className="mt-1 list-disc pl-5 font-medium">
-            {errors.slice(0, 8).map((e, i) => (
-              <li key={i}>{e}</li>
-            ))}
-          </ul>
-          {errors.length > 8 && (
-            <p className="mt-1 font-medium">…and {errors.length - 8} more.</p>
-          )}
-          <p className="mt-1 font-medium">
-            You can paste these back to the chatbot and ask it to fix them.
-          </p>
-        </div>
-      )}
-      <button
-        type="button"
-        className="btn rounded-full font-bold bg-base-content/8 border-0 shadow-none"
-        onClick={handleImport}
-        disabled={!reply.trim() || saving}
-      >
-        {saving ? (
-          <>
-            <span className="loading loading-spinner loading-sm"></span>
-            Saving…
-          </>
-        ) : (
-          "Import plan"
-        )}
-      </button>
-    </div>
-  );
-}
+const parsePlan = (reply: string) => {
+  const result = parsePlanReply(reply);
+  return result.ok ? { ok: true as const, value: result.plan } : result;
+};
 
 const Step = ({ n, children }: { n: number; children: React.ReactNode }) => (
   <p className={label}>
@@ -256,6 +140,8 @@ function PlanForm({
       <Step n={2}>Paste its reply</Step>
       <PasteReply
         saving={saving}
+        parse={parsePlan}
+        importLabel="Import plan"
         onImport={(plan) => {
           onSavePreferences(request());
           return onImport(plan, request());
@@ -314,6 +200,8 @@ function ReviseForm({
       <Step n={2}>Paste its reply</Step>
       <PasteReply
         saving={saving}
+        parse={parsePlan}
+        importLabel="Import plan"
         onImport={async (plan) => {
           const ok = await onImport(
             plan,

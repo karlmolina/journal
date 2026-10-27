@@ -36,10 +36,24 @@ const Plan = React.lazy(workoutPages.plan);
 const sleepPage = () => import("./pages/Sleep");
 const Sleep = React.lazy(sleepPage);
 
+// So are meals, with their own tabs like workouts.
+const mealPages = {
+  shell: () => import("./pages/Meals"),
+  plan: () => import("./pages/meals/MealPlan"),
+  groceries: () => import("./pages/meals/Groceries"),
+  library: () => import("./pages/meals/Library"),
+};
+const Meals = React.lazy(mealPages.shell);
+const MealPlan = React.lazy(mealPages.plan);
+const Groceries = React.lazy(mealPages.groceries);
+const MealLibrary = React.lazy(mealPages.library);
+
 const prefetchPages = () =>
-  [...Object.values(workoutPages), sleepPage].forEach((load) =>
-    load().catch(() => {}),
-  );
+  [
+    ...Object.values(workoutPages),
+    sleepPage,
+    ...Object.values(mealPages),
+  ].forEach((load) => load().catch(() => {}));
 if ("requestIdleCallback" in window)
   requestIdleCallback(prefetchPages, { timeout: 5000 });
 else setTimeout(prefetchPages, 2000);
@@ -99,6 +113,21 @@ ReactDOM.createRoot(document.getElementById("root")!, {
                   </MembersOnly>
                 }
               />
+              <Route
+                path="/meals"
+                element={
+                  <MembersOnly>
+                    <Suspense fallback={null}>
+                      <Meals />
+                    </Suspense>
+                  </MembersOnly>
+                }
+              >
+                <Route index element={<MealPlan />} />
+                <Route path="groceries" element={<Groceries />} />
+                <Route path="library" element={<MealLibrary />} />
+                <Route path="library/:mealId" element={<MealLibrary />} />
+              </Route>
               <Route
                 path="/invites"
                 element={
