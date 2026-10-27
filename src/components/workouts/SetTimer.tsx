@@ -70,7 +70,7 @@ type Phase =
   | { phase: "resting"; rest: Rest; logged?: boolean }
   // A set just finished: fix its numbers, then go on to `then`, the rest or
   // the next set.
-  | { phase: "done"; exercise: string; then: Phase };
+  | { phase: "done"; exercise: string; side?: Side | null; then: Phase };
 
 interface Saved {
   workoutId: string;
@@ -537,6 +537,7 @@ export default function SetTimer({
     setState({
       phase: "done",
       exercise: state.exercise,
+      side: state.side,
       then: afterSaving(set, at, true),
     });
   };
@@ -676,9 +677,14 @@ export default function SetTimer({
       </button>
     );
     // No start button here: the one button is under the set just finished.
+    // Moving on to another exercise, this card stays the one just done
+    // until you go on.
+    const same = name.trim().toLowerCase() === state.exercise.toLowerCase();
     return (
       <div className="flex flex-col">
-        {name.trim() && header(name.trim(), side)}
+        {same
+          ? name.trim() && header(name.trim(), side)
+          : header(state.exercise, state.side)}
         {aboveClock}
         {doneSlot ? (
           createPortal(button, doneSlot)
