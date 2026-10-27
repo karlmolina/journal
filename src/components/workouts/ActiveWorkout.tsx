@@ -34,7 +34,7 @@ import {
 } from "../../functions/supersets";
 import ExerciseInput from "./ExerciseInput";
 import SetList from "./SetList";
-import SetTimer, { ExerciseHeader, type TimerPhase } from "./SetTimer";
+import SetTimer, { type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 
@@ -355,7 +355,12 @@ export default function ActiveWorkout({
   // Keep the current exercise at the top: when the workout opens, when the
   // plan moves on to another exercise and whenever a set starts.
   const currentCard = useRef<HTMLElement>(null);
+  const [restSlot, setRestSlot] = useState<HTMLElement | null>(null);
   useEffect(() => scrollToTop(currentCard.current), [selectedIndex]);
+  // During a rest its card is the top.
+  useEffect(() => {
+    if (restSlot) scrollToTop(restSlot);
+  }, [restSlot]);
   useEffect(() => {
     if (setBusy) scrollToTop(currentCard.current);
   }, [setBusy]);
@@ -379,7 +384,9 @@ export default function ActiveWorkout({
     minute: "2-digit",
   });
 
-  const timer = (
+  // In a plan the rest gets a card of its own above the exercise (null until
+  // it's on the page); otherwise it shows in place.
+  const timer = (restCard?: HTMLElement | null) => (
     <SetTimer
       workoutId={workout.id}
       storageKey={timerKey}
@@ -404,6 +411,7 @@ export default function ActiveWorkout({
       exerciseNotes={exerciseNotes}
       onSave={handleSave}
       onPhaseChange={setTimerPhase}
+      restSlot={restCard}
     />
   );
 
@@ -510,34 +518,23 @@ export default function ActiveWorkout({
     if (current)
       return (
         <>
-          {/* The timer keeps its place in this card from phase to phase, so
-              Stop set doesn't rebuild it. While resting the card is the rest
-              and the exercise gets the card under it. */}
+          {/* Rest gets a card of its own just above, and the timer, with
+              the start button, stays in this one from phase to phase. */}
+          {resting && (
+            <section
+              ref={setRestSlot}
+              className={`${restCardClass} scroll-mt-4`}
+            />
+          )}
           <section
             ref={currentCard}
-            className={`${resting ? restCardClass : cardClass} scroll-mt-4 flex flex-col gap-3`}
+            className={`${cardClass} scroll-mt-4 flex flex-col gap-3`}
           >
-            {!resting && label}
-            {timer}
-            {!resting && loggedSets}
-            {!resting && !setBusy && actions}
+            {label}
+            {timer(resting ? restSlot : null)}
+            {loggedSets}
+            {!setBusy && actions}
           </section>
-          {resting && (
-            <section className={`${cardClass} flex flex-col gap-3`}>
-              {label}
-              <ExerciseHeader
-                name={e.name}
-                side={sideFor(e.name)}
-                target={target || undefined}
-                notes={e.notes || undefined}
-                goal={e.goal || undefined}
-                lookup={lookup}
-                exerciseNotes={exerciseNotes}
-              />
-              {loggedSets}
-              {actions}
-            </section>
-          )}
         </>
       );
 
@@ -757,7 +754,7 @@ export default function ActiveWorkout({
                 ref={currentCard}
                 className={`${resting ? restCardClass : cardClass} scroll-mt-4`}
               >
-                {timer}
+                {timer()}
               </section>
             </>
           )}
@@ -765,7 +762,7 @@ export default function ActiveWorkout({
       ) : (
         <>
           <section ref={currentCard} className={`${cardClass} scroll-mt-4`}>
-            {timer}
+            {timer()}
           </section>
           {sets.length > 0 && (
             <section className={cardClass}>{setList(sets, true)}</section>
