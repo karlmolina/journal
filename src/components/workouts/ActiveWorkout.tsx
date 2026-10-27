@@ -421,16 +421,6 @@ export default function ActiveWorkout({
   const selectedIndex = picked ?? auto;
   const selected =
     selectedIndex !== null ? exercises[selectedIndex] : undefined;
-  const target =
-    selected &&
-    [
-      `${
-        supersetOf(selected.name, supersets) ? "Round" : "Set"
-      } ${Math.min(setsDone(selected, sets) + 1, selected.planned_sets)} of ${selected.planned_sets}`,
-      `${selected.reps}${selected.weight != null ? ` at ${selected.weight} ${WEIGHT_UNIT}` : ""}`,
-    ]
-      .filter(Boolean)
-      .join(" · ");
 
   // One-side-at-a-time exercises alternate, starting with the left.
   const sideFor = (name: string) =>
@@ -488,6 +478,24 @@ export default function ActiveWorkout({
   const [slot, setSlot] = useState<SlotContent>("none");
   const [fixingLast, setFixingLast] = useState(false);
   const resting = slot !== "none" && !!selected;
+  // The set just stopped, fixable in place until the next one starts.
+  const fixing = fixingLast ? sets.at(-1) : undefined;
+  // Its exercise stays the current card until you go on, even when that
+  // was its last set and the plan has moved on.
+  const held =
+    timerPhase === "done" && fixing ? indexOf(fixing.exercise_name) : -1;
+  const shownIndex = held !== -1 ? held : selectedIndex;
+  const shown = shownIndex !== null ? exercises[shownIndex] : undefined;
+  const target =
+    shown &&
+    [
+      `${
+        supersetOf(shown.name, supersets) ? "Round" : "Set"
+      } ${Math.min(setsDone(shown, sets) + 1, shown.planned_sets)} of ${shown.planned_sets}`,
+      `${shown.reps}${shown.weight != null ? ` at ${shown.weight} ${WEIGHT_UNIT}` : ""}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
 
   // Keep the current exercise at the top: when the workout opens, when the
   // plan moves on to another exercise and whenever a set starts.
@@ -636,8 +644,8 @@ export default function ActiveWorkout({
       clockOrigin={clockOrigin}
       exercise={selected?.name ?? initialExercise ?? ""}
       target={target || undefined}
-      notes={selected?.notes || undefined}
-      goal={selected?.goal || undefined}
+      notes={shown?.notes || undefined}
+      goal={shown?.goal || undefined}
       suggestions={suggestions}
       prefillFor={prefillFor}
       afterSet={afterSet}
@@ -665,7 +673,6 @@ export default function ActiveWorkout({
 
   // The set just stopped, fixable in place until the next one starts: its
   // time on the big clock, side, reps and weight, saving as they change.
-  const fixing = fixingLast ? sets.at(-1) : undefined;
   const fixingEditor = (s: WorkoutSet) => (
     <div className="flex flex-col gap-2">
       <div className="flex flex-col gap-1 rounded-2xl bg-base-content/5 p-3">
@@ -726,17 +733,19 @@ export default function ActiveWorkout({
     const e = exercises[i];
     const doneSets = setsDone(e, sets);
     const complete = doneSets >= e.sets;
-    const current = i === selectedIndex;
+    const current = i === shownIndex;
+    const next = i === selectedIndex;
     const logged = setsOf(e.name);
     // Whether it was swapped in, and how far along it is; the current
     // exercise says which set is next under its title.
-    const status = complete
-      ? e.ended
-        ? "Finished early"
-        : "Done"
-      : !current && doneSets > 0
-        ? `${Math.min(doneSets, e.planned_sets)} of ${e.planned_sets} sets done`
-        : null;
+    const status =
+      complete && !current
+        ? e.ended
+          ? "Finished early"
+          : "Done"
+        : !current && doneSets > 0
+          ? `${Math.min(doneSets, e.planned_sets)} of ${e.planned_sets} sets done`
+          : null;
     const label = (e.swapped_from || status) && (
       <p className="flex justify-between gap-2 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 tabular-nums">
         <span>{e.swapped_from && `Instead of ${e.swapped_from}`}</span>
@@ -769,9 +778,7 @@ export default function ActiveWorkout({
         complete={complete}
         suggestions={suggestions}
         // Not mid-set: the timer stays with the set it's timing.
-        onPick={
-          !current && !complete && !setBusy ? () => setPicked(i) : undefined
-        }
+        onPick={!next && !complete && !setBusy ? () => setPicked(i) : undefined}
         onSwap={(name) => {
           onPlanChange(
             swapExercise(
@@ -799,7 +806,7 @@ export default function ActiveWorkout({
         onEnd={(ended) => {
           onPlanChange(endExercise(workout.plan_changes, i, ended));
           // Move on to what's next once it's done.
-          if (ended && current) setPicked(null);
+          if (ended && next) setPicked(null);
         }}
       />
     );
@@ -1028,7 +1035,7 @@ export default function ActiveWorkout({
             <h2 className="font-bold">{planned.session.focus}</h2>
           </div>
           {timeline}
-          {selectedIndex === null && (
+          {shownIndex === null && (
             <>
               {exercises.length > 0 && (
                 <div className="flex flex-col items-center">
