@@ -30,7 +30,6 @@ import {
   nextSide,
   SECOND_SIDE,
   setsDone,
-  sideLabel,
   swapExercise,
   type SessionExercise,
 } from "../../functions/planProgress";
@@ -496,16 +495,17 @@ export default function ActiveWorkout({
     timerPhase === "done" && fixing ? indexOf(fixing.exercise_name) : -1;
   const shownIndex = held !== -1 ? held : selectedIndex;
   const shown = shownIndex !== null ? exercises[shownIndex] : undefined;
+  // Which set it is: the one just done while it's being fixed, else the next.
+  const setLabel =
+    shown &&
+    `${supersetOf(shown.name, supersets) ? "Round" : "Set"} ${Math.min(
+      setsDone(shown, held !== -1 ? sets.filter((s) => s !== fixing) : sets) +
+        1,
+      shown.planned_sets,
+    )} of ${shown.planned_sets}`;
   const target =
     shown &&
-    [
-      `${
-        supersetOf(shown.name, supersets) ? "Round" : "Set"
-      } ${Math.min(setsDone(shown, sets) + 1, shown.planned_sets)} of ${shown.planned_sets}`,
-      `${shown.reps}${shown.weight != null ? ` at ${shown.weight} ${WEIGHT_UNIT}` : ""}`,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    `${setLabel} · ${shown.reps}${shown.weight != null ? ` at ${shown.weight} ${WEIGHT_UNIT}` : ""}`;
 
   // Keep the current exercise at the top: when the workout opens, when the
   // plan moves on to another exercise and whenever a set starts.
@@ -594,6 +594,7 @@ export default function ActiveWorkout({
       clockOrigin={clockOrigin}
       exercise={selected?.name ?? initialExercise ?? ""}
       target={target || undefined}
+      setLabel={setLabel || undefined}
       notes={shown?.notes || undefined}
       goal={shown?.goal || undefined}
       suggestions={suggestions}
@@ -625,15 +626,13 @@ export default function ActiveWorkout({
   // time on the big clock, side, reps and weight, saving as they change.
   const fixingEditor = (s: WorkoutSet) => (
     <div className="flex flex-col gap-2 animate-fade-in">
-      <div className="flex flex-col gap-1 rounded-2xl bg-base-content/5 p-3">
-        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-          Just done{s.side && ` · ${sideLabel(s.side)}`}
-        </p>
+      <div className="flex flex-col rounded-2xl bg-base-content/5 p-3">
         <SetForm
           key={s.id}
           suggestions={suggestions}
           hideExercise
           bigTime
+          goalSeconds={prefillFor(s.exercise_name).duration_seconds}
           initial={s}
           onChange={(changes) => onUpdateSet(s, changes)}
         />

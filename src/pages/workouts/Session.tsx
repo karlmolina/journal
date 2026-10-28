@@ -30,6 +30,7 @@ import {
   dayLabel,
   nextSessionIndex,
   plannedReps,
+  plannedSeconds,
 } from "../../functions/planProgress";
 
 // Only today's workout can be picked back up; an older one is history.
@@ -229,7 +230,8 @@ export default function Session() {
     [byLowerName],
   );
 
-  // Reps from the plan, weight from the last time you did it.
+  // This set's target from the plan: its reps, weight and time. Without
+  // one, the last time you did it.
   const prefillFor = useCallback(
     (name: string): Partial<SetInput> => {
       const last = lastSetOf(name, active ? [active, ...history] : history);
@@ -238,8 +240,8 @@ export default function Session() {
       );
       return {
         reps: (target && plannedReps(target.reps)) ?? last?.reps ?? null,
-        // Your last weight once you've done it; the plan's until then.
-        weight: last?.weight ?? target?.weight ?? null,
+        weight: target?.weight ?? last?.weight ?? null,
+        duration_seconds: (target && plannedSeconds(target.reps)) ?? null,
       };
     },
     [active, history, planned],
