@@ -6,6 +6,7 @@ import { readUserCache, writeUserCache } from "../../functions/userCache";
 import { isDeleted, queueDelete } from "../../functions/undoDelete";
 import { reportError } from "../../functions/reportError";
 import { LAST_PAGE_KEY } from "../../hooks/useLastPage";
+import { savePendingInvite } from "../../functions/pendingInvite";
 import { useMealsData } from "../../hooks/useMeals";
 import { cardClass, mutedClass } from "../../components/meals/MealParts";
 
@@ -40,7 +41,9 @@ export default function Share() {
 
   if (!user) {
     if (loading) return null;
-    // Back here after signing in, through the last-page restore.
+    // Back here after signing in, through the last-page restore. The link
+    // also works as an invite for someone without an account yet.
+    if (code) savePendingInvite(code);
     try {
       localStorage.setItem(LAST_PAGE_KEY, window.location.pathname);
     } catch {
@@ -53,6 +56,7 @@ export default function Share() {
 
 function ShareMeals({ userId }: { userId: string }) {
   const meals = useMealsData();
+  const admin = useAuth().membership?.admin === true;
   const [share, setShare] = useState<MealShare | null>(() =>
     readUserCache<MealShare | null>(CACHE_KEY, userId, null),
   );
@@ -191,8 +195,10 @@ function ShareMeals({ userId }: { userId: string }) {
       <div className={cardClass}>
         <p className="font-bold">Share your meals</p>
         <p className={`${mutedClass} mt-1`}>
-          Anyone with an account who opens your link can join. You'll both see
-          and change the same plan, grocery list and library.
+          {admin
+            ? "Anyone who opens your link can join, and it works as an invite for someone without an account."
+            : "Anyone with an account who opens your link can join."}{" "}
+          You'll both see and change the same plan, grocery list and library.
         </p>
         {share.code ? (
           <div className="mt-3 flex flex-wrap items-center gap-1">

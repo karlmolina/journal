@@ -14,12 +14,17 @@ export function savePendingInvite(code: string) {
   }
 }
 
+// A meal share link (/meals/share/<code>) works as an invite too.
+const MEAL_SHARE = /^\/meals\/share\/([A-Za-z0-9]+)\/?$/;
+
 export function readPendingInvite(): string | null {
   try {
-    return localStorage.getItem(KEY);
+    const saved = localStorage.getItem(KEY);
+    if (saved) return saved;
   } catch {
-    return null;
+    // Storage disabled: fall back to the link being opened.
   }
+  return MEAL_SHARE.exec(window.location.pathname)?.[1].toUpperCase() ?? null;
 }
 
 export function clearPendingInvite() {
