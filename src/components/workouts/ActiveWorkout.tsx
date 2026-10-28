@@ -1,5 +1,6 @@
 import {
   type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -56,6 +57,9 @@ import SupersetGroup from "./SupersetGroup";
 // Only a glide that ends well off target (the page changed on the way) gets
 // one more, and touching the page cancels it all.
 let stopScrolling: (() => void) | null = null;
+// Mid-glide, so nothing else should move the page: any instant scroll, even
+// a fraction of a pixel, stops the glide where it is.
+let gliding = false;
 function scrollToTop(target: () => HTMLElement | null) {
   stopScrolling?.();
   const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -65,6 +69,7 @@ function scrollToTop(target: () => HTMLElement | null) {
   let timer = 0;
   const stop = () => {
     stopScrolling = null;
+    gliding = false;
     cancelAnimationFrame(frame);
     clearTimeout(timer);
     removeEventListener("touchstart", stop);
@@ -86,6 +91,7 @@ function scrollToTop(target: () => HTMLElement | null) {
   const glide = (corrected: boolean) => {
     const off = offset();
     if (off === null || Math.abs(off) <= 2) return stop();
+    gliding = true;
     target()!.scrollIntoView({ behavior, block: "start" });
     // Wait for the glide to end, then look once more.
     let lastY = NaN;
@@ -526,7 +532,9 @@ export default function ActiveWorkout({
   });
   // While a rest starts and ends, the cards above can change (the set just
   // finished leaves); hold the exercise where it was on screen so the page
-  // glides from there rather than jumping.
+  // glides from there rather than jumping. The clocks re-render every
+  // second, so only a real move counts (phones scroll in fractions of a
+  // pixel), and never during a glide, which the nudge would stop.
   const cardTop = useRef<{ el: HTMLElement; top: number } | null>(null);
   const wasResting = useRef(resting);
   useLayoutEffect(() => {
@@ -534,71 +542,14 @@ export default function ActiveWorkout({
     const before = cardTop.current;
     if ((wasResting.current || resting) && el && before?.el === el) {
       const shift = el.getBoundingClientRect().top + scrollY - before.top;
-      if (shift) scrollBy({ top: shift, behavior: "instant" });
+      if (Math.abs(shift) >= 1 && !gliding)
+        scrollBy({ top: shift, behavior: "instant" });
     }
     wasResting.current = resting;
     cardTop.current = el
       ? { el, top: el.getBoundingClientRect().top + scrollY }
       : null;
   });
-
-  // Where the current exercise is when it's off screen, for the button
-  // that brings it back.
-  const [awayFrom, setAwayFrom] = useState<"above" | "below" | null>(null);
-  const [clockCovers, setClockCovers] = useState(false);
-  const floatingBar = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const check = () => {
-      const el = currentCard.current;
-      // The current exercise is where you are. Just after a set it's that
-      // set and the button under it.
-      const parts = (doneBlock ? [doneBlock] : [el]).filter(
-        (p): p is HTMLElement => !!p,
-      );
-      // Main buttons near the bottom edge, where the floating buttons sit.
-      const zone = innerHeight - 96;
-      const underBar = [...document.querySelectorAll(".btn-primary")]
-        .filter((b) => !floatingBar.current?.contains(b))
-        .map((b) => b.getBoundingClientRect())
-        .filter((r) => r.bottom > zone && r.top < innerHeight);
-      // The current exercise's main button under the corner clock.
-      setClockCovers(
-        parts.some((p) =>
-          [...p.querySelectorAll(".btn-primary")].some((b) => {
-            const r = b.getBoundingClientRect();
-            return (
-              r.bottom > zone &&
-              r.top < innerHeight &&
-              r.right > innerWidth - 140
-            );
-          }),
-        ),
-      );
-      if (!parts.length) return setAwayFrom(null);
-      // Off screen, or so nearly that the button would cover it. Never over
-      // a Start button either, wherever it is.
-      const top = Math.min(...parts.map((p) => p.getBoundingClientRect().top));
-      const bottom = Math.max(
-        ...parts.map((p) => p.getBoundingClientRect().bottom),
-      );
-      setAwayFrom(
-        underBar.length
-          ? null
-          : bottom < 96
-            ? "above"
-            : top > zone
-              ? "below"
-              : null,
-      );
-    };
-    check();
-    window.addEventListener("scroll", check, { passive: true });
-    window.addEventListener("resize", check);
-    return () => {
-      window.removeEventListener("scroll", check);
-      window.removeEventListener("resize", check);
-    };
-  }, [selectedIndex, timerPhase, doneBlock]);
 
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -1084,47 +1035,141 @@ export default function ActiveWorkout({
           </button>
         )}
       </div>
-      {/* Along the bottom: the way back to the current exercise in the
-          middle, and the workout clock in the corner, which opens pause and
-          finish. The clock steps aside while a button sits under it. */}
-      <div
-        ref={floatingBar}
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none"
-      >
-        <span />
-        {awayFrom ? (
-          <button
-            type="button"
-            className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition animate-fade-in"
-            onClick={() =>
-              doneBlock
-                ? scrollToTop(() => doneRef.current)
-                : scrollToTop(toCurrent)
-            }
-          >
-            {awayFrom === "above" ? "↑" : "↓"} Current exercise
-          </button>
-        ) : (
-          <span />
-        )}
-        <button
-          type="button"
-          className={`justify-self-end h-10 rounded-full px-4 text-base font-bold tabular-nums shadow-lg ring-1 ring-base-content/10 bg-base-100 dark:bg-base-300 cursor-pointer transition active:scale-95 ${
-            clockCovers ? "opacity-0" : "pointer-events-auto"
-          } ${paused ? "text-base-content/50 dark:text-base-content/70" : ""}`}
-          onClick={() => setFinishing(true)}
-          aria-label={`Workout time ${elapsed}${paused ? ", paused" : ""}. Open to pause or finish.`}
-          aria-hidden={clockCovers || undefined}
-          tabIndex={clockCovers ? -1 : undefined}
-        >
-          {paused && "Paused · "}
-          {elapsed}
-        </button>
-      </div>
+      <FloatingBar
+        currentCard={currentCard}
+        doneBlock={doneBlock}
+        elapsed={elapsed}
+        paused={paused}
+        onCurrent={() =>
+          doneBlock
+            ? scrollToTop(() => doneRef.current)
+            : scrollToTop(toCurrent)
+        }
+        onClock={() => setFinishing(true)}
+      />
       {/* Room to scroll the current exercise to the top near the end. Sized
           to the small viewport so it holds still while the browser bar
           slides away mid-scroll. */}
       <div aria-hidden className="h-[75svh]" />
+    </div>
+  );
+}
+
+// Along the bottom: the way back to the current exercise in the middle, and
+// the workout clock in the corner, which opens pause and finish. The clock
+// steps aside while a button sits under it. It keeps its own state, so
+// scrolling only re-renders the bar, never the page under it.
+function FloatingBar({
+  currentCard,
+  doneBlock,
+  elapsed,
+  paused,
+  onCurrent,
+  onClock,
+}: {
+  currentCard: RefObject<HTMLElement | null>;
+  // Just after a set: that set and the button under it.
+  doneBlock: HTMLElement | null;
+  elapsed: string;
+  paused: boolean;
+  onCurrent: () => void;
+  onClock: () => void;
+}) {
+  // Which way the current exercise is, while it isn't at the top.
+  const [awayFrom, setAwayFrom] = useState<"above" | "below" | null>(null);
+  const [clockCovers, setClockCovers] = useState(false);
+  const bar = useRef<HTMLDivElement>(null);
+  const check = useRef(() => {});
+  check.current = () => {
+    // Main buttons near the bottom edge, where the floating buttons sit.
+    const zone = innerHeight - 96;
+    const nearBottom = (b: Element) => {
+      const r = b.getBoundingClientRect();
+      return r.bottom > zone && r.top < innerHeight;
+    };
+    const underBar = [...document.querySelectorAll(".btn-primary")].some(
+      (b) => !bar.current?.contains(b) && nearBottom(b),
+    );
+    const el = doneBlock ?? currentCard.current;
+    // The current exercise's main button under the corner clock.
+    setClockCovers(
+      !!el &&
+        [...el.querySelectorAll(".btn-primary")].some(
+          (b) =>
+            nearBottom(b) && b.getBoundingClientRect().right > innerWidth - 140,
+        ),
+    );
+    // Never over a Start button, wherever it is.
+    if (!el || underBar) return setAwayFrom(null);
+    const r = el.getBoundingClientRect();
+    if (doneBlock) {
+      // A set just finished stays where it is, so only once it's off
+      // screen, or so nearly that the button would cover it.
+      return setAwayFrom(
+        r.bottom < 96 ? "above" : r.top > zone ? "below" : null,
+      );
+    }
+    // The exercise's top away from the top of the screen, and the page able
+    // to scroll it there.
+    const off = r.top - parseFloat(getComputedStyle(el).scrollMarginTop || "0");
+    const atBottom = innerHeight + scrollY >= document.body.scrollHeight - 1;
+    setAwayFrom(
+      off < -2 && scrollY > 0 ? "above" : off > 2 && !atBottom ? "below" : null,
+    );
+  };
+  // Once a frame at most while scrolling, and after every render (the
+  // clock ticks each second), since cards grow and shrink without a scroll.
+  const frame = useRef(0);
+  const schedule = useRef(() => {
+    if (!frame.current)
+      frame.current = requestAnimationFrame(() => {
+        frame.current = 0;
+        check.current();
+      });
+  });
+  useEffect(() => schedule.current());
+  useEffect(() => {
+    const onChange = schedule.current;
+    window.addEventListener("scroll", onChange, { passive: true });
+    window.addEventListener("resize", onChange);
+    return () => {
+      window.removeEventListener("scroll", onChange);
+      window.removeEventListener("resize", onChange);
+      cancelAnimationFrame(frame.current);
+      frame.current = 0;
+    };
+  }, []);
+
+  return (
+    <div
+      ref={bar}
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none"
+    >
+      <span />
+      {awayFrom ? (
+        <button
+          type="button"
+          className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition animate-fade-in"
+          onClick={onCurrent}
+        >
+          {awayFrom === "above" ? "↑" : "↓"} Current exercise
+        </button>
+      ) : (
+        <span />
+      )}
+      <button
+        type="button"
+        className={`justify-self-end h-10 rounded-full px-4 text-base font-bold tabular-nums shadow-lg ring-1 ring-base-content/10 bg-base-100 dark:bg-base-300 cursor-pointer transition-opacity active:scale-95 ${
+          clockCovers ? "opacity-0" : "pointer-events-auto"
+        } ${paused ? "text-base-content/50 dark:text-base-content/70" : ""}`}
+        onClick={onClock}
+        aria-label={`Workout time ${elapsed}${paused ? ", paused" : ""}. Open to pause or finish.`}
+        aria-hidden={clockCovers || undefined}
+        tabIndex={clockCovers ? -1 : undefined}
+      >
+        {paused && "Paused · "}
+        {elapsed}
+      </button>
     </div>
   );
 }
