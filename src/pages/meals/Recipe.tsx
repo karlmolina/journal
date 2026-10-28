@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ServingsField,
   cardClass,
-  fieldClass,
   labelClass,
   mutedClass,
 } from "../../components/meals/MealParts";
@@ -17,6 +16,7 @@ import {
   type Ingredient,
 } from "../../functions/meals";
 import { normalizeUrl, recipeFromLink } from "../../functions/recipeFromLink";
+import { fieldClass } from "../../components/fieldClass";
 
 // Edits a recipe as plain text: one ingredient or step per line. Ingredients
 // keep their aisle when the item is unchanged; new ones get a guess.

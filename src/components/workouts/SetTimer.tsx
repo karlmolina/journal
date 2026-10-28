@@ -5,167 +5,27 @@ import type { SetInput, Side } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
 import { onGrid } from "../../hooks/useClock";
 import { formatClock } from "../../functions/formatDuration";
-import {
-  FIRST_SIDE,
-  SECOND_SIDE,
-  sideLabel,
-} from "../../functions/planProgress";
+import { FIRST_SIDE, SECOND_SIDE } from "../../functions/planProgress";
 import SetForm, { ClockRow, RepsWeightFields } from "./SetForm";
 import ExerciseInput from "./ExerciseInput";
 import ExerciseHowTo from "./ExerciseHowTo";
 import ExerciseNote, { type ExerciseNotesProps } from "./ExerciseNote";
+import ExerciseHeader, { PlanLines } from "./ExerciseHeader";
+import RestStartButton, { primaryClass } from "./RestStartButton";
+import SupersetControl from "./SupersetControl";
+import {
+  readSaved,
+  writeSaved,
+  type Phase,
+  type Rest,
+} from "../../functions/setTimerState";
+import { boldFieldClass } from "../fieldClass";
 
 const text = (n: number | null | undefined) => (n == null ? "" : String(n));
-
-// The one big button on the card: big enough to hit mid-set.
-const primaryClass =
-  "btn btn-primary btn-lg h-16 rounded-full text-2xl font-extrabold w-full active:scale-[0.98] transition";
-
-const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
-
-// What the timer is doing. Times are epoch milliseconds so the clocks stay
-// right across reloads and while the phone is locked.
-// `side` is set for exercises done one side at a time. `supersetNext` is
-// the exercise that follows straight on in a superset.
-// Rest counts up from when a set is stopped (`Rest.since`) until the next
-// one starts, and that time is saved with the next set. `target` is the
-// planned rest; the phone buzzes when it's reached.
-interface Rest {
-  since: number;
-  target: number;
-  alerted?: boolean;
-}
-
-type Phase =
-  | {
-      phase: "ready";
-      // Still resting, after choosing to change the next exercise.
-      rest?: Rest;
-      // Picking another exercise, so the name is a field, not the title.
-      editing?: boolean;
-      switchTo?: Side;
-      supersetNext?: string;
-      // The set just stopped, to fix its numbers until the next one starts.
-      logged?: boolean;
-    }
-  | {
-      phase: "running";
-      exercise: string;
-      startedAt: number;
-      // Set when the start was pushed back for a countdown (straight on
-      // from the set before), so a plain Start never shows one.
-      countdown?: boolean;
-      side?: Side | null;
-      // The rest before this set, and the rest itself to carry on with if
-      // the set is thrown away.
-      restSeconds?: number | null;
-      rest?: Rest;
-      // The reps and weight it's saved with, the plan's until changed.
-      reps?: string;
-      weight?: string;
-    }
-  | {
-      phase: "logging";
-      exercise: string;
-      seconds: number | null;
-      side?: Side | null;
-      restSeconds?: number | null;
-      // When the set was stopped, and the rest that started then (rest runs
-      // while the set is filled in).
-      stoppedAt?: number;
-      rest?: Rest;
-    }
-  | { phase: "resting"; rest: Rest; logged?: boolean }
-  // A set just finished: fix its numbers, then go on to `then`, the rest or
-  // the next set.
-  | { phase: "done"; exercise: string; side?: Side | null; then: Phase };
-
-interface Saved {
-  workoutId: string;
-  state: Phase;
-}
-
-function readSaved(key: string, workoutId: string): Phase {
-  try {
-    const saved: Saved = JSON.parse(localStorage.getItem(key) ?? "null");
-    // Older saves counted rest down and have no `rest`.
-    if (
-      saved?.workoutId === workoutId &&
-      (saved.state.phase !== "resting" || saved.state.rest)
-    )
-      return saved.state;
-  } catch {
-    // Start fresh.
-  }
-  return { phase: "ready" };
-}
-
-function writeSaved(key: string, workoutId: string, state: Phase) {
-  try {
-    localStorage.setItem(
-      key,
-      JSON.stringify({ workoutId, state } satisfies Saved),
-    );
-  } catch {
-    // The timer still works; it just won't survive a reload.
-  }
-}
 
 // Seconds to get set before the right side, or the next exercise in a
 // superset, starts timing.
 const COUNTDOWN = 3;
-
-// The start button during a rest is the rest's progress bar too: it fills
-// toward the planned rest and starts the set whenever it's tapped. The label
-// is drawn twice, once on each side of the fill, so it reads on both.
-function RestStartButton({
-  label,
-  progress,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  progress: number;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  const filled = Math.min(1, Math.max(0, progress)) * 100;
-  const text = "absolute inset-0 flex items-center justify-center";
-  // The fill slides in from the left while its label slides back the same
-  // amount to stay put. Transforms run off the main thread, so the bar
-  // never repaints the page while you scroll.
-  const slide =
-    "absolute inset-0 transition-transform duration-1000 ease-linear";
-  return (
-    <button
-      type="button"
-      className={`${primaryClass} relative overflow-hidden border-0`}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      <span
-        aria-hidden
-        className={`${text} bg-[color-mix(in_oklab,var(--color-primary)_22%,var(--color-base-100))] text-primary dark:bg-[color-mix(in_oklab,var(--color-primary)_30%,var(--color-base-100))] dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]`}
-      >
-        {label}
-      </span>
-      <span
-        aria-hidden
-        className={`${slide} overflow-hidden`}
-        style={{ transform: `translateX(${filled - 100}%)` }}
-      >
-        <span
-          className={`${text} ${slide} bg-primary text-primary-content`}
-          style={{ transform: `translateX(${100 - filled}%)` }}
-        >
-          {label}
-        </span>
-      </span>
-      <span className="sr-only">{label}</span>
-    </button>
-  );
-}
 
 // A buzz when the planned rest is up (no sound); the screen shows it too.
 function restTargetAlert() {
@@ -225,169 +85,6 @@ interface SetTimerProps {
 
 export type TimerPhase = Phase["phase"];
 export type SlotContent = "none" | "rest";
-
-// Shows what the current exercise is in a superset with, and adds more
-// exercises to it (any number: a superset of three or more is a circuit).
-function SupersetControl({
-  exercise,
-  partners,
-  suggestions,
-  onSuperset,
-  onLeave,
-}: {
-  exercise: string;
-  partners?: string[];
-  suggestions: string[];
-  onSuperset: (partner: string) => void;
-  onLeave: () => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  const [partner, setPartner] = useState("");
-  const linkClass =
-    "btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]";
-
-  if (!adding)
-    return partners?.length ? (
-      <div className="flex flex-wrap items-center justify-center gap-x-1 text-sm font-semibold text-base-content/60 dark:text-base-content/80">
-        <span className="text-center">Superset with {partners.join(", ")}</span>
-        <button
-          type="button"
-          className={linkClass}
-          onClick={() => setAdding(true)}
-        >
-          + Add
-        </button>
-        <button type="button" className={linkClass} onClick={onLeave}>
-          Remove
-        </button>
-      </div>
-    ) : (
-      <button
-        type="button"
-        className={`${linkClass} self-center`}
-        onClick={() => setAdding(true)}
-        disabled={!exercise}
-      >
-        + Superset with another exercise
-      </button>
-    );
-
-  const add = () => {
-    const name = partner.trim();
-    if (!name || name.toLowerCase() === exercise.toLowerCase()) return;
-    onSuperset(name);
-    // Stay open so a circuit can be built one exercise after another.
-    setPartner("");
-  };
-  return (
-    <div className="flex flex-col gap-2 rounded-xl bg-base-content/5 p-2">
-      <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 px-1">
-        {partners?.length
-          ? `Superset with ${partners.join(", ")}. Add as many as you like.`
-          : "Do a set of each in turn, then rest."}
-      </p>
-      <ExerciseInput
-        className={fieldClass}
-        value={partner}
-        onChange={setPartner}
-        suggestions={suggestions.filter(
-          (n) =>
-            ![exercise, ...(partners ?? [])].some(
-              (m) => m.toLowerCase() === n.toLowerCase(),
-            ),
-        )}
-      />
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm rounded-full font-bold flex-1"
-          onClick={() => setAdding(false)}
-        >
-          Done
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary btn-sm rounded-full font-bold flex-1"
-          onClick={add}
-          disabled={!partner.trim()}
-        >
-          Add to superset
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// What the plan says: the set and target, then its tip and the goal, each
-// on a line of its own.
-function PlanLines({
-  target,
-  notes,
-  goal,
-}: {
-  target?: string;
-  notes?: string;
-  goal?: string;
-}) {
-  if (!target && !notes && !goal) return null;
-  return (
-    <div className="flex flex-col gap-0.5 text-sm text-base-content/60 dark:text-base-content/80">
-      {target && <p className="font-semibold tabular-nums">{target}</p>}
-      {notes && <p className="font-medium">{notes}</p>}
-      {goal && <p className="font-medium">Goal: {goal}</p>}
-    </div>
-  );
-}
-
-// The exercise you're on, its plan and how it's done. The set timer shows it
-// the same while a set runs, while it's filled in and before the next one,
-// so the card doesn't jump around on Stop set; during a rest it heads the
-// next exercise's card.
-export function ExerciseHeader({
-  name,
-  side,
-  target,
-  notes,
-  goal,
-  lookup,
-  exerciseNotes,
-  foldHowTo,
-}: {
-  name: string;
-  side?: Side | null;
-  target?: string;
-  notes?: string;
-  goal?: string;
-  lookup?: (exercise: string) => Exercise | undefined;
-  exerciseNotes?: ExerciseNotesProps;
-  foldHowTo?: boolean;
-}) {
-  return (
-    <div className="w-full flex flex-col">
-      {/* The biggest text on the screen: what you're doing now. */}
-      <p className="text-4xl font-extrabold leading-tight tracking-tight">
-        {name}
-      </p>
-      {side && (
-        <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
-          {sideLabel(side)}
-        </p>
-      )}
-      <PlanLines target={target} notes={notes} goal={goal} />
-      <div className="w-full mt-2 flex flex-col gap-2 text-left">
-        <ExerciseHowTo exercise={lookup?.(name)} folded={foldHowTo} />
-        {exerciseNotes && (
-          <ExerciseNote
-            key={name}
-            exercise={name}
-            regions={lookup?.(name)?.body_regions ?? []}
-            {...exerciseNotes}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function SetTimer({
   workoutId,
@@ -805,7 +502,7 @@ export default function SetTimer({
       {editing ? (
         <>
           <ExerciseInput
-            className={fieldClass}
+            className={boldFieldClass}
             value={name}
             onChange={setName}
             suggestions={suggestions}

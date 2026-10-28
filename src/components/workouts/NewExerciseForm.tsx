@@ -7,9 +7,7 @@ import type {
   ExercisePurpose,
   NewExercise,
 } from "../../hooks/useExercises";
-
-const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
+import { boldFieldClass } from "../fieldClass";
 
 const CATEGORIES: { key: ExerciseCategory; label: string }[] = [
   { key: "strength", label: "Strength" },
@@ -41,9 +39,7 @@ export default function NewExerciseForm({
   const [purposes, setPurposes] = useState<ExercisePurpose[]>(
     initial?.purposes ?? [],
   );
-  const [regions, setRegions] = useState<string[]>(
-    initial?.body_regions ?? [],
-  );
+  const [regions, setRegions] = useState<string[]>(initial?.body_regions ?? []);
   const [dosage, setDosage] = useState(initial?.dosage ?? "");
   const [unilateral, setUnilateral] = useState(initial?.unilateral ?? false);
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -66,7 +62,8 @@ export default function NewExerciseForm({
     if (saved) onCancel();
   };
 
-  const label = "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
+  const label =
+    "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
 
   return (
     <form
@@ -83,7 +80,7 @@ export default function NewExerciseForm({
         </p>
       )}
       <input
-        className={fieldClass}
+        className={boldFieldClass}
         placeholder="Name"
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -148,14 +145,14 @@ export default function NewExerciseForm({
         </div>
       </div>
       <input
-        className={fieldClass}
+        className={boldFieldClass}
         placeholder="Sets and reps, like 3 × 10 (optional)"
         value={dosage}
         onChange={(e) => setDosage(e.target.value)}
         aria-label="Sets and reps"
       />
       <textarea
-        className={`${fieldClass} resize-none font-medium`}
+        className={`${boldFieldClass} resize-none font-medium`}
         rows={3}
         placeholder="How to do it, or who prescribed it (optional)"
         value={description}

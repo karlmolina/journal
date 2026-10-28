@@ -7,9 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import useInjuries, { today, type Side } from "../../hooks/useInjuries";
 import useExerciseNotes from "../../hooks/useExerciseNotes";
 import { placeKey, placeLabel } from "../../functions/bodyRegions";
-
-const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none transition focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
+import { fieldClass } from "../../components/fieldClass";
 
 interface Place {
   region: string;

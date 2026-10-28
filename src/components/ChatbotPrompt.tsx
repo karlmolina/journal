@@ -1,7 +1,5 @@
 import { useState } from "react";
-
-const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none transition focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
+import { fieldClass } from "./fieldClass";
 
 // Copies the prompt for a chatbot. When the clipboard is blocked, the prompt
 // shows in a box to copy by hand.

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { SessionExercise } from "../../functions/planProgress";
 import ExerciseInput from "./ExerciseInput";
+import { boldFieldClass } from "../fieldClass";
 
 // An exercise as the checklist counts it: one ended early needs only the
 // sets already done.
@@ -8,8 +9,6 @@ export type Step = SessionExercise & { planned_sets: number };
 
 export const actionClass =
   "btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]";
-const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 
 // At the foot of each exercise's card: do it now instead of the current
 // one, swap it for another for this workout, or end it before all its sets
@@ -45,7 +44,7 @@ export default function StepActions({
           Do something else instead of {step.name}, just this workout.
         </p>
         <ExerciseInput
-          className={fieldClass}
+          className={boldFieldClass}
           value={name}
           onChange={setName}
           suggestions={suggestions.filter(

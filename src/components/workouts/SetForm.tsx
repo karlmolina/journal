@@ -5,9 +5,7 @@ import type { SetInput, Side } from "../../hooks/useWorkouts";
 import { formatClock, parseClock } from "../../functions/formatDuration";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 import useDragAdjust from "../../hooks/useDragAdjust";
-
-const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
+import { boldFieldClass } from "../fieldClass";
 
 // A field that reads like "10 reps": the number sits right up against its
 // unit. Tapping anywhere in the box focuses the input, and dragging up or down
@@ -256,7 +254,7 @@ export default function SetForm({
       {aboveFields}
       {!hideExercise && (
         <ExerciseInput
-          className={fieldClass}
+          className={boldFieldClass}
           value={exercise}
           onChange={setExercise}
           suggestions={suggestions}
@@ -284,7 +282,7 @@ export default function SetForm({
       >
         {!bigTime && (
           <input
-            className={`${fieldClass} flex-1`}
+            className={`${boldFieldClass} flex-1`}
             inputMode="numeric"
             placeholder="Time"
             value={time}

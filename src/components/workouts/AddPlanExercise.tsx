@@ -4,9 +4,8 @@ import ExerciseInput from "./ExerciseInput";
 import type { PlannedExercise } from "../../hooks/useWorkoutPlans";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 import useDragAdjust from "../../hooks/useDragAdjust";
+import { boldFieldClass } from "../fieldClass";
 
-const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 // Reads like "3 sets": the number sits right up against its unit, and dragging
 // on the box turns a scroll wheel of values.
 const unitFieldClass =
@@ -95,7 +94,7 @@ export default function AddPlanExercise({
     >
       {above}
       <ExerciseInput
-        className={fieldClass}
+        className={boldFieldClass}
         value={name}
         onChange={setName}
         suggestions={suggestions}
@@ -120,7 +119,7 @@ export default function AddPlanExercise({
           ×
         </span>
         <input
-          className={`${fieldClass} flex-1`}
+          className={`${boldFieldClass} flex-1`}
           placeholder="8-10 or 30 sec"
           value={reps}
           onChange={(e) => setReps(e.target.value)}
@@ -155,7 +154,7 @@ export default function AddPlanExercise({
         </label>
       </div>
       <input
-        className={fieldClass}
+        className={boldFieldClass}
         placeholder="Notes, like form cues (optional)"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}

@@ -31,14 +31,13 @@ import {
   supersetRuns,
 } from "../../functions/planProgress";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
+import { fieldClass } from "../../components/fieldClass";
 
 const DAYS = [2, 3, 4, 5, 6];
 const MINUTES = [20, 30, 45, 60, 90];
 
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
-const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none transition focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 const label =
   "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
 
@@ -553,12 +552,7 @@ export default function Plan() {
       direction,
     );
     if (!moved) return;
-    const changes = followPlanEdit(
-      active,
-      plan,
-      session,
-      movedTo(moved.from),
-    );
+    const changes = followPlanEdit(active, plan, session, movedTo(moved.from));
     if (changes) setPlanChanges(changes);
     saveSession(plan, session, moved.exercises, "Couldn't reorder the plan.");
   };
