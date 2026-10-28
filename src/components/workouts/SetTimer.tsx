@@ -10,10 +10,16 @@ import {
   SECOND_SIDE,
   sideLabel,
 } from "../../functions/planProgress";
-import SetForm from "./SetForm";
+import SetForm, { ClockRow, RepsWeightFields } from "./SetForm";
 import ExerciseInput from "./ExerciseInput";
 import ExerciseHowTo from "./ExerciseHowTo";
 import ExerciseNote, { type ExerciseNotesProps } from "./ExerciseNote";
+
+const text = (n: number | null | undefined) => (n == null ? "" : String(n));
+
+// The one big button on the card: big enough to hit mid-set.
+const primaryClass =
+  "btn btn-primary btn-lg h-16 rounded-full text-2xl font-extrabold w-full active:scale-[0.98] transition";
 
 const fieldClass =
   "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
@@ -55,6 +61,9 @@ type Phase =
       // the set is thrown away.
       restSeconds?: number | null;
       rest?: Rest;
+      // The reps and weight it's saved with, the plan's until changed.
+      reps?: string;
+      weight?: string;
     }
   | {
       phase: "logging";
@@ -131,7 +140,7 @@ function RestStartButton({
   return (
     <button
       type="button"
-      className="btn btn-primary btn-lg rounded-full font-bold w-full relative overflow-hidden border-0 active:scale-[0.98] transition"
+      className={`${primaryClass} relative overflow-hidden border-0`}
       onClick={onClick}
       disabled={disabled}
     >
@@ -173,8 +182,10 @@ interface SetTimerProps {
   clockOrigin: number;
   // The exercise to do next, from the plan or the library.
   exercise: string;
-  // A line about the target, like "Set 2 of 3 · 8-10 reps".
+  // A line about the target, like "Set 2 of 3 · 8-10 reps", and just the
+  // set, "Set 2 of 3", for once it's going and the fields show the rest.
   target?: string;
+  setLabel?: string;
   // The plan's tip for the exercise, and what it's working toward.
   notes?: string;
   goal?: string;
@@ -385,6 +396,7 @@ export default function SetTimer({
   clockOrigin,
   exercise,
   target,
+  setLabel,
   notes,
   goal,
   suggestions,
@@ -489,6 +501,12 @@ export default function SetTimer({
     [state.phase, onPhaseChange],
   );
 
+  // The plan's reps and weight for a set, to start its fields with.
+  const planned = (n: string) => {
+    const { reps, weight } = prefillFor(n);
+    return { reps: text(reps), weight: text(weight) };
+  };
+
   const startSet = () => {
     const n = name.trim();
     if (!n || busy) return;
@@ -500,6 +518,7 @@ export default function SetTimer({
       side: sideFor(n),
       restSeconds: restUntil(at),
       rest,
+      ...planned(n),
     });
   };
 
@@ -537,11 +556,11 @@ export default function SetTimer({
   const stopSet = () => {
     if (state.phase !== "running") return;
     const at = Date.now();
-    const { reps = null, weight = null } = prefillFor(state.exercise);
+    const { reps, weight } = { ...planned(state.exercise), ...state };
     const set: SetInput = {
       exercise_name: state.exercise,
-      reps,
-      weight,
+      reps: /^\s*[1-9]\d*\s*$/.test(reps) ? Number(reps) : null,
+      weight: /^\s*\d+(\.\d+)?\s*$/.test(weight) ? Number(weight) : null,
       duration_seconds: since(state.startedAt, at) || null,
       side: state.side ?? null,
     };
@@ -567,6 +586,7 @@ export default function SetTimer({
       countdown: true,
       side: sideFor(n),
       restSeconds: null,
+      ...planned(n),
     });
   };
 
@@ -587,11 +607,14 @@ export default function SetTimer({
 
   const startLabel = side ? `Start ${side} side` : "Start";
 
+  // Once a set is going its reps and weight are in the fields below, so the
+  // title only says which set it is.
+  const going = state.phase === "running" || state.phase === "done";
   const header = (exerciseName: string, setSide?: Side | null) => (
     <ExerciseHeader
       name={exerciseName}
       side={setSide}
-      target={target}
+      target={going ? (setLabel ?? target) : target}
       notes={notes}
       goal={goal}
       lookup={lookup}
@@ -601,52 +624,50 @@ export default function SetTimer({
     />
   );
 
-  const bigClock = (seconds: number) => (
-    <p
-      className="my-2 text-3xl font-extrabold tracking-tight tabular-nums text-center"
-      role="timer"
-    >
-      {formatClock(seconds)}
-    </p>
-  );
-
-  if (state.phase === "running")
+  if (state.phase === "running") {
+    const fields = { ...planned(state.exercise), ...state };
     return (
       <div className="flex flex-col">
         {header(state.exercise, state.side)}
         {aboveClock}
+        {/* Laid out like the set once it's done, so nothing moves on Finish. */}
+        <div
+          className={`${aboveClock ? "mt-2" : ""} mb-2 flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3`}
+        >
+          <ClockRow
+            goalSeconds={prefillFor(state.exercise).duration_seconds}
+            clock={
+              <p
+                className={`my-1 px-4 py-1 text-4xl font-extrabold tracking-tight tabular-nums text-center ${countdown > 0 ? "text-base-content/45 dark:text-base-content/70" : ""}`}
+                role="timer"
+              >
+                {countdown > 0
+                  ? `Starting in ${countdown}`
+                  : formatClock(since(state.startedAt))}
+              </p>
+            }
+          />
+          <RepsWeightFields
+            big
+            reps={fields.reps}
+            weight={fields.weight}
+            onReps={(reps) => setState({ ...state, ...fields, reps })}
+            onWeight={(weight) => setState({ ...state, ...fields, weight })}
+          />
+        </div>
         {countdown > 0 ? (
-          // In the clock's place, so nothing moves when it starts.
-          <>
-            <p
-              className="my-2 text-3xl font-extrabold tracking-tight tabular-nums text-center text-base-content/45 dark:text-base-content/70"
-              role="timer"
-            >
-              Starting in {countdown}
-            </p>
-            <button
-              type="button"
-              className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
-              onClick={startNow}
-            >
-              Start now
-            </button>
-          </>
+          <button type="button" className={primaryClass} onClick={startNow}>
+            Start now
+          </button>
         ) : (
-          bigClock(since(state.startedAt))
-        )}
-        {countdown === 0 && (
           // Finishing a first side too: fix it, then start the second.
-          <button
-            type="button"
-            className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
-            onClick={stopSet}
-          >
+          <button type="button" className={primaryClass} onClick={stopSet}>
             Finish
           </button>
         )}
       </div>
     );
+  }
 
   if (state.phase === "logging")
     return (
@@ -682,11 +703,7 @@ export default function SetTimer({
             ? `Start ${side} side`
             : "Next set";
     const button = (
-      <button
-        type="button"
-        className="btn btn-primary btn-lg rounded-full font-bold w-full active:scale-[0.98] transition"
-        onClick={carryOn}
-      >
+      <button type="button" className={primaryClass} onClick={carryOn}>
         {label}
       </button>
     );
@@ -811,7 +828,7 @@ export default function SetTimer({
       {aboveClock}
       <button
         type="button"
-        className="btn btn-primary btn-lg rounded-full font-bold active:scale-[0.98] transition"
+        className={primaryClass}
         onClick={startSet}
         disabled={!name.trim()}
       >

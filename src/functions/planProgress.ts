@@ -46,10 +46,24 @@ export function nextSessionIndex(
 // A starting rep count from the plan's text: "8-10" gives 8. Timed or
 // distance targets ("30 sec", "400 m") give nothing; the set timer covers those.
 export function plannedReps(reps: string): number | null {
+  if (plannedSeconds(reps) != null) return null;
   if (/sec|min|\d\s*s\b|\bm\b|km|mile|yd|ft|meter|metre/i.test(reps))
     return null;
   const match = reps.match(/\d+/);
   return match ? Number(match[0]) : null;
+}
+
+// A set's planned time from the plan's text: "15 min" gives 900, "30-45 sec"
+// gives 30, "1:30" gives 90. Rep and distance targets give nothing.
+export function plannedSeconds(reps: string): number | null {
+  const clock = reps.match(/\b(\d+):([0-5]\d)\b/);
+  if (clock) return Number(clock[1]) * 60 + Number(clock[2]);
+  const match = reps.match(
+    /(\d+(?:\.\d+)?)(?:\s*[-–]\s*\d+(?:\.\d+)?)?\s*(min|minutes?|mins|sec|seconds?|secs|s)\b/i,
+  );
+  if (!match) return null;
+  const n = Number(match[1]);
+  return Math.round(/^m/i.test(match[2]) ? n * 60 : n);
 }
 
 // The most recent set of an exercise, to prefill the next one. `workouts`

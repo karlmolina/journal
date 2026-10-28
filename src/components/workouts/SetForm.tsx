@@ -18,10 +18,108 @@ const unitInputClass =
   "w-full min-w-0 bg-transparent text-right font-semibold outline-none";
 const unitClass =
   "shrink-0 text-sm font-medium text-base-content/45 dark:text-base-content/65";
+// Readable from across the room, for the set you're on.
+const bigInputClass =
+  "w-full min-w-0 bg-transparent text-right text-4xl font-extrabold tracking-tight tabular-nums outline-none";
+const bigUnitClass =
+  "shrink-0 text-lg font-semibold text-base-content/45 dark:text-base-content/65";
 
 const weightLabel = WEIGHT_UNIT === "lb" ? "lbs" : WEIGHT_UNIT;
 
 const text = (n: number | null | undefined) => (n == null ? "" : String(n));
+
+// "10 reps × 225.5 lbs", each number typed or turned on a scroll wheel by
+// dragging. `children` go at the end of the row.
+export function RepsWeightFields({
+  reps,
+  weight,
+  onReps,
+  onWeight,
+  big,
+  children,
+}: {
+  reps: string;
+  weight: string;
+  onReps: (reps: string) => void;
+  onWeight: (weight: string) => void;
+  big?: boolean;
+  children?: React.ReactNode;
+}) {
+  const dragReps = useDragAdjust({
+    value: reps,
+    onChange: onReps,
+    label: "Reps",
+    min: 1,
+  });
+  const dragWeight = useDragAdjust({
+    value: weight,
+    onChange: onWeight,
+    label: `Weight (${weightLabel})`,
+    min: 0,
+  });
+  const inputClass = big ? bigInputClass : unitInputClass;
+  const unit = big ? bigUnitClass : unitClass;
+  return (
+    <div className="flex items-center gap-2">
+      <label className={unitFieldClass} {...dragReps.bind}>
+        <input
+          className={inputClass}
+          inputMode="numeric"
+          value={reps}
+          onChange={(e) => onReps(e.target.value)}
+          aria-label="Reps"
+        />
+        <span className={unit} aria-hidden>
+          reps
+        </span>
+      </label>
+      <span
+        className="text-base font-semibold text-base-content/45 dark:text-base-content/65"
+        aria-hidden
+      >
+        ×
+      </span>
+      <label className={unitFieldClass} {...dragWeight.bind}>
+        <input
+          className={inputClass}
+          inputMode="decimal"
+          value={weight}
+          onChange={(e) => onWeight(e.target.value)}
+          aria-label={`Weight in ${WEIGHT_UNIT}`}
+        />
+        <span className={unit} aria-hidden>
+          {weightLabel}
+        </span>
+      </label>
+      {children}
+      {dragReps.picker}
+      {dragWeight.picker}
+    </div>
+  );
+}
+
+// The set's clock, centered, with the plan's time for it just to its right.
+export function ClockRow({
+  clock,
+  goalSeconds,
+}: {
+  clock: React.ReactNode;
+  goalSeconds?: number | null;
+}) {
+  return (
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+      <span />
+      {clock}
+      {goalSeconds ? (
+        <span className="text-lg font-bold tabular-nums text-base-content/55 dark:text-base-content/75">
+          / {formatClock(goalSeconds)}
+        </span>
+      ) : (
+        <span />
+      )}
+    </div>
+  );
+}
 
 interface SetFormProps {
   // Exercise names used before, most recent first.
@@ -35,8 +133,10 @@ interface SetFormProps {
   // The exercise is shown above already (the set timer), so no field for it.
   hideExercise?: boolean;
   // The time is the set timer's big clock, made editable, in place of the
-  // small time box; aboveFields goes between it and the rest of the form.
+  // small time box, with the plan's time for the set beside it; aboveFields
+  // goes between it and the rest of the form.
   bigTime?: boolean;
+  goalSeconds?: number | null;
   aboveFields?: React.ReactNode;
   onCancel?: () => void;
   // Editing a logged set: turn it into two, halving its time.
@@ -57,6 +157,7 @@ export default function SetForm({
   submitLabel = "Add set",
   hideExercise,
   bigTime,
+  goalSeconds,
   aboveFields,
   onCancel,
   onSplit,
@@ -68,18 +169,6 @@ export default function SetForm({
   const [exercise, setExercise] = useState(initial?.exercise_name ?? "");
   const [reps, setReps] = useState(text(initial?.reps));
   const [weight, setWeight] = useState(text(initial?.weight));
-  const dragReps = useDragAdjust({
-    value: reps,
-    onChange: setReps,
-    label: "Reps",
-    min: 1,
-  });
-  const dragWeight = useDragAdjust({
-    value: weight,
-    onChange: setWeight,
-    label: `Weight (${weightLabel})`,
-    min: 0,
-  });
   const [time, setTime] = useState(
     initial?.duration_seconds ? formatClock(initial.duration_seconds) : "",
   );
@@ -145,19 +234,24 @@ export default function SetForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
       {bigTime && (
-        <label
-          className="self-center my-1 rounded-2xl bg-base-content/6 px-4 py-1 transition focus-within:bg-base-content/12 cursor-ns-resize touch-none"
-          {...dragTime.bind}
-        >
-          <input
-            className="w-32 bg-transparent text-center text-3xl font-extrabold tracking-tight tabular-nums outline-none placeholder:text-base-content/30"
-            inputMode="numeric"
-            placeholder="0:00"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            aria-label="Time, in seconds or minutes:seconds"
-          />
-        </label>
+        <ClockRow
+          goalSeconds={goalSeconds}
+          clock={
+            <label
+              className="my-1 rounded-2xl bg-base-content/6 px-4 py-1 transition focus-within:bg-base-content/12 cursor-ns-resize touch-none"
+              {...dragTime.bind}
+            >
+              <input
+                className="w-36 bg-transparent text-center text-4xl font-extrabold tracking-tight tabular-nums outline-none placeholder:text-base-content/30"
+                inputMode="numeric"
+                placeholder="0:00"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                aria-label="Time, in seconds or minutes:seconds"
+              />
+            </label>
+          }
+        />
       )}
       {aboveFields}
       {!hideExercise && (
@@ -181,37 +275,13 @@ export default function SetForm({
           ))}
         </div>
       )}
-      <div className="flex items-center gap-2">
-        <label className={unitFieldClass} {...dragReps.bind}>
-          <input
-            className={unitInputClass}
-            inputMode="numeric"
-            value={reps}
-            onChange={(e) => setReps(e.target.value)}
-            aria-label="Reps"
-          />
-          <span className={unitClass} aria-hidden>
-            reps
-          </span>
-        </label>
-        <span
-          className="text-base font-semibold text-base-content/45 dark:text-base-content/65"
-          aria-hidden
-        >
-          ×
-        </span>
-        <label className={unitFieldClass} {...dragWeight.bind}>
-          <input
-            className={unitInputClass}
-            inputMode="decimal"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            aria-label={`Weight in ${WEIGHT_UNIT}`}
-          />
-          <span className={unitClass} aria-hidden>
-            {weightLabel}
-          </span>
-        </label>
+      <RepsWeightFields
+        reps={reps}
+        weight={weight}
+        onReps={setReps}
+        onWeight={setWeight}
+        big={bigTime}
+      >
         {!bigTime && (
           <input
             className={`${fieldClass} flex-1`}
@@ -222,7 +292,7 @@ export default function SetForm({
             aria-label="Time, in seconds or minutes:seconds"
           />
         )}
-      </div>
+      </RepsWeightFields>
       {invalid && (
         <p className="text-sm font-semibold text-error">
           Use whole reps, a weight like 22.5, and time like 45 or 1:30.
@@ -283,8 +353,6 @@ export default function SetForm({
         </div>
       )}
       {dragTime.picker}
-      {dragReps.picker}
-      {dragWeight.picker}
     </form>
   );
 }
