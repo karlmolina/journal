@@ -6,7 +6,6 @@ import {
   AddMealBox,
   ServingsField,
   cardClass,
-  fieldClass,
   labelClass,
   mutedClass,
   type AddedMeal,
@@ -29,6 +28,7 @@ import {
   groceryList,
   hasRecipe,
 } from "../../functions/meals";
+import { fieldClass } from "../../components/fieldClass";
 
 const parseRecipes = (reply: string) => {
   const result = parseMealReply(reply);
