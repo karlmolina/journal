@@ -42,11 +42,13 @@ const mealPages = {
   plan: () => import("./pages/meals/MealPlan"),
   groceries: () => import("./pages/meals/Groceries"),
   library: () => import("./pages/meals/Library"),
+  share: () => import("./pages/meals/Share"),
 };
 const Meals = React.lazy(mealPages.shell);
 const MealPlan = React.lazy(mealPages.plan);
 const Groceries = React.lazy(mealPages.groceries);
 const MealLibrary = React.lazy(mealPages.library);
+const MealShare = React.lazy(mealPages.share);
 
 const prefetchPages = () =>
   [
@@ -127,6 +129,8 @@ ReactDOM.createRoot(document.getElementById("root")!, {
                 <Route path="groceries" element={<Groceries />} />
                 <Route path="library" element={<MealLibrary />} />
                 <Route path="library/:mealId" element={<MealLibrary />} />
+                <Route path="share" element={<MealShare />} />
+                <Route path="share/:code" element={<MealShare />} />
               </Route>
               <Route
                 path="/invites"
