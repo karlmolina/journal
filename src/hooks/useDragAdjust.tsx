@@ -14,6 +14,18 @@ const CLOSE_MS = 200;
 // After letting go, the wheel stays up at least this long, in ms, so a finger
 // that comes back to it keeps turning it instead of starting over.
 const REGRAB_MS = 500;
+// A finger moving slower than this, in px per ms, turns the wheel one row per
+// row of movement. Faster than that, each pixel covers more rows, up to
+// MAX_GAIN times as many once the finger reaches FAST_PX_MS.
+const SLOW_PX_MS = 0.4;
+const FAST_PX_MS = 3;
+const MAX_GAIN = 6;
+
+// How many rows each pixel of movement is worth at this finger speed.
+function gain(pxPerMs: number) {
+  const t = (pxPerMs - SLOW_PX_MS) / (FAST_PX_MS - SLOW_PX_MS);
+  return 1 + (MAX_GAIN - 1) * Math.min(1, Math.max(0, t));
+}
 
 function parseNumber(value: string) {
   const n = Number(value);
@@ -42,8 +54,8 @@ interface DragAdjustOptions {
 }
 
 // Drag up or down on a number field to turn a scroll wheel of values that
-// floats over the page: down goes higher, up goes lower, one at a time. A
-// flick keeps the wheel coasting, and it settles on the nearest value, which
+// floats over the page: down goes higher, up goes lower, one at a time when
+// moving slowly and more per pixel when moving fast. A flick keeps the wheel coasting, and it settles on the nearest value, which
 // becomes the field's value. A tap without moving focuses the field for
 // typing. Spread `bind` on the field's box and render `picker` anywhere.
 export default function useDragAdjust({
@@ -59,13 +71,14 @@ export default function useDragAdjust({
   const rowPx = detail ? DETAIL_ROW_PX : ROW_PX;
   const drag = useRef<{
     id: number;
+    // Where the finger was last seen.
     y: number;
     start: number;
-    // Where the wheel was when this touch landed, in rows.
-    from: number;
+    // Where the wheel is, in rows.
+    position: number;
     moved: boolean;
-    // Recent moves, to tell how fast the finger was going when it let go.
-    samples: { t: number; y: number }[];
+    // Recent moves, to tell how fast the finger and the wheel are going.
+    samples: { t: number; y: number; position: number }[];
   } | null>(null);
   // The value the wheel started from, and how far it has turned, in rows.
   type Wheel = { start: number; position: number; closing: boolean };
@@ -153,7 +166,7 @@ export default function useDragAdjust({
     if (e.pointerType === "mouse" && e.button !== 0) return;
     cancelAnimationFrame(frame.current);
     clearTimeout(closeTimer.current);
-    const samples = [{ t: e.timeStamp, y: e.clientY }];
+    const samples = [{ t: e.timeStamp, y: e.clientY, position: 0 }];
     // A touch while the wheel is still up, coasting or just let go of, keeps
     // turning it from where it is.
     const shown = current.current;
@@ -161,11 +174,12 @@ export default function useDragAdjust({
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
       const { start, position } = shown;
+      samples[0].position = position;
       drag.current = {
         id: e.pointerId,
         y: e.clientY,
         start,
-        from: position,
+        position,
         moved: true,
         samples,
       };
@@ -177,7 +191,7 @@ export default function useDragAdjust({
       id: e.pointerId,
       y: e.clientY,
       start: parsed === null ? Math.min(max, Math.max(min, 0)) : parsed,
-      from: 0,
+      position: 0,
       moved: false,
       samples,
     };
@@ -186,17 +200,27 @@ export default function useDragAdjust({
   const onPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
-    const dy = e.clientY - d.y;
     if (!d.moved) {
-      if (Math.abs(dy) < DEAD_ZONE_PX) return;
+      if (Math.abs(e.clientY - d.y) < DEAD_ZONE_PX) return;
       d.moved = true;
       e.currentTarget.setPointerCapture(e.pointerId);
       // A mouse press already focused the field; the wheel takes over.
       (document.activeElement as HTMLElement | null)?.blur();
     }
-    d.samples.push({ t: e.timeStamp, y: e.clientY });
+    move(d, e.clientY, e.timeStamp);
+    show(d.start, d.position);
+  };
+
+  // Turns the wheel by how far the finger went since it was last seen, more
+  // rows per pixel the faster it's going (over the last 50ms).
+  const move = (d: NonNullable<typeof drag.current>, y: number, t: number) => {
+    const recent = d.samples.find((s) => s.t >= t - 50) ?? d.samples.at(-1)!;
+    const elapsed = t - recent.t;
+    const speed = elapsed > 0 ? Math.abs(y - recent.y) / elapsed : 0;
+    d.position = clamp(d.start, d.position + ((y - d.y) / rowPx) * gain(speed));
+    d.y = y;
+    d.samples.push({ t, y, position: d.position });
     if (d.samples.length > 8) d.samples.shift();
-    show(d.start, clamp(d.start, d.from + dy / rowPx));
   };
 
   const onPointerEnd = (e: React.PointerEvent<HTMLElement>) => {
@@ -205,16 +229,16 @@ export default function useDragAdjust({
     drag.current = null;
     if (!d.moved) return;
     releasedAt.current = performance.now();
-    const position = clamp(d.start, d.from + (e.clientY - d.y) / rowPx);
-    // Speed over the last tenth of a second; a finger that stopped before
-    // letting go doesn't flick.
+    move(d, e.clientY, e.timeStamp);
+    // The wheel's speed over the last tenth of a second, so a fast flick
+    // coasts further; a finger that stopped before letting go doesn't flick.
     const recent = d.samples.find((s) => s.t >= e.timeStamp - 100);
     const elapsed = recent ? e.timeStamp - recent.t : 0;
     const speed =
       e.type === "pointerup" && recent && elapsed > 0
-        ? (e.clientY - recent.y) / rowPx / elapsed
+        ? (d.position - recent.position) / elapsed
         : 0;
-    coast(d.start, position, speed);
+    coast(d.start, d.position, speed);
   };
 
   const bind = {
