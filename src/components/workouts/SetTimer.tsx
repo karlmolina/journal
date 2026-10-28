@@ -123,6 +123,11 @@ function RestStartButton({
 }) {
   const filled = Math.min(1, Math.max(0, progress)) * 100;
   const text = "absolute inset-0 flex items-center justify-center";
+  // The fill slides in from the left while its label slides back the same
+  // amount to stay put. Transforms run off the main thread, so the bar
+  // never repaints the page while you scroll.
+  const slide =
+    "absolute inset-0 transition-transform duration-1000 ease-linear";
   return (
     <button
       type="button"
@@ -138,10 +143,15 @@ function RestStartButton({
       </span>
       <span
         aria-hidden
-        className={`${text} bg-primary text-primary-content transition-[clip-path] duration-1000 ease-linear`}
-        style={{ clipPath: `inset(0 ${100 - filled}% 0 0)` }}
+        className={`${slide} overflow-hidden`}
+        style={{ transform: `translateX(${filled - 100}%)` }}
       >
-        {label}
+        <span
+          className={`${text} ${slide} bg-primary text-primary-content`}
+          style={{ transform: `translateX(${100 - filled}%)` }}
+        >
+          {label}
+        </span>
       </span>
       <span className="sr-only">{label}</span>
     </button>
