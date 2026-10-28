@@ -1,6 +1,5 @@
 import {
   type ReactNode,
-  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -45,7 +44,6 @@ import {
   supersetOf,
   type Supersets,
 } from "../../functions/supersets";
-import ExerciseInput from "./ExerciseInput";
 import SetList from "./SetList";
 import Chip from "../Chip";
 import SetForm from "./SetForm";
@@ -53,81 +51,11 @@ import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 import AddPlanExercise from "./AddPlanExercise";
-
-// Brings the current exercise's card (or the set just finished) to the top
-// of the screen in one glide (a jump with reduced motion). Cards swap, the rest card comes and goes and
-// sets fold away right as you tap, so it waits for the page to hold still
-// before picking where to go. Asked again before then, the latest ask wins.
-// Only a glide that ends well off target (the page changed on the way) gets
-// one more, and touching the page cancels it all.
-let stopScrolling: (() => void) | null = null;
-// Mid-glide, so nothing else should move the page: any instant scroll, even
-// a fraction of a pixel, stops the glide where it is.
-let gliding = false;
-function scrollToTop(target: () => HTMLElement | null) {
-  stopScrolling?.();
-  const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches
-    ? "auto"
-    : "smooth";
-  let frame = 0;
-  let timer = 0;
-  const stop = () => {
-    stopScrolling = null;
-    gliding = false;
-    cancelAnimationFrame(frame);
-    clearTimeout(timer);
-    removeEventListener("touchstart", stop);
-    removeEventListener("wheel", stop);
-  };
-  stopScrolling = stop;
-  addEventListener("touchstart", stop, { passive: true });
-  addEventListener("wheel", stop, { passive: true });
-  // How far the card is from where it should be, and whether the page can
-  // still scroll that way.
-  const offset = () => {
-    const el = target();
-    if (!el?.isConnected) return null;
-    const r = el.getBoundingClientRect();
-    const off = r.top - parseFloat(getComputedStyle(el).scrollMarginTop || "0");
-    const atBottom = innerHeight + scrollY >= document.body.scrollHeight - 1;
-    return (off > 0 && atBottom) || (off < 0 && scrollY <= 0) ? 0 : off;
-  };
-  const glide = (corrected: boolean) => {
-    const off = offset();
-    if (off === null || Math.abs(off) <= 2) return stop();
-    gliding = true;
-    target()!.scrollIntoView({ behavior, block: "start" });
-    // Wait for the glide to end, then look once more.
-    let lastY = NaN;
-    const ended = () => {
-      if (scrollY !== lastY) {
-        lastY = scrollY;
-        timer = setTimeout(ended, 100);
-        return;
-      }
-      const left = offset();
-      if (!corrected && left !== null && Math.abs(left) > 24) glide(true);
-      else stop();
-    };
-    timer = setTimeout(ended, 100);
-  };
-  // Hold off until the card and the page keep the same place and size for a
-  // few frames, or a third of a second has gone by.
-  const started = performance.now();
-  let last = "";
-  let still = 0;
-  const wait = () => {
-    const el = target();
-    const now = el
-      ? `${el.getBoundingClientRect().top + scrollY}:${document.body.scrollHeight}`
-      : "";
-    still = now === last ? still + 1 : 0;
-    last = now;
-    if (still >= 3 || performance.now() - started > 350) glide(false);
-    else frame = requestAnimationFrame(wait);
-  };
-  frame = requestAnimationFrame(wait);
-}
+import StepActions, { actionClass, type Step } from "./StepActions";
+import SupersetLink from "./SupersetLink";
+import FloatingBar from "./FloatingBar";
+import WorkoutClockDialog from "./WorkoutClockDialog";
+import scrollToTop, { isGliding } from "../../functions/scrollToTop";
 
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
@@ -143,10 +71,6 @@ export interface PlannedWorkout {
   // The plan's session with this workout's swaps and early ends applied.
   session: Omit<PlannedSession, "exercises"> & { exercises: SessionExercise[] };
 }
-
-// An exercise as the checklist counts it: one ended early needs only the
-// sets already done.
-type Step = SessionExercise & { planned_sets: number };
 
 interface ActiveWorkoutProps {
   workout: Workout;
@@ -182,187 +106,6 @@ interface ActiveWorkoutProps {
 
 // Between two planned exercises: whether they're a superset, and a tap to
 // pair them up or split them.
-// A whole rest from music notation: a small block hanging from a line.
-function RestIcon() {
-  return (
-    <svg width="22" height="15" viewBox="0 0 20 14" aria-hidden="true">
-      {/* One shape, the line and the block hanging from it, so a see-through
-          color doesn't darken where they'd overlap. */}
-      <path
-        d="M2.125 3.375H17.875a.625.625 0 0 1 0 1.25H15V8.5A1.5 1.5 0 0 1 13.5 10h-7A1.5 1.5 0 0 1 5 8.5V4.625H2.125a.625.625 0 0 1 0-1.25Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
-const linkButtonClass =
-  "flex size-7 items-center justify-center rounded-full font-bold transition cursor-pointer text-base-content/55 dark:text-base-content/75 hover:text-base-content/80 dark:hover:text-base-content/95";
-
-function SupersetLink({
-  linked,
-  onToggle,
-}: {
-  linked: boolean;
-  onToggle: () => void;
-}) {
-  if (!linked)
-    return (
-      <div className="flex justify-center">
-        <button
-          type="button"
-          className={linkButtonClass}
-          onClick={onToggle}
-          aria-pressed={false}
-          aria-label="Rest between these. Tap to make them a superset."
-          title="Rest between · tap to superset"
-        >
-          <RestIcon />
-        </button>
-      </div>
-    );
-  // Joined with no rest: a neck of card joins the two cards, with the
-  // superset sign in its waist.
-  return (
-    <div className="relative flex justify-center h-8 -my-1">
-      <svg
-        className="absolute inset-y-0 left-1/2 -translate-x-1/2 h-full w-24 text-base-content/5 dark:text-base-content/9"
-        viewBox="0 0 80 28"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <path
-          d="M0 0H80C62 0 56 7 56 14C56 21 62 28 80 28H0C18 28 24 21 24 14C24 7 18 0 0 0Z"
-          fill="currentColor"
-        />
-      </svg>
-      <button
-        type="button"
-        className={`${linkButtonClass} relative text-xl leading-none`}
-        onClick={onToggle}
-        aria-pressed
-        aria-label="Superset, no rest between these. Tap to split them."
-        title="Superset · tap to split"
-      >
-        ⊃
-      </button>
-    </div>
-  );
-}
-
-const actionClass =
-  "btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]";
-const fieldClass =
-  "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-semibold outline-none transition focus:bg-base-content/12 placeholder:font-medium placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
-
-// At the foot of each exercise's card: do it now instead of the current
-// one, swap it for another for this workout, or end it before all its sets
-// are done.
-function StepActions({
-  step,
-  complete,
-  suggestions,
-  onPick,
-  onSwap,
-  onEnd,
-}: {
-  step: Step;
-  complete: boolean;
-  suggestions: string[];
-  onPick?: () => void;
-  onSwap: (name: string) => void;
-  onEnd: (ended: boolean) => void;
-}) {
-  const [swapping, setSwapping] = useState(false);
-  const [name, setName] = useState("");
-
-  if (swapping) {
-    const swap = () => {
-      if (!name.trim()) return;
-      onSwap(name);
-      setSwapping(false);
-      setName("");
-    };
-    return (
-      <div className="flex flex-col gap-2 rounded-xl bg-base-content/5 p-2">
-        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 px-1">
-          Do something else instead of {step.name}, just this workout.
-        </p>
-        <ExerciseInput
-          className={fieldClass}
-          value={name}
-          onChange={setName}
-          suggestions={suggestions.filter(
-            (n) => n.toLowerCase() !== step.name.toLowerCase(),
-          )}
-        />
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm rounded-full font-bold flex-1"
-            onClick={() => setSwapping(false)}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm rounded-full font-bold flex-1"
-            onClick={swap}
-            disabled={!name.trim()}
-          >
-            Swap
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap justify-center gap-1">
-      {onPick && (
-        <button type="button" className={actionClass} onClick={onPick}>
-          Do this now
-        </button>
-      )}
-      <button
-        type="button"
-        className={actionClass}
-        onClick={() => setSwapping(true)}
-      >
-        Swap exercise
-      </button>
-      {step.swapped_from && (
-        <button
-          type="button"
-          className={actionClass}
-          onClick={() => onSwap(step.swapped_from!)}
-        >
-          Back to {step.swapped_from}
-        </button>
-      )}
-      {step.ended ? (
-        <button
-          type="button"
-          className={actionClass}
-          onClick={() => onEnd(false)}
-        >
-          Pick back up
-        </button>
-      ) : (
-        !complete && (
-          <button
-            type="button"
-            className={actionClass}
-            onClick={() => onEnd(true)}
-          >
-            End early
-          </button>
-        )
-      )}
-    </div>
-  );
-}
-
 export default function ActiveWorkout({
   workout,
   planned,
@@ -553,7 +296,7 @@ export default function ActiveWorkout({
     const before = cardTop.current;
     if ((wasResting.current || resting) && el && before?.el === el) {
       const shift = el.getBoundingClientRect().top + scrollY - before.top;
-      if (Math.abs(shift) >= 1 && !gliding)
+      if (Math.abs(shift) >= 1 && !isGliding())
         scrollBy({ top: shift, behavior: "instant" });
     }
     wasResting.current = resting;
@@ -912,63 +655,17 @@ export default function ActiveWorkout({
   return (
     <div className="flex flex-col gap-3">
       {finishing && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 dark:bg-black/70 animate-fade-in p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
-          onClick={() => setFinishing(false)}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-label="Workout"
-            className="w-full max-w-md rounded-2xl bg-base-100 dark:bg-base-200 p-4 flex flex-col items-center text-center gap-2 shadow-xl ring-1 ring-base-content/10 animate-pop-in"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.key === "Escape" && setFinishing(false)}
-          >
-            <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-              {paused ? "Paused" : "In progress"} · started {started}
-            </p>
-            <p
-              className={`text-3xl font-extrabold tracking-tight tabular-nums ${
-                paused ? "opacity-50" : ""
-              }`}
-              role="timer"
-              aria-live="off"
-            >
-              {elapsed}
-            </p>
-            <button
-              type="button"
-              className="btn btn-sm rounded-full font-bold bg-base-content/8 border-0 shadow-none"
-              onClick={paused ? onResume : onPause}
-            >
-              {paused ? "Resume" : "Pause"}
-            </button>
-            <textarea
-              className="w-full resize-none rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65 text-left"
-              rows={2}
-              placeholder="How did it go? (optional)"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-            <div className="flex gap-2 w-full">
-              <button
-                type="button"
-                className="btn btn-ghost rounded-full font-bold flex-1"
-                onClick={() => setFinishing(false)}
-                autoFocus
-              >
-                Keep going
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary rounded-full font-bold flex-1"
-                onClick={() => onFinish(notes)}
-              >
-                Finish workout
-              </button>
-            </div>
-          </section>
-        </div>
+        <WorkoutClockDialog
+          paused={paused}
+          started={started}
+          elapsed={elapsed}
+          notes={notes}
+          onNotesChange={setNotes}
+          onPause={onPause}
+          onResume={onResume}
+          onClose={() => setFinishing(false)}
+          onFinish={() => onFinish(notes)}
+        />
       )}
 
       {planned ? (
@@ -1100,125 +797,6 @@ export default function ActiveWorkout({
           to the small viewport so it holds still while the browser bar
           slides away mid-scroll. */}
       <div aria-hidden className="h-[75svh]" />
-    </div>
-  );
-}
-
-// Along the bottom: the way back to the current exercise in the middle, and
-// the workout clock in the corner, which opens pause and finish. The clock
-// steps aside while a button sits under it. It keeps its own state, so
-// scrolling only re-renders the bar, never the page under it.
-function FloatingBar({
-  currentCard,
-  doneBlock,
-  elapsed,
-  paused,
-  onCurrent,
-  onClock,
-}: {
-  currentCard: RefObject<HTMLElement | null>;
-  // Just after a set: that set and the button under it.
-  doneBlock: HTMLElement | null;
-  elapsed: string;
-  paused: boolean;
-  onCurrent: () => void;
-  onClock: () => void;
-}) {
-  // Which way the current exercise is, while it isn't at the top.
-  const [awayFrom, setAwayFrom] = useState<"above" | "below" | null>(null);
-  const [clockCovers, setClockCovers] = useState(false);
-  const bar = useRef<HTMLDivElement>(null);
-  const check = useRef(() => {});
-  check.current = () => {
-    // Main buttons near the bottom edge, where the floating buttons sit.
-    const zone = innerHeight - 96;
-    const nearBottom = (b: Element) => {
-      const r = b.getBoundingClientRect();
-      return r.bottom > zone && r.top < innerHeight;
-    };
-    const underBar = [...document.querySelectorAll(".btn-primary")].some(
-      (b) => !bar.current?.contains(b) && nearBottom(b),
-    );
-    const el = doneBlock ?? currentCard.current;
-    // The current exercise's main button under the corner clock.
-    setClockCovers(
-      !!el &&
-        [...el.querySelectorAll(".btn-primary")].some(
-          (b) =>
-            nearBottom(b) && b.getBoundingClientRect().right > innerWidth - 140,
-        ),
-    );
-    // Never over a Start button, wherever it is.
-    if (!el || underBar) return setAwayFrom(null);
-    const r = el.getBoundingClientRect();
-    if (doneBlock) {
-      // A set just finished stays where it is, so only once it's off
-      // screen, or so nearly that the button would cover it.
-      return setAwayFrom(
-        r.bottom < 96 ? "above" : r.top > zone ? "below" : null,
-      );
-    }
-    // The exercise's top away from the top of the screen, and the page able
-    // to scroll it there.
-    const off = r.top - parseFloat(getComputedStyle(el).scrollMarginTop || "0");
-    const atBottom = innerHeight + scrollY >= document.body.scrollHeight - 1;
-    setAwayFrom(
-      off < -2 && scrollY > 0 ? "above" : off > 2 && !atBottom ? "below" : null,
-    );
-  };
-  // Once a frame at most while scrolling, and after every render (the
-  // clock ticks each second), since cards grow and shrink without a scroll.
-  const frame = useRef(0);
-  const schedule = useRef(() => {
-    if (!frame.current)
-      frame.current = requestAnimationFrame(() => {
-        frame.current = 0;
-        check.current();
-      });
-  });
-  useEffect(() => schedule.current());
-  useEffect(() => {
-    const onChange = schedule.current;
-    window.addEventListener("scroll", onChange, { passive: true });
-    window.addEventListener("resize", onChange);
-    return () => {
-      window.removeEventListener("scroll", onChange);
-      window.removeEventListener("resize", onChange);
-      cancelAnimationFrame(frame.current);
-      frame.current = 0;
-    };
-  }, []);
-
-  return (
-    <div
-      ref={bar}
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none"
-    >
-      <span />
-      {awayFrom ? (
-        <button
-          type="button"
-          className="pointer-events-auto btn btn-primary rounded-full font-bold px-6 shadow-lg active:scale-[0.98] transition animate-fade-in"
-          onClick={onCurrent}
-        >
-          {awayFrom === "above" ? "↑" : "↓"} Current exercise
-        </button>
-      ) : (
-        <span />
-      )}
-      <button
-        type="button"
-        className={`justify-self-end h-10 rounded-full px-4 text-base font-bold tabular-nums shadow-lg ring-1 ring-base-content/10 bg-base-100 dark:bg-base-300 cursor-pointer transition-opacity active:scale-95 ${
-          clockCovers ? "opacity-0" : "pointer-events-auto"
-        } ${paused ? "text-base-content/50 dark:text-base-content/70" : ""}`}
-        onClick={onClock}
-        aria-label={`Workout time ${elapsed}${paused ? ", paused" : ""}. Open to pause or finish.`}
-        aria-hidden={clockCovers || undefined}
-        tabIndex={clockCovers ? -1 : undefined}
-      >
-        {paused && "Paused · "}
-        {elapsed}
-      </button>
     </div>
   );
 }
