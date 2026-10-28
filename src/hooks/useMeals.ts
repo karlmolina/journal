@@ -81,10 +81,12 @@ export default function useMeals(userId?: string) {
     setError(message);
   }, []);
 
-  useEffect(() => {
+  // Each load gets a number so an older one finishing late is ignored.
+  const loads = useRef(0);
+  const load = useCallback(async () => {
     if (!userId) return;
-    let cancelled = false;
-    Promise.all([
+    const n = ++loads.current;
+    const [meals, plan, settings] = await Promise.all([
       supabase.from("meals").select(MEAL_COLUMNS),
       supabase
         .from("meal_plan")
@@ -94,25 +96,36 @@ export default function useMeals(userId?: string) {
         .from("meal_settings")
         .select("diets, diet_notes, checked_groceries")
         .maybeSingle(),
-    ]).then(([meals, plan, settings]) => {
-      if (cancelled) return;
-      setLoading(false);
-      const err = meals.error ?? plan.error ?? settings.error;
-      if (err) return fail("Couldn't load your meals.", err);
-      const library = (meals.data as Meal[]).filter(notDeleted("meals"));
-      const ids = new Set(library.map((m) => m.id));
-      setData({
-        meals: byName(library),
-        plan: (plan.data as PlannedMeal[])
-          .filter(notDeleted("meal_plan"))
-          .filter((p) => ids.has(p.meal_id)),
-        settings: (settings.data as MealSettings | null) ?? DEFAULT_SETTINGS,
-      });
+    ]);
+    if (n !== loads.current) return;
+    setLoading(false);
+    const err = meals.error ?? plan.error ?? settings.error;
+    if (err) return fail("Couldn't load your meals.", err);
+    const library = (meals.data as Meal[]).filter(notDeleted("meals"));
+    const ids = new Set(library.map((m) => m.id));
+    setData({
+      meals: byName(library),
+      plan: (plan.data as PlannedMeal[])
+        .filter(notDeleted("meal_plan"))
+        .filter((p) => ids.has(p.meal_id)),
+      settings: (settings.data as MealSettings | null) ?? DEFAULT_SETTINGS,
     });
-    return () => {
-      cancelled = true;
-    };
   }, [userId, fail]);
+
+  // Loaded again whenever the app comes back into view, so changes made by
+  // someone you share meals with show up.
+  useEffect(() => {
+    const counter = loads;
+    load();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      counter.current++;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load]);
 
   // A new meal in the library, and on the plan for `servings` people when
   // given. Returns the meal, or null when it couldn't be saved.
@@ -331,8 +344,9 @@ export default function useMeals(userId?: string) {
       const before = latest.current.settings;
       const next = { ...before, ...patch };
       setData((d) => ({ ...d, settings: next }));
+      // No user_id: the row is the one for the meals you're using, which
+      // may be someone else's you joined.
       const { error } = await supabase.from("meal_settings").upsert({
-        user_id: userId,
         ...next,
         updated_at: new Date().toISOString(),
       });
@@ -345,6 +359,7 @@ export default function useMeals(userId?: string) {
   );
 
   return {
+    reload: load,
     ...data,
     loading,
     error,

@@ -10,6 +10,7 @@ const TABS = [
   { to: "/meals", label: "Plan", end: true },
   { to: "/meals/groceries", label: "Groceries" },
   { to: "/meals/library", label: "Library" },
+  { to: "/meals/share", label: "Share" },
 ];
 
 // Shell for the meals section: the top bar, its own tabs, and the page. The
