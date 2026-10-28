@@ -26,6 +26,10 @@ import {
   plannedReps,
 } from "../../functions/planProgress";
 
+// Only today's workout can be picked back up; an older one is history.
+const startedToday = (w: Workout) =>
+  new Date(w.started_at).toDateString() === new Date().toDateString();
+
 function UpNext({
   plan,
   next,
@@ -87,6 +91,7 @@ export default function Session() {
     pause,
     resume,
     finish,
+    reopen,
     discard,
     setSupersets,
     setPlanChanges,
@@ -325,7 +330,7 @@ export default function Session() {
             </h2>
           )}
           <div className="flex flex-col gap-2">
-            {history.map((w) => (
+            {history.map((w, i) => (
               <WorkoutHistoryCard
                 key={w.id}
                 workout={w}
@@ -337,6 +342,9 @@ export default function Session() {
                 onUpdateSet={handleUpdateSet}
                 onSplitSet={splitSet}
                 onRemoveSets={removeSets}
+                onContinue={
+                  i === 0 && startedToday(w) ? () => reopen(w.id) : undefined
+                }
                 onDelete={() => removeWorkout(w.id)}
               />
             ))}

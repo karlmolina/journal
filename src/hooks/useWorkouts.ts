@@ -291,6 +291,38 @@ export default function useWorkouts(userId?: string) {
     [updateActive],
   );
 
+  // Picks a finished workout back up where it left off. It comes back
+  // paused at the time it ended, so the break doesn't count once resumed.
+  const reopen = useCallback(
+    async (id: string) => {
+      const { active, history } = state.current;
+      const prev = history.find((w) => w.id === id);
+      if (active || !prev?.ended_at) return;
+      const next = { ...prev, ended_at: null, paused_at: prev.ended_at };
+      setActive(next);
+      setHistory(history.filter((w) => w.id !== id));
+      setError(null);
+      const { error } = await supabase
+        .from("workouts")
+        .update({ ended_at: null, paused_at: next.paused_at })
+        .eq("id", id);
+      if (error) {
+        setActive(null);
+        setHistory((h) =>
+          h.some((w) => w.id === id)
+            ? h
+            : [...h, prev].sort((a, b) =>
+                b.started_at.localeCompare(a.started_at),
+              ),
+        );
+        // Most likely a workout is running on another device; show that one.
+        fail("Couldn't continue the workout.", error);
+        load();
+      }
+    },
+    [fail, load],
+  );
+
   const setSupersets = useCallback(
     (supersets: string[][]) =>
       updateActive({ supersets }, "Couldn't save the superset."),
@@ -563,6 +595,7 @@ export default function useWorkouts(userId?: string) {
     pause,
     resume,
     finish,
+    reopen,
     discard,
     setSupersets,
     setPlanChanges,

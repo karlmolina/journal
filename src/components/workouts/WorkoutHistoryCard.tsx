@@ -83,6 +83,8 @@ interface WorkoutHistoryCardProps {
   onUpdateSet?: (set: WorkoutSet, changes: SetInput) => void;
   onSplitSet?: (set: WorkoutSet) => void;
   onRemoveSets?: (sets: WorkoutSet[]) => void;
+  // Picks the workout back up, for one ended before it was done.
+  onContinue?: () => void;
   onDelete: () => void;
 }
 
@@ -96,6 +98,7 @@ export default function WorkoutHistoryCard({
   onUpdateSet,
   onSplitSet,
   onRemoveSets,
+  onContinue,
   onDelete,
 }: WorkoutHistoryCardProps) {
   const [open, setOpen] = useState(false);
@@ -229,13 +232,24 @@ export default function WorkoutHistoryCard({
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost rounded-full font-semibold text-base-content/55 dark:text-base-content/75"
-                onClick={() => setConfirmDelete(true)}
-              >
-                Delete
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost rounded-full font-semibold text-base-content/55 dark:text-base-content/75"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Delete
+                </button>
+                {onContinue && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline btn-primary rounded-full font-bold"
+                    onClick={onContinue}
+                  >
+                    Continue workout
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
