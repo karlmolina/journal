@@ -14,7 +14,10 @@ import type {
   WorkoutSet,
 } from "../../hooks/useWorkouts";
 import { elapsedSeconds } from "../../hooks/useWorkouts";
-import type { PlannedSession } from "../../hooks/useWorkoutPlans";
+import type {
+  PlannedExercise,
+  PlannedSession,
+} from "../../hooks/useWorkoutPlans";
 import type { Exercise } from "../../hooks/useExercises";
 import type { ExerciseNotesProps } from "./ExerciseNote";
 import useClock from "../../hooks/useClock";
@@ -45,10 +48,12 @@ import {
 } from "../../functions/supersets";
 import ExerciseInput from "./ExerciseInput";
 import SetList from "./SetList";
+import Chip from "../Chip";
 import SetForm from "./SetForm";
 import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
+import AddPlanExercise from "./AddPlanExercise";
 
 // Brings the current exercise's card (or the set just finished) to the top
 // of the screen in one glide (a jump with reduced motion). Cards swap, the rest card comes and goes and
@@ -164,6 +169,11 @@ interface ActiveWorkoutProps {
   // A swap passes the supersets with the exercise renamed, when the workout
   // has its own.
   onPlanChange: (changes: PlanChanges, supersets?: Supersets) => void;
+  // Adds an exercise to this workout, or to its plan day too.
+  onAddExercise: (
+    exercise: PlannedExercise,
+    toPlan: boolean,
+  ) => Promise<boolean>;
   initialExercise?: string;
   onAddSet: (set: SetInput) => void;
   onUpdateSet: (set: WorkoutSet, changes: SetInput) => void;
@@ -370,6 +380,7 @@ export default function ActiveWorkout({
   onDiscard,
   onSupersetsChange,
   onPlanChange,
+  onAddExercise,
   onAddSet,
   onUpdateSet,
   onRemoveSets,
@@ -553,6 +564,9 @@ export default function ActiveWorkout({
 
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // The add-exercise form, and whether it adds to the plan day too.
+  const [adding, setAdding] = useState(false);
+  const [addToPlan, setAddToPlan] = useState(false);
   const [notes, setNotes] = useState("");
   const elapsed = formatClock(elapsedSeconds(workout, now));
 
@@ -682,9 +696,13 @@ export default function ActiveWorkout({
         : !current && doneSets > 0
           ? `${Math.min(doneSets, e.planned_sets)} of ${e.planned_sets} sets done`
           : null;
-    const label = (e.swapped_from || status) && (
+    const label = (e.swapped_from || e.added || status) && (
       <p className="flex justify-between gap-2 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 tabular-nums">
-        <span>{e.swapped_from && `Instead of ${e.swapped_from}`}</span>
+        <span>
+          {e.swapped_from
+            ? `Instead of ${e.swapped_from}`
+            : e.added && "Just today"}
+        </span>
         <span>{status}</span>
       </p>
     );
@@ -963,6 +981,38 @@ export default function ActiveWorkout({
             <h2 className="font-bold">{planned.session.focus}</h2>
           </div>
           {timeline}
+          {adding ? (
+            <AddPlanExercise
+              submitLabel={addToPlan ? `Add to ${planned.session.day}` : "Add"}
+              above={
+                <div className="flex flex-wrap gap-1.5" role="group">
+                  <Chip
+                    selected={!addToPlan}
+                    onClick={() => setAddToPlan(false)}
+                  >
+                    Just today
+                  </Chip>
+                  <Chip selected={addToPlan} onClick={() => setAddToPlan(true)}>
+                    Every {planned.session.day}
+                  </Chip>
+                </div>
+              }
+              suggestions={suggestions}
+              onAdd={(exercise) => onAddExercise(exercise, addToPlan)}
+              onCancel={() => setAdding(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] self-center"
+              onClick={() => {
+                setAdding(true);
+                setAddToPlan(false);
+              }}
+            >
+              + Add exercise
+            </button>
+          )}
           {shownIndex === null && (
             <>
               {exercises.length > 0 && (

@@ -22,7 +22,13 @@ import {
   bestWeight,
   describeTarget,
   dayLabel,
+  grewFrom,
+  moveExercise,
+  movedTo,
   nextSessionIndex,
+  followPlanEdit,
+  supersetLetter,
+  supersetRuns,
 } from "../../functions/planProgress";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 
@@ -35,6 +41,9 @@ const fieldClass =
   "w-full min-w-0 rounded-xl bg-base-content/8 px-3 py-2.5 font-medium outline-none transition focus:bg-base-content/12 placeholder:text-base-content/45 dark:placeholder:text-base-content/65";
 const label =
   "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
+
+const dayActionClass =
+  "btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]";
 
 const parsePlan = (reply: string) => {
   const result = parsePlanReply(reply);
@@ -272,22 +281,6 @@ function GoalProgress({
   );
 }
 
-// A plan exercise's superset letter, if it's in one.
-const letterOf = (e: PlannedExercise) =>
-  e.superset?.trim().toUpperCase() || undefined;
-
-// Exercises in a row that share a superset letter, kept together.
-function runsOf(exercises: PlannedExercise[]) {
-  const runs: { letter?: string; indices: number[] }[] = [];
-  exercises.forEach((e, j) => {
-    const last = runs.at(-1);
-    if (last && letterOf(e) && last.letter === letterOf(e))
-      last.indices.push(j);
-    else runs.push({ letter: letterOf(e), indices: [j] });
-  });
-  return runs;
-}
-
 function PlanView({
   plan,
   next,
@@ -297,6 +290,7 @@ function PlanView({
   onLog,
   onStart,
   onAddExercise,
+  onMove,
 }: {
   plan: WorkoutPlan;
   // Newest first, for progress toward each exercise's goal.
@@ -312,10 +306,13 @@ function PlanView({
     session: number,
     exercise: PlannedExercise,
   ) => Promise<boolean>;
+  onMove: (session: number, index: number, direction: -1 | 1) => void;
 }) {
   const { title, summary, sessions, safety_notes } = plan.plan;
   // The day whose add-exercise form is open.
   const [adding, setAdding] = useState<number | null>(null);
+  // The day whose exercises show up and down buttons.
+  const [ordering, setOrdering] = useState<number | null>(null);
   return (
     <div className="flex flex-col gap-3">
       <section className={cardClass}>
@@ -353,7 +350,7 @@ function PlanView({
                 <p className="font-bold">{e.name}</p>
                 <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
                   {describeTarget(e)}
-                  {!letterOf(e) &&
+                  {!supersetLetter(e) &&
                     e.rest_seconds > 0 &&
                     ` · rest ${e.rest_seconds}s`}
                 </p>
@@ -364,14 +361,33 @@ function PlanView({
                 )}
                 <GoalProgress exercise={e} workouts={workouts} />
               </div>
-              <button
-                type="button"
-                className="btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] mt-0.5"
-                onClick={() => onLog(e.name)}
-                aria-label={`Log ${e.name}`}
-              >
-                Log
-              </button>
+              {ordering === i ? (
+                <div className="flex gap-1 self-center">
+                  {([-1, 1] as const).map((direction) => (
+                    <button
+                      key={direction}
+                      type="button"
+                      className="btn btn-sm btn-circle bg-base-content/8 border-0 shadow-none text-base"
+                      onClick={() => onMove(i, j, direction)}
+                      disabled={
+                        moveExercise(s.exercises, j, direction) === null
+                      }
+                      aria-label={`Move ${e.name} ${direction < 0 ? "up" : "down"}`}
+                    >
+                      {direction < 0 ? "↑" : "↓"}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] mt-0.5"
+                  onClick={() => onLog(e.name)}
+                  aria-label={`Log ${e.name}`}
+                >
+                  Log
+                </button>
+              )}
             </div>
           );
         };
@@ -404,7 +420,7 @@ function PlanView({
               )}
             </div>
             <ol className="mt-2 flex flex-col gap-2">
-              {runsOf(s.exercises).map(({ letter, indices }) => (
+              {supersetRuns(s.exercises).map(({ letter, indices }) => (
                 <li key={indices[0]}>
                   {letter ? (
                     <SupersetGroup
@@ -430,20 +446,34 @@ function PlanView({
             {adding === i ? (
               <div className="mt-2">
                 <AddPlanExercise
-                  day={dayLabel(i)}
+                  submitLabel={`Add to ${dayLabel(i)}`}
                   suggestions={suggestions}
                   onAdd={(exercise) => onAddExercise(i, exercise)}
                   onCancel={() => setAdding(null)}
                 />
               </div>
             ) : (
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] mt-1 -ml-2"
-                onClick={() => setAdding(i)}
-              >
-                + Add exercise
-              </button>
+              <div className="mt-1 -mx-2 flex justify-between">
+                <button
+                  type="button"
+                  className={dayActionClass}
+                  onClick={() => {
+                    setAdding(i);
+                    setOrdering(null);
+                  }}
+                >
+                  + Add exercise
+                </button>
+                {s.exercises.length > 1 && (
+                  <button
+                    type="button"
+                    className={dayActionClass}
+                    onClick={() => setOrdering(ordering === i ? null : i)}
+                  >
+                    {ordering === i ? "Done" : "Reorder"}
+                  </button>
+                )}
+              </div>
             )}
           </section>
         );
@@ -462,9 +492,10 @@ export default function Plan() {
     dismissError,
     importPlan,
     addExercise,
+    saveSession,
     removePlan,
   } = useWorkoutPlans(user?.id);
-  const { active, history, start } = useWorkouts(user?.id);
+  const { active, history, start, setPlanChanges } = useWorkouts(user?.id);
   const { injuries } = useInjuries(user?.id);
   const { exercises, byLowerName, ensureExercise } = useExercises(user?.id);
   const { preferences, save: savePreferences } = usePlanPreferences(user?.id);
@@ -494,10 +525,42 @@ export default function Plan() {
   ) => {
     const found = byLowerName.get(exercise.name.toLowerCase());
     if (!found) ensureExercise(exercise.name, false);
+    const changes = followPlanEdit(
+      active,
+      plan,
+      session,
+      grewFrom(plan.plan.sessions[session].exercises.length),
+    );
+    // Right away, so a quick second edit starts from it.
+    if (changes) setPlanChanges(changes);
     return addExercise(plan, session, {
       ...exercise,
       name: found?.name ?? exercise.name,
     });
+  };
+
+  // Moving an exercise also keeps a running workout of that day pointing at
+  // the same exercises for its swaps and early ends.
+  const handleMove = (
+    plan: WorkoutPlan,
+    session: number,
+    index: number,
+    direction: -1 | 1,
+  ) => {
+    const moved = moveExercise(
+      plan.plan.sessions[session].exercises,
+      index,
+      direction,
+    );
+    if (!moved) return;
+    const changes = followPlanEdit(
+      active,
+      plan,
+      session,
+      movedTo(moved.from),
+    );
+    if (changes) setPlanChanges(changes);
+    saveSession(plan, session, moved.exercises, "Couldn't reorder the plan.");
   };
 
   const selected = plans.find((p) => p.id === selectedId) ?? plans[0];
@@ -593,6 +656,9 @@ export default function Plan() {
             onLog={(exercise) => navigate("/workouts", { state: { exercise } })}
             onAddExercise={(session, exercise) =>
               handleAddExercise(selected, session, exercise)
+            }
+            onMove={(session, index, direction) =>
+              handleMove(selected, session, index, direction)
             }
             onStart={async (session) => {
               await start({ plan_id: selected.id, plan_session: session });
