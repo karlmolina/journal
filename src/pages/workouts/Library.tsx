@@ -18,6 +18,7 @@ import useExercises, {
 import useExerciseNotes from "../../hooks/useExerciseNotes";
 import useInjuries from "../../hooks/useInjuries";
 import { BODY_REGIONS } from "../../functions/bodyRegions";
+import { nameKey } from "../../functions/exerciseName";
 
 const PURPOSES: { key: ExercisePurpose | null; label: string }[] = [
   { key: null, label: "All" },
@@ -54,7 +55,7 @@ export default function Library() {
   const library = useMemo(
     () =>
       exercises.filter(
-        (e) => e.user_id || byLowerName.get(e.name.trim().toLowerCase()) === e,
+        (e) => e.user_id || byLowerName.get(nameKey(e.name)) === e,
       ),
     [exercises, byLowerName],
   );
@@ -96,7 +97,7 @@ export default function Library() {
     const exercise = exercises.find((e) => e.id === exerciseId);
     const own =
       exercise && !exercise.user_id
-        ? byLowerName.get(exercise.name.trim().toLowerCase())
+        ? byLowerName.get(nameKey(exercise.name))
         : undefined;
     if (own && own.id !== exerciseId)
       return <Navigate to={`/workouts/library/${own.id}`} replace />;

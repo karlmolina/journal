@@ -12,6 +12,7 @@ import { formatClock } from "../../functions/formatDuration";
 import SetForm from "./SetForm";
 import SupersetTag from "./SupersetTag";
 import { bodyPartLabel, groupRegions } from "../../functions/bodyPartScores";
+import { nameKey } from "../../functions/exerciseName";
 
 // The rest timed before a set, shown after what was done.
 function RestNote({
@@ -111,7 +112,7 @@ export default function SetList({
   return (
     <div className={`flex flex-col ${dense ? "gap-3" : "gap-4"}`}>
       {groups.map(({ name, sets, labels }) => {
-        const tag = supersetTags?.get(name.trim().toLowerCase());
+        const tag = supersetTags?.get(nameKey(name));
         // The library entry, so you can see or change what it works.
         const exerciseId = sets.find((s) => s.exercise_id)?.exercise_id;
         // Unknown exercises count as "Other" in the summary, so say so here.

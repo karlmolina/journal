@@ -33,6 +33,7 @@ import {
   plannedReps,
   plannedSeconds,
 } from "../../functions/planProgress";
+import { nameKey } from "../../functions/exerciseName";
 
 // Only today's workout can be picked back up; an older one is history.
 const startedToday = (w: Workout) =>
@@ -213,7 +214,7 @@ export default function Session() {
               ...e,
               unilateral:
                 e.unilateral ??
-                byLowerName.get(e.name.trim().toLowerCase())?.unilateral ??
+                byLowerName.get(nameKey(e.name))?.unilateral ??
                 false,
             })),
           },
@@ -249,9 +250,9 @@ export default function Session() {
 
   const isUnilateral = useCallback(
     (name: string) => {
-      const k = name.trim().toLowerCase();
+      const k = nameKey(name);
       const target = planned?.session.exercises.find(
-        (e) => e.name.trim().toLowerCase() === k,
+        (e) => nameKey(e.name) === k,
       );
       return target?.unilateral ?? byLowerName.get(k)?.unilateral ?? false;
     },
@@ -259,7 +260,7 @@ export default function Session() {
   );
 
   const lookup = useCallback(
-    (name: string) => byLowerName.get(name.trim().toLowerCase()),
+    (name: string) => byLowerName.get(nameKey(name)),
     [byLowerName],
   );
 
