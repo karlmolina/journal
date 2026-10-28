@@ -181,6 +181,18 @@ export default function WorkoutHistoryCard({
         )}
       </button>
 
+      {onContinue && (
+        <div className="px-4 pb-3 sm:px-5 -mt-1">
+          <button
+            type="button"
+            className="btn btn-sm btn-outline btn-primary rounded-full font-bold"
+            onClick={onContinue}
+          >
+            Continue workout
+          </button>
+        </div>
+      )}
+
       {open && (
         <div className="px-4 pb-3 sm:px-5 flex flex-col gap-3 animate-expand-in">
           {workout.notes && (
@@ -232,24 +244,13 @@ export default function WorkoutHistoryCard({
                 </button>
               </>
             ) : (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost rounded-full font-semibold text-base-content/55 dark:text-base-content/75"
-                  onClick={() => setConfirmDelete(true)}
-                >
-                  Delete
-                </button>
-                {onContinue && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline btn-primary rounded-full font-bold"
-                    onClick={onContinue}
-                  >
-                    Continue workout
-                  </button>
-                )}
-              </>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost rounded-full font-semibold text-base-content/55 dark:text-base-content/75"
+                onClick={() => setConfirmDelete(true)}
+              >
+                Delete
+              </button>
             )}
           </div>
         </div>
