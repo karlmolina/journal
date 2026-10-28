@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Chip from "../../components/Chip";
 import { CopyPrompt, PasteReply } from "../../components/ChatbotPrompt";
 import ErrorBanner from "../../components/ErrorBanner";
 import SupersetGroup from "../../components/workouts/SupersetGroup";
+import AddPlanExercise from "../../components/workouts/AddPlanExercise";
 import { useAuth } from "../../context/AuthContext";
 import useWorkoutPlans, {
   type PlannedExercise,
@@ -292,8 +293,10 @@ function PlanView({
   next,
   inProgress,
   workouts,
+  suggestions,
   onLog,
   onStart,
+  onAddExercise,
 }: {
   plan: WorkoutPlan;
   // Newest first, for progress toward each exercise's goal.
@@ -301,10 +304,18 @@ function PlanView({
   next: number;
   // A workout is running, so starting another isn't possible.
   inProgress: boolean;
+  // Exercise names for the add-exercise field, most recent first.
+  suggestions: string[];
   onLog: (exercise: string) => void;
   onStart: (session: number) => void;
+  onAddExercise: (
+    session: number,
+    exercise: PlannedExercise,
+  ) => Promise<boolean>;
 }) {
   const { title, summary, sessions, safety_notes } = plan.plan;
+  // The day whose add-exercise form is open.
+  const [adding, setAdding] = useState<number | null>(null);
   return (
     <div className="flex flex-col gap-3">
       <section className={cardClass}>
@@ -416,6 +427,24 @@ function PlanView({
                 </li>
               ))}
             </ol>
+            {adding === i ? (
+              <div className="mt-2">
+                <AddPlanExercise
+                  day={dayLabel(i)}
+                  suggestions={suggestions}
+                  onAdd={(exercise) => onAddExercise(i, exercise)}
+                  onCancel={() => setAdding(null)}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] mt-1 -ml-2"
+                onClick={() => setAdding(i)}
+              >
+                + Add exercise
+              </button>
+            )}
           </section>
         );
       })}
@@ -432,15 +461,44 @@ export default function Plan() {
     error,
     dismissError,
     importPlan,
+    addExercise,
     removePlan,
   } = useWorkoutPlans(user?.id);
   const { active, history, start } = useWorkouts(user?.id);
   const { injuries } = useInjuries(user?.id);
-  const { exercises } = useExercises(user?.id);
+  const { exercises, byLowerName, ensureExercise } = useExercises(user?.id);
   const { preferences, save: savePreferences } = usePlanPreferences(user?.id);
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [planning, setPlanning] = useState(false);
+
+  // Exercises done before (most recent first), then the rest of the library.
+  const suggestions = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const w of active ? [active, ...history] : history)
+      for (const s of [...w.workout_sets].reverse())
+        if (!names.has(s.exercise_name.toLowerCase()))
+          names.set(s.exercise_name.toLowerCase(), s.exercise_name);
+    for (const e of exercises)
+      if (!names.has(e.name.toLowerCase()))
+        names.set(e.name.toLowerCase(), e.name);
+    return [...names.values()];
+  }, [active, history, exercises]);
+
+  // A name that isn't in the library yet is added as your own exercise, and
+  // one that is takes the library's spelling.
+  const handleAddExercise = (
+    plan: WorkoutPlan,
+    session: number,
+    exercise: PlannedExercise,
+  ) => {
+    const found = byLowerName.get(exercise.name.toLowerCase());
+    if (!found) ensureExercise(exercise.name, false);
+    return addExercise(plan, session, {
+      ...exercise,
+      name: found?.name ?? exercise.name,
+    });
+  };
 
   const selected = plans.find((p) => p.id === selectedId) ?? plans[0];
   const older = plans.filter((p) => p !== selected);
@@ -531,7 +589,11 @@ export default function Plan() {
             next={nextSessionIndex(selected, plans, history)}
             inProgress={active !== null}
             workouts={active ? [active, ...history] : history}
+            suggestions={suggestions}
             onLog={(exercise) => navigate("/workouts", { state: { exercise } })}
+            onAddExercise={(session, exercise) =>
+              handleAddExercise(selected, session, exercise)
+            }
             onStart={async (session) => {
               await start({ plan_id: selected.id, plan_session: session });
               navigate("/workouts");
