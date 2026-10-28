@@ -42,7 +42,7 @@ interface DragAdjustOptions {
 }
 
 // Drag up or down on a number field to turn a scroll wheel of values that
-// floats over the page: up goes higher, down goes lower, one at a time. A
+// floats over the page: down goes higher, up goes lower, one at a time. A
 // flick keeps the wheel coasting, and it settles on the nearest value, which
 // becomes the field's value. A tap without moving focuses the field for
 // typing. Spread `bind` on the field's box and render `picker` anywhere.
@@ -186,7 +186,7 @@ export default function useDragAdjust({
   const onPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
-    const dy = d.y - e.clientY;
+    const dy = e.clientY - d.y;
     if (!d.moved) {
       if (Math.abs(dy) < DEAD_ZONE_PX) return;
       d.moved = true;
@@ -205,14 +205,14 @@ export default function useDragAdjust({
     drag.current = null;
     if (!d.moved) return;
     releasedAt.current = performance.now();
-    const position = clamp(d.start, d.from + (d.y - e.clientY) / rowPx);
+    const position = clamp(d.start, d.from + (e.clientY - d.y) / rowPx);
     // Speed over the last tenth of a second; a finger that stopped before
     // letting go doesn't flick.
     const recent = d.samples.find((s) => s.t >= e.timeStamp - 100);
     const elapsed = recent ? e.timeStamp - recent.t : 0;
     const speed =
       e.type === "pointerup" && recent && elapsed > 0
-        ? (recent.y - e.clientY) / rowPx / elapsed
+        ? (e.clientY - recent.y) / rowPx / elapsed
         : 0;
     coast(d.start, position, speed);
   };

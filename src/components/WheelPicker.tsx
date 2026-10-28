@@ -13,6 +13,7 @@ const DETAIL_SIDE_ROWS = 3;
 // The big scroll wheel that floats over the page while you drag a number
 // field. `position` counts rows from the value the drag started at and can sit
 // between rows while the wheel moves; the row nearest the middle is the pick.
+// Higher values sit above, so dragging down pulls them into the middle.
 // `bind` lets a finger that lands on the wheel keep turning it.
 export default function WheelPicker({
   label,
@@ -45,7 +46,7 @@ export default function WheelPicker({
   const rows = [];
   for (let row = center - sideRows - 1; row <= center + sideRows + 1; row++) {
     if (!hasRow(row)) continue;
-    const offset = row - position;
+    const offset = position - row;
     const distance = Math.min(Math.abs(offset), sideRows + 1);
     rows.push(
       <div
