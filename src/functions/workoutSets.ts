@@ -1,5 +1,6 @@
 import type { WorkoutSet } from "../hooks/useWorkouts";
 import { formatClock } from "./formatDuration";
+import { nameKey } from "./exerciseName";
 
 export const WEIGHT_UNIT = "lb";
 
@@ -19,7 +20,7 @@ export function describeSet(set: WorkoutSet) {
 export function groupSets(sets: WorkoutSet[]) {
   const groups = new Map<string, { name: string; sets: WorkoutSet[] }>();
   for (const set of sets) {
-    const key = set.exercise_name.trim().toLowerCase();
+    const key = nameKey(set.exercise_name);
     if (!groups.has(key))
       groups.set(key, { name: set.exercise_name, sets: [] });
     groups.get(key)!.sets.push(set);

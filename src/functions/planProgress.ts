@@ -7,8 +7,7 @@ import type {
 } from "../hooks/useWorkouts";
 import { WEIGHT_UNIT } from "./workoutSets";
 import { countSets } from "./supersets";
-
-const key = (name: string) => name.trim().toLowerCase();
+import { nameKey } from "./exerciseName";
 
 // The plan and every earlier version it was revised from, so workouts done
 // on an older version still count toward where you are in the plan.
@@ -72,16 +71,17 @@ export function lastSetOf(
   name: string,
   workouts: Workout[],
 ): WorkoutSet | undefined {
-  const k = key(name);
+  const k = nameKey(name);
   for (const w of workouts)
     for (let i = w.workout_sets.length - 1; i >= 0; i--)
-      if (key(w.workout_sets[i].exercise_name) === k) return w.workout_sets[i];
+      if (nameKey(w.workout_sets[i].exercise_name) === k)
+        return w.workout_sets[i];
   return undefined;
 }
 
 const setsOf = (name: string, sets: WorkoutSet[]) => {
-  const k = key(name);
-  return sets.filter((s) => key(s.exercise_name) === k);
+  const k = nameKey(name);
+  return sets.filter((s) => nameKey(s.exercise_name) === k);
 };
 
 // A one-side-at-a-time set counts once both its left and right are done.
@@ -119,11 +119,11 @@ export function describeTarget(e: PlannedExercise) {
 
 // The heaviest weight logged for an exercise, if any.
 export function bestWeight(name: string, workouts: Workout[]) {
-  const k = key(name);
+  const k = nameKey(name);
   let best: number | null = null;
   for (const w of workouts)
     for (const s of w.workout_sets)
-      if (key(s.exercise_name) === k && s.weight !== null)
+      if (nameKey(s.exercise_name) === k && s.weight !== null)
         best = Math.max(best ?? 0, s.weight);
   return best;
 }
@@ -177,7 +177,7 @@ export function swapExercise(
   planned: string,
 ): PlanChanges {
   const swaps = { ...changes?.swaps };
-  if (key(name) === key(planned)) delete swaps[index];
+  if (nameKey(name) === nameKey(planned)) delete swaps[index];
   else swaps[index] = name.trim();
   return {
     ...changes,

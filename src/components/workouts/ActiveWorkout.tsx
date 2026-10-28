@@ -56,6 +56,7 @@ import SupersetLink from "./SupersetLink";
 import FloatingBar from "./FloatingBar";
 import WorkoutClockDialog from "./WorkoutClockDialog";
 import scrollToTop, { isGliding } from "../../functions/scrollToTop";
+import { sameName } from "../../functions/exerciseName";
 
 const cardClass =
   "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
@@ -141,9 +142,7 @@ export default function ActiveWorkout({
   }));
   const supersets = workout.supersets ?? planSupersets(exercises);
   const indexOf = (name: string) =>
-    exercises.findIndex(
-      (e) => e.name.trim().toLowerCase() === name.trim().toLowerCase(),
-    );
+    exercises.findIndex((e) => sameName(e.name, name));
   const done = (name: string, all = sets) =>
     countSets(name, isUnilateral(name), all);
   // Planned exercises have a number of sets; anything else goes on and on.
@@ -202,9 +201,7 @@ export default function ActiveWorkout({
   };
 
   const supersetWith = (name: string) =>
-    supersetOf(name, supersets)?.filter(
-      (n) => n.trim().toLowerCase() !== name.trim().toLowerCase(),
-    );
+    supersetOf(name, supersets)?.filter((n) => !sameName(n, name));
 
   const handleSave = (set: SetInput) => {
     onAddSet(set);
@@ -398,9 +395,7 @@ export default function ActiveWorkout({
   );
 
   const setsOf = (name: string) =>
-    sets.filter(
-      (s) => s.exercise_name.trim().toLowerCase() === name.trim().toLowerCase(),
-    );
+    sets.filter((s) => sameName(s.exercise_name, name));
 
   const groupOf = (i: number) => supersetOf(exercises[i].name, supersets);
   const members = (group: string[]) =>
@@ -567,8 +562,7 @@ export default function ActiveWorkout({
   const offPlan: { name: string; at: number }[] = [];
   for (const set of sets) {
     if (indexOf(set.exercise_name) !== -1) continue;
-    const k = set.exercise_name.trim().toLowerCase();
-    if (offPlan.some((o) => o.name.trim().toLowerCase() === k)) continue;
+    if (offPlan.some((o) => sameName(o.name, set.exercise_name))) continue;
     const first = set.created_at;
     const later = exercises.findIndex((e) => {
       const start = setsOf(e.name)[0]?.created_at;

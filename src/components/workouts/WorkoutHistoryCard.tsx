@@ -15,6 +15,7 @@ import {
   totalVolume,
 } from "../../functions/workoutSets";
 import type { Supersets } from "../../functions/supersets";
+import { nameKey } from "../../functions/exerciseName";
 
 function formatDay(iso: string) {
   const d = new Date(iso);
@@ -35,9 +36,7 @@ function formatDay(iso: string) {
 function supersetLetters(groups: Supersets) {
   const tags = new Map<string, string>();
   groups.forEach((g, i) =>
-    g.forEach((name) =>
-      tags.set(name.trim().toLowerCase(), String.fromCharCode(65 + i)),
-    ),
+    g.forEach((name) => tags.set(nameKey(name), String.fromCharCode(65 + i))),
   );
   return tags;
 }

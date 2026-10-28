@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
 import { flushDeletes, notDeleted, queueDelete } from "../functions/undoDelete";
 import { reportError } from "../functions/reportError";
+import { nameKey } from "../functions/exerciseName";
 
 export type ExerciseCategory =
   | "cardio"
@@ -50,8 +51,6 @@ const readCache = (userId: string) =>
 
 const writeCache = (userId: string, value: Exercise[]) =>
   writeUserCache(CACHE_KEY, userId, value);
-
-const nameKey = (name: string) => name.trim().toLowerCase();
 
 const fetchAll = () => supabase.from("exercises").select(SELECT).order("name");
 
