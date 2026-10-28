@@ -11,6 +11,8 @@ import {
   formatNight,
   formatSleep,
   formatTime,
+  MAX_FALL_ASLEEP,
+  parseMinutes,
   parseTime,
   qualityBg,
   qualityText,
@@ -74,6 +76,50 @@ function TimeField({
   );
 }
 
+// Minutes it took to fall asleep, one minute per row on the wheel.
+function FallAsleepField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const drag = useDragAdjust({
+    value,
+    onChange,
+    label: "Time to fall asleep",
+    min: 0,
+    max: MAX_FALL_ASLEEP,
+    parse: (text) => parseMinutes(text) ?? 0,
+    format: String,
+  });
+  const invalid = value.trim() !== "" && parseMinutes(value) === null;
+
+  return (
+    <>
+      <label className={dragBoxClass} {...drag.bind}>
+        <span className={labelClass}>Time to fall asleep</span>
+        <span className="flex items-baseline gap-1">
+          <input
+            className={`w-12 bg-transparent text-right text-2xl font-extrabold tracking-tight tabular-nums outline-none placeholder:text-base-content/25 ${
+              invalid ? "text-error" : ""
+            }`}
+            inputMode="numeric"
+            placeholder="0"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            aria-label="Minutes to fall asleep"
+          />
+          <span className="text-lg font-bold text-base-content/40 dark:text-base-content/60">
+            min
+          </span>
+        </span>
+      </label>
+      {drag.picker}
+    </>
+  );
+}
+
 function NightForm({
   night,
   existing,
@@ -85,7 +131,7 @@ function NightForm({
   night: string;
   existing?: SleepNight;
   // Times from the most recent night, as a starting point for a new one.
-  lastTimes: { bedtime: number; woke_at: number };
+  lastTimes: { bedtime: number; woke_at: number; fall_asleep_minutes: number };
   onNightChange: (night: string) => void;
   onSave: (input: NightInput) => void;
   onDelete?: () => void;
@@ -98,6 +144,9 @@ function NightForm({
   );
   const [wokeAt, setWokeAt] = useState(
     formatTime(existing?.woke_at ?? lastTimes.woke_at),
+  );
+  const [fallAsleep, setFallAsleep] = useState(
+    String(existing?.fall_asleep_minutes ?? lastTimes.fall_asleep_minutes),
   );
 
   // An empty score starts a drag from the middle, not from "no sleep".
@@ -115,19 +164,35 @@ function NightForm({
   const q = parseQuality(quality);
   const bed = parseTime(bedtime);
   const woke = parseTime(wokeAt);
+  // Left empty means it was straight away.
+  const fell = fallAsleep.trim() === "" ? 0 : parseMinutes(fallAsleep);
   const duration =
-    bed !== null && woke !== null ? sleepMinutes(bed, woke) : null;
-  const canSave = q !== null && bed !== null && woke !== null && night !== "";
+    bed !== null && woke !== null && fell !== null
+      ? sleepMinutes(bed, woke, fell)
+      : null;
+  const canSave =
+    q !== null &&
+    bed !== null &&
+    woke !== null &&
+    fell !== null &&
+    night !== "";
   const unchanged =
     existing !== undefined &&
     q === existing.quality &&
     bed === existing.bedtime &&
-    woke === existing.woke_at;
+    woke === existing.woke_at &&
+    fell === existing.fall_asleep_minutes;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSave) return;
-    onSave({ night, quality: q, bedtime: bed, woke_at: woke });
+    onSave({
+      night,
+      quality: q,
+      bedtime: bed,
+      woke_at: woke,
+      fall_asleep_minutes: fell,
+    });
   };
 
   return (
@@ -178,10 +243,13 @@ function NightForm({
         <TimeField label="Bedtime" value={bedtime} onChange={setBedtime} />
         <TimeField label="Woke up" value={wokeAt} onChange={setWokeAt} />
       </div>
+      <FallAsleepField value={fallAsleep} onChange={setFallAsleep} />
       <p className="text-center text-sm font-semibold text-base-content/60 dark:text-base-content/75">
         {duration !== null
           ? `${formatSleep(duration)} of sleep`
-          : "Use times like 11:30 PM or 23:30"}
+          : fell === null
+            ? `Minutes to fall asleep, from 0 to ${MAX_FALL_ASLEEP}`
+            : "Use times like 11:30 PM or 23:30"}
       </p>
 
       <button
@@ -233,11 +301,19 @@ function NightRow({
           <span className="flex items-baseline justify-between gap-2">
             <span className="font-bold">{formatNight(night.night)}</span>
             <span className="shrink-0 font-bold tabular-nums">
-              {formatSleep(sleepMinutes(night.bedtime, night.woke_at))}
+              {formatSleep(
+                sleepMinutes(
+                  night.bedtime,
+                  night.woke_at,
+                  night.fall_asleep_minutes,
+                ),
+              )}
             </span>
           </span>
           <span className="block text-sm tabular-nums text-base-content/60 dark:text-base-content/75">
             {formatTime(night.bedtime)} – {formatTime(night.woke_at)}
+            {night.fall_asleep_minutes > 0 &&
+              ` · ${formatSleep(night.fall_asleep_minutes)} to fall asleep`}
           </span>
           <span className="block text-sm font-medium">
             {QUALITY_WORDS[night.quality]}
@@ -255,7 +331,9 @@ function WeekSummary({ nights }: { nights: SleepNight[] }) {
   const avg = (f: (n: SleepNight) => number) =>
     week.reduce((sum, n) => sum + f(n), 0) / week.length;
   const quality = avg((n) => n.quality);
-  const minutes = avg((n) => sleepMinutes(n.bedtime, n.woke_at));
+  const minutes = avg((n) =>
+    sleepMinutes(n.bedtime, n.woke_at, n.fall_asleep_minutes),
+  );
 
   return (
     <p className="px-1 text-sm font-semibold text-base-content/60 dark:text-base-content/75">
@@ -277,8 +355,16 @@ export default function Sleep() {
 
   const existing = nights.find((n) => n.night === night);
   const lastTimes = nights[0]
-    ? { bedtime: nights[0].bedtime, woke_at: nights[0].woke_at }
-    : { bedtime: DEFAULT_BEDTIME, woke_at: DEFAULT_WOKE_AT };
+    ? {
+        bedtime: nights[0].bedtime,
+        woke_at: nights[0].woke_at,
+        fall_asleep_minutes: nights[0].fall_asleep_minutes,
+      }
+    : {
+        bedtime: DEFAULT_BEDTIME,
+        woke_at: DEFAULT_WOKE_AT,
+        fall_asleep_minutes: 0,
+      };
 
   return (
     <div className="max-w-xl mx-auto px-2 sm:px-6 min-h-dvh flex flex-col gap-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
@@ -290,24 +376,28 @@ export default function Sleep() {
       />
       {error && <ErrorBanner message={error} onDismiss={dismissError} />}
 
-      <NightForm
-        // A fresh form for each night, filled from that night if it's logged,
-        // and once more when the nights finish loading.
-        key={`${night}:${loading}`}
-        night={night}
-        existing={existing}
-        lastTimes={lastTimes}
-        onNightChange={setNight}
-        onSave={saveNight}
-        onDelete={
-          existing
-            ? () => {
-                removeNight(existing.id);
-                setNight(defaultNight());
-              }
-            : undefined
-        }
-      />
+      {/* The form sits in the middle of the first screen; past nights are
+          below it. */}
+      <div className="flex min-h-[calc(100svh-6rem)] flex-col justify-center">
+        <NightForm
+          // A fresh form for each night, filled from that night if it's logged,
+          // and once more when the nights finish loading.
+          key={`${night}:${loading}`}
+          night={night}
+          existing={existing}
+          lastTimes={lastTimes}
+          onNightChange={setNight}
+          onSave={saveNight}
+          onDelete={
+            existing
+              ? () => {
+                  removeNight(existing.id);
+                  setNight(defaultNight());
+                }
+              : undefined
+          }
+        />
+      </div>
 
       <WeekSummary nights={nights} />
       {nights.length > 0 ? (
