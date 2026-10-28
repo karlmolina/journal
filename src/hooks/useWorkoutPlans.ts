@@ -137,6 +137,41 @@ export default function useWorkoutPlans(userId?: string) {
     [],
   );
 
+  // Adds an exercise to the end of a plan day, in the plan itself, so every
+  // later workout of that day has it. Added at the end so the exercises
+  // already there keep their places, which workouts' swaps and ends point at.
+  const addExercise = useCallback(
+    async (plan: WorkoutPlan, session: number, exercise: PlannedExercise) => {
+      const updated: WorkoutPlan = {
+        ...plan,
+        plan: {
+          ...plan.plan,
+          sessions: plan.plan.sessions.map((s, i) =>
+            i === session ? { ...s, exercises: [...s.exercises, exercise] } : s,
+          ),
+        },
+      };
+      const put = (p: WorkoutPlan) =>
+        setPlans((prev) => prev.map((q) => (q.id === p.id ? p : q)));
+      put(updated);
+      setError(null);
+      const { data, error } = await supabase
+        .from("workout_plans")
+        .update({ plan: updated.plan })
+        .eq("id", plan.id)
+        .select("id");
+      // No row back means nothing was allowed to change.
+      if (error || data.length === 0) {
+        reportError(error ?? "Plan update changed no rows", "useWorkoutPlans");
+        put(plan);
+        setError(`Couldn't add ${exercise.name} to the plan.`);
+        return false;
+      }
+      return true;
+    },
+    [],
+  );
+
   const removePlan = useCallback((plan: WorkoutPlan) => {
     setPlans((prev) => prev.filter((p) => p.id !== plan.id));
     setError(null);
@@ -166,6 +201,7 @@ export default function useWorkoutPlans(userId?: string) {
     error,
     dismissError: () => setError(null),
     importPlan,
+    addExercise,
     removePlan,
   };
 }
