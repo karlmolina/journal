@@ -12,13 +12,14 @@ import useWorkouts, {
   type Workout,
   type WorkoutSet,
 } from "../../hooks/useWorkouts";
-import useExercises from "../../hooks/useExercises";
+import useExercises, { type Exercise } from "../../hooks/useExercises";
 import useExerciseNotes from "../../hooks/useExerciseNotes";
 import useInjuries from "../../hooks/useInjuries";
 import useWorkoutPlans, {
   type PlannedExercise,
   type WorkoutPlan,
 } from "../../hooks/useWorkoutPlans";
+import { equipmentFor } from "../../functions/equipment";
 import { guessBodyParts } from "../../functions/bodyPartScores";
 import { planSupersets, type Supersets } from "../../functions/supersets";
 import {
@@ -40,16 +41,22 @@ const startedToday = (w: Workout) =>
 function UpNext({
   plan,
   next,
+  lookup,
   onStart,
 }: {
   plan: WorkoutPlan;
   next: number;
+  lookup: (name: string) => Exercise | undefined;
   onStart: (session: number) => void;
 }) {
   const sessions = plan.plan.sessions;
   const [chosen, setChosen] = useState<number | null>(null);
   const index = chosen !== null && chosen < sessions.length ? chosen : next;
   const session = sessions[index];
+  const equipment = useMemo(
+    () => equipmentFor(session.exercises, lookup),
+    [session, lookup],
+  );
   return (
     <section className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-5 sm:px-5 flex flex-col gap-1">
       <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
@@ -63,6 +70,32 @@ function UpNext({
         {session.exercises.length === 1 ? "exercise" : "exercises"} · about{" "}
         {session.duration_minutes} min
       </p>
+      <div className="mt-3 flex flex-col gap-1.5">
+        <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+          Equipment
+        </p>
+        {equipment.length > 0 ? (
+          <ul className="flex flex-col gap-1">
+            {equipment.map((need) => (
+              <li key={need.item} className="text-sm leading-snug">
+                <span className="font-bold">{need.item}</span>
+                {need.optional && (
+                  <span className="text-base-content/55 dark:text-base-content/75">
+                    {" "}
+                    (optional)
+                  </span>
+                )}
+                <span className="text-base-content/55 dark:text-base-content/75">
+                  {" "}
+                  · {need.exercises.join(", ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm font-medium">Nothing needed</p>
+        )}
+      </div>
       {sessions.length > 1 && (
         <div className="flex flex-wrap gap-1.5 mt-2" aria-label="Plan days">
           {sessions.map((_, i) => (
@@ -325,6 +358,7 @@ export default function Session() {
               <UpNext
                 plan={latestPlan}
                 next={nextSessionIndex(latestPlan, plans, history)}
+                lookup={lookup}
                 onStart={(session) =>
                   start({ plan_id: latestPlan.id, plan_session: session })
                 }
