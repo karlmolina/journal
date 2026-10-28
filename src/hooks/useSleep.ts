@@ -13,6 +13,8 @@ export interface SleepNight {
   // Minutes after midnight.
   bedtime: number;
   woke_at: number;
+  // How long it took to fall asleep; not counted as sleep.
+  fall_asleep_minutes: number;
 }
 
 export type NightInput = Omit<SleepNight, "id">;
@@ -23,6 +25,7 @@ interface Row {
   quality: number;
   bedtime: string;
   woke_at: string;
+  fall_asleep_minutes: number;
 }
 
 const CACHE_KEY = "sleep_nights";
@@ -38,8 +41,14 @@ const sortNights = (nights: SleepNight[]) =>
   [...nights].sort((a, b) => b.night.localeCompare(a.night));
 
 export default function useSleep(userId?: string) {
+  // Nights cached before fall_asleep_minutes existed count it as 0.
   const [nights, setNights] = useState<SleepNight[]>(() =>
-    userId ? readUserCache<SleepNight[]>(CACHE_KEY, userId, []) : [],
+    userId
+      ? readUserCache<SleepNight[]>(CACHE_KEY, userId, []).map((n) => ({
+          ...n,
+          fall_asleep_minutes: n.fall_asleep_minutes ?? 0,
+        }))
+      : [],
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +69,7 @@ export default function useSleep(userId?: string) {
     let cancelled = false;
     supabase
       .from("sleep_nights")
-      .select("id, night, quality, bedtime, woke_at")
+      .select("id, night, quality, bedtime, woke_at, fall_asleep_minutes")
       .order("night", { ascending: false })
       .then(({ data, error }) => {
         if (cancelled) return;

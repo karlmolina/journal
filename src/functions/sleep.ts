@@ -71,9 +71,20 @@ export const toDbTime = (minutes: number) => {
   return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 };
 
-// A wake-up at or before bedtime is the next morning.
-export const sleepMinutes = (bedtime: number, wokeAt: number) =>
-  wrap(wokeAt - bedtime);
+// A wake-up at or before bedtime is the next morning. The time it took to fall
+// asleep doesn't count as sleep.
+export const sleepMinutes = (bedtime: number, wokeAt: number, fallAsleep = 0) =>
+  Math.max(0, wrap(wokeAt - bedtime) - fallAsleep);
+
+export const MAX_FALL_ASLEEP = 720;
+
+// Whole minutes, like "20" or "20 min"; null when it doesn't parse.
+export function parseMinutes(text: string): number | null {
+  const match = text.trim().match(/^(\d{1,3})\s*(?:m|min|mins|minutes?)?$/i);
+  if (!match) return null;
+  const n = Number(match[1]);
+  return n <= MAX_FALL_ASLEEP ? n : null;
+}
 
 // 7 hr 45 min
 export function formatSleep(minutes: number) {
