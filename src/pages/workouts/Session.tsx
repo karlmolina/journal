@@ -15,11 +15,17 @@ import useWorkouts, {
 import useExercises from "../../hooks/useExercises";
 import useExerciseNotes from "../../hooks/useExerciseNotes";
 import useInjuries from "../../hooks/useInjuries";
-import useWorkoutPlans, { type WorkoutPlan } from "../../hooks/useWorkoutPlans";
+import useWorkoutPlans, {
+  type PlannedExercise,
+  type WorkoutPlan,
+} from "../../hooks/useWorkoutPlans";
 import { guessBodyParts } from "../../functions/bodyPartScores";
 import { planSupersets, type Supersets } from "../../functions/supersets";
 import {
+  addToWorkout,
   applyPlanChanges,
+  followPlanEdit,
+  grewFrom,
   lastSetOf,
   dayLabel,
   nextSessionIndex,
@@ -102,7 +108,7 @@ export default function Session() {
     splitSet,
   } = useWorkouts(userId);
   const { exercises, byLowerName, ensureExercise } = useExercises(userId);
-  const { plans } = useWorkoutPlans(userId);
+  const { plans, addExercise } = useWorkoutPlans(userId);
   const notes = useExerciseNotes(userId);
   const { injuries } = useInjuries(userId);
   const exerciseNotes = { notes, injuries };
@@ -180,6 +186,32 @@ export default function Session() {
         }
       : undefined;
   }, [active, plans, byLowerName]);
+
+  // An exercise added during the workout: to this workout only, or to its
+  // plan day too, so later workouts of that day have it.
+  const handleAddExercise = async (
+    exercise: PlannedExercise,
+    toPlan: boolean,
+  ) => {
+    if (!active) return false;
+    const found = byLowerName.get(exercise.name.toLowerCase());
+    if (!found) ensureExercise(exercise.name, false);
+    const named = { ...exercise, name: found?.name ?? exercise.name };
+    const plan = plans.find((p) => p.id === active.plan_id);
+    const session = active.plan_session;
+    if (toPlan && plan && session != null) {
+      const changes = followPlanEdit(
+        active,
+        plan,
+        session,
+        grewFrom(plan.plan.sessions[session].exercises.length),
+      );
+      if (changes) setPlanChanges(changes);
+      return addExercise(plan, session, named);
+    }
+    setPlanChanges(addToWorkout(active.plan_changes, named));
+    return true;
+  };
 
   const isUnilateral = useCallback(
     (name: string) => {
@@ -278,6 +310,7 @@ export default function Session() {
           onDiscard={discard}
           onSupersetsChange={setSupersets}
           onPlanChange={setPlanChanges}
+          onAddExercise={handleAddExercise}
           onAddSet={handleAddSet}
           onUpdateSet={handleUpdateSet}
           onRemoveSets={removeSets}

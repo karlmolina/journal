@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
 import { flushDeletes, notDeleted, queueDelete } from "../functions/undoDelete";
 import { reportError } from "../functions/reportError";
+import type { PlannedExercise } from "./useWorkoutPlans";
 
 export type Side = "left" | "right";
 
@@ -45,6 +46,9 @@ export interface PlanChanges {
   swaps?: Record<string, string>;
   // Finished before all their sets were done.
   ended?: number[];
+  // Exercises added to this workout only, after the plan's. Their indexes
+  // continue from the plan's last one.
+  added?: PlannedExercise[];
 }
 
 export interface PlanSessionRef {

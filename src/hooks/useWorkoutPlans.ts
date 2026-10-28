@@ -137,17 +137,21 @@ export default function useWorkoutPlans(userId?: string) {
     [],
   );
 
-  // Adds an exercise to the end of a plan day, in the plan itself, so every
-  // later workout of that day has it. Added at the end so the exercises
-  // already there keep their places, which workouts' swaps and ends point at.
-  const addExercise = useCallback(
-    async (plan: WorkoutPlan, session: number, exercise: PlannedExercise) => {
+  // Saves a plan day's exercises in the plan itself, so every later workout
+  // of that day has them.
+  const saveSession = useCallback(
+    async (
+      plan: WorkoutPlan,
+      session: number,
+      exercises: PlannedExercise[],
+      failure: string,
+    ) => {
       const updated: WorkoutPlan = {
         ...plan,
         plan: {
           ...plan.plan,
           sessions: plan.plan.sessions.map((s, i) =>
-            i === session ? { ...s, exercises: [...s.exercises, exercise] } : s,
+            i === session ? { ...s, exercises } : s,
           ),
         },
       };
@@ -164,12 +168,25 @@ export default function useWorkoutPlans(userId?: string) {
       if (error || data.length === 0) {
         reportError(error ?? "Plan update changed no rows", "useWorkoutPlans");
         put(plan);
-        setError(`Couldn't add ${exercise.name} to the plan.`);
+        setError(failure);
         return false;
       }
       return true;
     },
     [],
+  );
+
+  // Added at the end so the exercises already there keep their places,
+  // which workouts' swaps and ends point at.
+  const addExercise = useCallback(
+    (plan: WorkoutPlan, session: number, exercise: PlannedExercise) =>
+      saveSession(
+        plan,
+        session,
+        [...plan.plan.sessions[session].exercises, exercise],
+        `Couldn't add ${exercise.name} to the plan.`,
+      ),
+    [saveSession],
   );
 
   const removePlan = useCallback((plan: WorkoutPlan) => {
@@ -202,6 +219,7 @@ export default function useWorkoutPlans(userId?: string) {
     dismissError: () => setError(null),
     importPlan,
     addExercise,
+    saveSession,
     removePlan,
   };
 }

@@ -1,3 +1,4 @@
+import type React from "react";
 import { useState } from "react";
 import ExerciseInput from "./ExerciseInput";
 import type { PlannedExercise } from "../../hooks/useWorkoutPlans";
@@ -17,16 +18,20 @@ const unitClass =
 
 const weightLabel = WEIGHT_UNIT === "lb" ? "lbs" : WEIGHT_UNIT;
 
-// A form for one more exercise at the end of a plan day: pick one from the
-// library or type a new name, with its sets, reps or time, rest and weight.
+// A form for one more exercise at the end of a plan day or a workout: pick
+// one from the library or type a new name, with its sets, reps or time, rest
+// and weight.
 export default function AddPlanExercise({
-  day,
+  submitLabel,
+  above,
   suggestions,
   onAdd,
   onCancel,
 }: {
-  // "Day 2", for the button.
-  day: string;
+  // Like "Add to Day 2".
+  submitLabel: string;
+  // Shown over the fields, like a choice of where it goes.
+  above?: React.ReactNode;
   // Exercise names, most recent first.
   suggestions: string[];
   onAdd: (exercise: PlannedExercise) => Promise<boolean>;
@@ -88,6 +93,7 @@ export default function AddPlanExercise({
         if (ok) onCancel();
       }}
     >
+      {above}
       <ExerciseInput
         className={fieldClass}
         value={name}
@@ -174,7 +180,7 @@ export default function AddPlanExercise({
           className="btn btn-primary rounded-full font-bold flex-1 active:scale-[0.98] transition"
           disabled={!canAdd || saving}
         >
-          Add to {day}
+          {submitLabel}
         </button>
       </div>
       {dragSets.picker}

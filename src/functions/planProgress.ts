@@ -120,6 +120,8 @@ export interface SessionExercise extends PlannedExercise {
   // The plan's exercise, when another is done instead.
   swapped_from?: string;
   ended?: boolean;
+  // Added to this workout only, not the plan.
+  added?: boolean;
 }
 
 // The session's exercises with this workout's swaps and early ends. A swap
@@ -129,7 +131,11 @@ export function applyPlanChanges(
   exercises: PlannedExercise[],
   changes: PlanChanges | null,
 ): SessionExercise[] {
-  return exercises.map((e, i) => {
+  const all: SessionExercise[] = [
+    ...exercises,
+    ...(changes?.added ?? []).map((e) => ({ ...e, added: true })),
+  ];
+  return all.map((e, i) => {
     const swap = changes?.swaps?.[i];
     const ended = changes?.ended?.includes(i) ?? false;
     const swapped: SessionExercise = swap
@@ -141,6 +147,7 @@ export function applyPlanChanges(
           notes: "",
           superset: e.superset,
           swapped_from: e.name,
+          added: e.added,
         }
       : { ...e };
     return ended ? { ...swapped, ended } : swapped;
@@ -159,6 +166,7 @@ export function swapExercise(
   if (key(name) === key(planned)) delete swaps[index];
   else swaps[index] = name.trim();
   return {
+    ...changes,
     swaps,
     ended: (changes?.ended ?? []).filter((i) => i !== index),
   };
@@ -170,9 +178,100 @@ export const endExercise = (
   index: number,
   ended: boolean,
 ): PlanChanges => ({
+  ...changes,
   swaps: { ...changes?.swaps },
   ended: [
     ...(changes?.ended ?? []).filter((i) => i !== index),
     ...(ended ? [index] : []),
   ],
 });
+
+// Adds an exercise to this workout only, after everything else.
+export const addToWorkout = (
+  changes: PlanChanges | null,
+  exercise: PlannedExercise,
+): PlanChanges => ({
+  ...changes,
+  added: [...(changes?.added ?? []), exercise],
+});
+
+// A plan exercise's superset letter, if it's in one.
+export const supersetLetter = (e: PlannedExercise) =>
+  e.superset?.trim().toUpperCase() || undefined;
+
+// Exercises in a row that share a superset letter, kept together.
+export function supersetRuns(exercises: PlannedExercise[]) {
+  const runs: { letter?: string; indices: number[] }[] = [];
+  exercises.forEach((e, j) => {
+    const last = runs.at(-1);
+    const letter = supersetLetter(e);
+    if (last && letter && last.letter === letter) last.indices.push(j);
+    else runs.push({ letter, indices: [j] });
+  });
+  return runs;
+}
+
+// Moves the exercise at `index` one place up (-1) or down (1). Inside a
+// superset it moves past its partner; at the superset's edge, or on its own,
+// it moves past the whole neighboring exercise or superset, taking its own
+// superset with it. `from[i]` is where the exercise now at i used to be.
+export function moveExercise(
+  exercises: PlannedExercise[],
+  index: number,
+  direction: -1 | 1,
+): { exercises: PlannedExercise[]; from: number[] } | null {
+  const runs = supersetRuns(exercises).map((r) => r.indices);
+  const r = runs.findIndex((indices) => indices.includes(index));
+  const run = runs[r];
+  const pos = run.indexOf(index);
+  if (run[pos + direction] !== undefined) {
+    [run[pos], run[pos + direction]] = [run[pos + direction], run[pos]];
+  } else {
+    if (!runs[r + direction]) return null;
+    [runs[r], runs[r + direction]] = [runs[r + direction], runs[r]];
+  }
+  const from = runs.flat();
+  return { exercises: from.map((i) => exercises[i]), from };
+}
+
+// This workout's changes, still pointing at the same exercises after the
+// plan day's exercises moved: `to(i)` is where the exercise at i went.
+export const remapPlanChanges = (
+  changes: PlanChanges,
+  to: (index: number) => number,
+): PlanChanges => ({
+  ...changes,
+  swaps: Object.fromEntries(
+    Object.entries(changes.swaps ?? {}).map(([i, name]) => [
+      String(to(Number(i))),
+      name,
+    ]),
+  ),
+  ended: (changes.ended ?? []).map(to),
+});
+
+// After a reorder, where each exercise went. Added ones keep their indexes.
+export const movedTo = (from: number[]) => (i: number) => {
+  const j = from.indexOf(i);
+  return j === -1 ? i : j;
+};
+
+// After an exercise was added to the end of a plan day of `length`
+// exercises: the ones added to the workout only move down one.
+export const grewFrom = (length: number) => (i: number) =>
+  i >= length ? i + 1 : i;
+
+// A running workout's changes after its plan day changed, or null when it
+// follows another day or has nothing to keep track of.
+export function followPlanEdit(
+  workout: Workout | null,
+  plan: WorkoutPlan,
+  session: number,
+  to: (index: number) => number,
+): PlanChanges | null {
+  return workout?.plan_id === plan.id &&
+    workout.plan_session === session &&
+    workout.plan_changes
+    ? remapPlanChanges(workout.plan_changes, to)
+    : null;
+}
