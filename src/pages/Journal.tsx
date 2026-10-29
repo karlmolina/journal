@@ -6,72 +6,31 @@ import React, {
   useCallback,
 } from "react";
 import { supabase } from "../supabase";
-import {
-  readUserCache,
-  removeUserCache,
-  writeUserCache,
-} from "../functions/userCache";
 import TopBar from "../components/TopBar";
 import JournalEntry from "../components/JournalEntry";
+import JournalSearchBar from "../components/JournalSearchBar";
 import { useAuth } from "../context/AuthContext";
 import useVisualViewport from "../hooks/useVisualViewport";
 import signOut from "../functions/signOut";
 import { reportError } from "../functions/reportError";
+import {
+  readCache,
+  readDraft,
+  readPending,
+  toEntry,
+  writeCache,
+  writeDraft,
+  writePending,
+  type Entry,
+} from "../functions/journalEntries";
+import useEntrySearch from "../hooks/useEntrySearch";
 
-const LOCAL_STORAGE_KEY = "journal_entries";
-// Entries submitted but not yet confirmed saved, so a reload or a failed request
-// doesn't lose them; they're retried until the insert succeeds.
-const PENDING_KEY = "journal_pending";
-const DRAFT_KEY = "journal_draft";
 const ENTRY_LIMIT = 10;
-const SEARCH_DEBOUNCE_MS = 300;
 const PLACEHOLDERS = [
   "What happened today?",
   "How's it going today?",
   "How are you feeling today?",
 ];
-
-interface Entry {
-  id: string;
-  text: string;
-  // Raw timestamptz string from Postgres; kept as-is so it can be used as a
-  // pagination cursor without losing microsecond precision.
-  createdAt: string;
-}
-
-interface EntryRow {
-  id: string;
-  text: string;
-  created_at: string;
-}
-
-interface SearchRow extends EntryRow {
-  highlighted: string;
-}
-
-const toEntry = (row: EntryRow): Entry => ({
-  id: row.id,
-  text: row.text,
-  createdAt: row.created_at,
-});
-
-interface SearchResult extends Entry {
-  highlighted: string;
-}
-
-const readCache = (userId: string) =>
-  readUserCache<Entry[]>(LOCAL_STORAGE_KEY, userId, []);
-const writeCache = (userId: string, entries: Entry[]) =>
-  writeUserCache(LOCAL_STORAGE_KEY, userId, entries);
-const readPending = (userId: string) =>
-  readUserCache<Entry[]>(PENDING_KEY, userId, []);
-const writePending = (userId: string, entries: Entry[]) =>
-  writeUserCache(PENDING_KEY, userId, entries);
-const readDraft = (userId: string) => readUserCache(DRAFT_KEY, userId, "");
-const writeDraft = (userId: string, draft: string) => {
-  if (draft) writeUserCache(DRAFT_KEY, userId, draft);
-  else removeUserCache(DRAFT_KEY, userId);
-};
 
 function EmptyState({ title, hint }: { title: string; hint: string }) {
   return (
@@ -110,9 +69,15 @@ export default function Journal() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showJumpDown, setShowJumpDown] = useState(false);
-  const [searchText, setSearchText] = useState("");
-  const [results, setResults] = useState<SearchResult[] | null>(null);
-  const [searching, setSearching] = useState(false);
+  const {
+    searchText,
+    setSearchText,
+    results,
+    setResults,
+    searching,
+    handleSearch,
+    clearSearchText,
+  } = useEntrySearch();
   const [searchOpen, setSearchOpen] = useState(false);
   // The entry box is a compact one-row pill until focused or non-empty.
   const [focused, setFocused] = useState(false);
@@ -232,62 +197,6 @@ export default function Journal() {
     readPending(userId).forEach(saveEntry);
     loadEntries();
   }, [userId, loadEntries, saveEntry]);
-
-  // Only the latest request may update state, so slow earlier responses can't
-  // overwrite newer results.
-  const searchRequestId = useRef(0);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-
-  const runSearch = useCallback(async (query: string) => {
-    const requestId = ++searchRequestId.current;
-    setSearching(true);
-    const { data, error } = await supabase.rpc("search_entries", {
-      query_text: query,
-    });
-    if (requestId !== searchRequestId.current) return;
-    setSearching(false);
-    if (error) {
-      reportError(error, "Journal");
-      return;
-    }
-    setResults(
-      (data as SearchRow[]).map((row) => ({
-        ...toEntry(row),
-        highlighted: row.highlighted,
-      })),
-    );
-  }, []);
-
-  // Search 300ms after the user stops typing.
-  useEffect(() => {
-    const query = searchText.trim();
-    if (!query) {
-      searchRequestId.current++;
-      setSearching(false);
-      return;
-    }
-    searchTimer.current = setTimeout(
-      () => runSearch(query),
-      SEARCH_DEBOUNCE_MS,
-    );
-    return () => clearTimeout(searchTimer.current);
-  }, [searchText, runSearch]);
-
-  // Enter searches immediately instead of waiting out the debounce.
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const query = searchText.trim();
-    if (!query) return;
-    clearTimeout(searchTimer.current);
-    runSearch(query);
-  };
-
-  const clearSearchText = () => {
-    setSearchText("");
-    setResults(null);
-  };
 
   const toggleSearch = () => {
     if (searchOpen) clearSearchText();
@@ -493,70 +402,17 @@ export default function Journal() {
       </div>
 
       {searchOpen ? (
-        <form
+        <JournalSearchBar
+          text={searchText}
+          searching={searching}
+          onChange={(value) => {
+            setSearchText(value);
+            if (!value) setResults(null);
+          }}
           onSubmit={handleSearch}
-          className="shrink-0 bg-base-100 flex items-end gap-2 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
-        >
-          <label className="input relative flex-1 h-14 rounded-3xl bg-base-content/8 border-0 shadow-sm text-lg font-medium text-base-content/90 dark:text-[color-mix(in_oklab,var(--color-base-content),white_45%)] gap-0 pl-14 pr-14 sm:h-16 sm:pl-16 sm:pr-16 focus-within:outline-none [&_input]:placeholder:text-base-content/50">
-            <button
-              type="button"
-              className="btn btn-ghost btn-circle absolute z-10 left-2 bottom-2 sm:left-3 sm:bottom-3"
-              onClick={toggleSearch}
-              aria-label="Close search"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.25"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M19 12H5" />
-                <path d="m12 19-7-7 7-7" />
-              </svg>
-            </button>
-            <input
-              type="text"
-              autoFocus
-              placeholder="Search entries..."
-              value={searchText}
-              onChange={(e) => {
-                setSearchText(e.target.value);
-                if (!e.target.value) setResults(null);
-              }}
-              onKeyDown={(e) => e.key === "Escape" && toggleSearch()}
-            />
-            {searching && (
-              <span className="loading loading-spinner loading-xs"></span>
-            )}
-            <button
-              type="button"
-              className="btn btn-ghost btn-circle absolute z-10 right-2 bottom-2 sm:right-3 sm:bottom-3"
-              // Clear the text first; close search if there's nothing to clear.
-              onClick={searchText ? clearSearchText : toggleSearch}
-              aria-label={searchText ? "Clear search" : "Close search"}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.25"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
-              </svg>
-            </button>
-          </label>
-        </form>
+          onClear={clearSearchText}
+          onClose={toggleSearch}
+        />
       ) : (
         <form
           onSubmit={handleSubmit}
