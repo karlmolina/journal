@@ -28,7 +28,7 @@ const text = (n: number | null | undefined) => (n == null ? "" : String(n));
 const COUNTDOWN = 3;
 
 const restTitleClass =
-  "text-lg font-bold text-base-content/60 dark:text-base-content/80";
+  "text-center text-lg font-bold text-base-content/60 dark:text-base-content/80";
 
 // A buzz when the planned rest is up (no sound); the screen shows it too.
 function restTargetAlert() {
