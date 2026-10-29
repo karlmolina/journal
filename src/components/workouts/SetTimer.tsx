@@ -331,43 +331,46 @@ export default function SetTimer({
       <div className="flex flex-col">
         {header(state.exercise, state.side)}
         {aboveClock && <div className="mt-2">{aboveClock}</div>}
-        {/* Laid out like the set once it's done, so nothing moves on Finish. */}
-        <div
-          className="mt-2 mb-2 flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3"
-        >
-          <ClockRow
-            goalSeconds={prefillFor(state.exercise).duration_seconds}
-            clock={
-              // The box the time sits in once the set is done, not editable
-              // while it runs.
-              <div
-                className="my-1 rounded-2xl bg-base-content/6 px-4 py-1"
-                role="timer"
-              >
-                {countdown > 0 ? (
-                  <p className="text-4xl font-extrabold tracking-tight tabular-nums text-center text-base-content/45 dark:text-base-content/70">
-                    Starting in {countdown}
-                  </p>
-                ) : (
-                  <input
-                    className="pointer-events-none w-36 bg-transparent text-center text-4xl font-extrabold tracking-tight tabular-nums outline-none"
-                    value={formatClock(since(state.startedAt))}
-                    readOnly
-                    tabIndex={-1}
-                    aria-label="Time"
-                  />
-                )}
-              </div>
-            }
-          />
-          {state.side && <SideChips side={state.side} />}
-          <RepsWeightFields
-            big
-            reps={fields.reps}
-            weight={fields.weight}
-            onReps={(reps) => setState({ ...state, ...fields, reps })}
-            onWeight={(weight) => setState({ ...state, ...fields, weight })}
-          />
+        {/* Laid out like the set once it's done, so nothing moves on Finish.
+            Opens out as the set starts. */}
+        <div className="animate-section-open">
+          <div className="min-h-0 overflow-hidden">
+            <div className="mt-2 mb-2 flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3">
+              <ClockRow
+                goalSeconds={prefillFor(state.exercise).duration_seconds}
+                clock={
+                  // The box the time sits in once the set is done, not editable
+                  // while it runs.
+                  <div
+                    className="my-1 rounded-2xl bg-base-content/6 px-4 py-1"
+                    role="timer"
+                  >
+                    {countdown > 0 ? (
+                      <p className="text-4xl font-extrabold tracking-tight tabular-nums text-center text-base-content/45 dark:text-base-content/70">
+                        Starting in {countdown}
+                      </p>
+                    ) : (
+                      <input
+                        className="pointer-events-none w-36 bg-transparent text-center text-4xl font-extrabold tracking-tight tabular-nums outline-none"
+                        value={formatClock(since(state.startedAt))}
+                        readOnly
+                        tabIndex={-1}
+                        aria-label="Time"
+                      />
+                    )}
+                  </div>
+                }
+              />
+              {state.side && <SideChips side={state.side} />}
+              <RepsWeightFields
+                big
+                reps={fields.reps}
+                weight={fields.weight}
+                onReps={(reps) => setState({ ...state, ...fields, reps })}
+                onWeight={(weight) => setState({ ...state, ...fields, weight })}
+              />
+            </div>
+          </div>
         </div>
         {countdown > 0 ? (
           <button type="button" className={primaryClass} onClick={startNow}>

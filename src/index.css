@@ -90,6 +90,12 @@ body {
     transform: translateY(-4px);
   }
 }
+@keyframes section-open {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
 @keyframes toast-out {
   to {
     opacity: 0;
@@ -111,6 +117,10 @@ body {
 .animate-expand-in {
   animation: expand-in 180ms ease-out;
 }
+.animate-section-open {
+  display: grid;
+  animation: section-open 220ms ease-out;
+}
 .animate-toast-out {
   animation: toast-out 150ms ease-in forwards;
 }
@@ -131,7 +141,8 @@ body {
   .animate-entry-in,
   .animate-fade-in,
   .animate-pop-in,
-  .animate-expand-in {
+  .animate-expand-in,
+  .animate-section-open {
     animation: none;
   }
   .animate-fade-out,
