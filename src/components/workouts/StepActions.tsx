@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { SessionExercise } from "../../functions/planProgress";
 import ExerciseInput from "./ExerciseInput";
-import { boldFieldClass } from "../fieldClass";
+import { boldFieldClass } from "../styles";
 
 // An exercise as the checklist counts it: one ended early needs only the
 // sets already done.

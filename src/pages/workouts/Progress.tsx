@@ -15,14 +15,12 @@ import { formatClock, formatDuration } from "../../functions/formatDuration";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 import { placeLabel } from "../../functions/bodyRegions";
 import { reportError } from "../../functions/reportError";
+import { cardClass } from "../../components/styles";
 
 const WEEKS = 12;
 const HISTORY_WEEKS = 26;
 const DAY_MS = 86_400_000;
 const CACHE_KEY = "progress_workouts";
-
-const cardClass =
-  "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
 
 // Monday 00:00 local time of the week containing `ms`.
 function weekStart(ms: number) {

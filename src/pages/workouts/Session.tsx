@@ -34,6 +34,7 @@ import {
   plannedSeconds,
 } from "../../functions/planProgress";
 import { nameKey } from "../../functions/exerciseName";
+import { exerciseSuggestions } from "../../functions/exerciseSuggestions";
 
 // Only today's workout can be picked back up; an older one is history.
 const startedToday = (w: Workout) =>
@@ -151,20 +152,11 @@ export default function Session() {
   // Set by the library's "Log this exercise" button.
   const initialExercise: string | undefined = useLocation().state?.exercise;
 
-  // Exercises used before (most recent first), then the rest of the library.
-  const suggestions = useMemo(() => {
-    const names = new Map<string, string>();
-    const workouts = active ? [active, ...history] : history;
-    for (const w of workouts)
-      for (const s of [...w.workout_sets].reverse()) {
-        const key = s.exercise_name.toLowerCase();
-        if (!names.has(key)) names.set(key, s.exercise_name);
-      }
-    for (const e of exercises)
-      if (!names.has(e.name.toLowerCase()))
-        names.set(e.name.toLowerCase(), e.name);
-    return [...names.values()];
-  }, [active, history, exercises]);
+  const suggestions = useMemo(
+    () =>
+      exerciseSuggestions(active ? [active, ...history] : history, exercises),
+    [active, history, exercises],
+  );
 
   // Every set links to the library; a name that isn't there yet is added as
   // your own exercise.

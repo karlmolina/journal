@@ -19,7 +19,7 @@ import {
   type Phase,
   type Rest,
 } from "../../functions/setTimerState";
-import { boldFieldClass } from "../fieldClass";
+import { boldFieldClass } from "../styles";
 
 const text = (n: number | null | undefined) => (n == null ? "" : String(n));
 

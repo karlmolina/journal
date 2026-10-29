@@ -5,7 +5,7 @@ import type { SetInput, Side } from "../../hooks/useWorkouts";
 import { formatClock, parseClock } from "../../functions/formatDuration";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 import useDragAdjust from "../../hooks/useDragAdjust";
-import { boldFieldClass } from "../fieldClass";
+import { boldFieldClass } from "../styles";
 
 // A field that reads like "10 reps": the number sits right up against its
 // unit. Tapping anywhere in the box focuses the input, and dragging up or down

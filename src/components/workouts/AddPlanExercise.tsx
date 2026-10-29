@@ -4,7 +4,7 @@ import ExerciseInput from "./ExerciseInput";
 import type { PlannedExercise } from "../../hooks/useWorkoutPlans";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 import useDragAdjust from "../../hooks/useDragAdjust";
-import { boldFieldClass } from "../fieldClass";
+import { boldFieldClass } from "../styles";
 
 // Reads like "3 sets": the number sits right up against its unit, and dragging
 // on the box turns a scroll wheel of values.

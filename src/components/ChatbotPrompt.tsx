@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fieldClass } from "./fieldClass";
+import { fieldClass } from "./styles";
 
 // Copies the prompt for a chatbot. When the clipboard is blocked, the prompt
 // shows in a box to copy by hand.

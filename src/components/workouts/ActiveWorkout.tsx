@@ -57,9 +57,8 @@ import FloatingBar from "./FloatingBar";
 import WorkoutClockDialog from "./WorkoutClockDialog";
 import scrollToTop, { isGliding } from "../../functions/scrollToTop";
 import { sameName } from "../../functions/exerciseName";
+import { cardClass } from "../styles";
 
-const cardClass =
-  "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
 // Tinted to stand out: the rest you're in, and the exercise you're on.
 const restCardClass =
   "rounded-2xl bg-primary/10 dark:bg-primary/15 px-4 py-4 sm:px-5";

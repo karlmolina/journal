@@ -7,10 +7,8 @@ import {
   recipeFromLink,
   type LinkRecipe,
 } from "../../functions/recipeFromLink";
-import { fieldClass } from "../fieldClass";
+import { fieldClass } from "../styles";
 
-export const cardClass =
-  "rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-4 sm:px-5";
 export const labelClass =
   "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
 export const mutedClass =
