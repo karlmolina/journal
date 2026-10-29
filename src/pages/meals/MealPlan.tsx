@@ -5,7 +5,6 @@ import { CopyPrompt, PasteReply } from "../../components/ChatbotPrompt";
 import {
   AddMealBox,
   ServingsField,
-  cardClass,
   labelClass,
   mutedClass,
   type AddedMeal,
@@ -28,7 +27,7 @@ import {
   groceryList,
   hasRecipe,
 } from "../../functions/meals";
-import { fieldClass } from "../../components/fieldClass";
+import { cardClass, fieldClass } from "../../components/styles";
 
 const parseRecipes = (reply: string) => {
   const result = parseMealReply(reply);

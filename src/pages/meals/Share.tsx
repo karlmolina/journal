@@ -8,7 +8,8 @@ import { reportError } from "../../functions/reportError";
 import { LAST_PAGE_KEY } from "../../hooks/useLastPage";
 import { savePendingInvite } from "../../functions/pendingInvite";
 import { useMealsData } from "../../hooks/useMeals";
-import { cardClass, mutedClass } from "../../components/meals/MealParts";
+import { mutedClass } from "../../components/meals/MealParts";
+import { cardClass } from "../../components/styles";
 
 interface MealShare {
   // Set when you joined someone else's meals.

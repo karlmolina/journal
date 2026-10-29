@@ -7,7 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import useInjuries, { today, type Side } from "../../hooks/useInjuries";
 import useExerciseNotes from "../../hooks/useExerciseNotes";
 import { placeKey, placeLabel } from "../../functions/bodyRegions";
-import { fieldClass } from "../../components/fieldClass";
+import { fieldClass } from "../../components/styles";
 
 interface Place {
   region: string;

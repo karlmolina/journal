@@ -7,7 +7,7 @@ import type {
   ExercisePurpose,
   NewExercise,
 } from "../../hooks/useExercises";
-import { boldFieldClass } from "../fieldClass";
+import { boldFieldClass } from "../styles";
 
 const CATEGORIES: { key: ExerciseCategory; label: string }[] = [
   { key: "strength", label: "Strength" },

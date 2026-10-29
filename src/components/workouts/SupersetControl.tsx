@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { boldFieldClass } from "../fieldClass";
+import { boldFieldClass } from "../styles";
 import ExerciseInput from "./ExerciseInput";
 
 // Shows what the current exercise is in a superset with, and adds more
