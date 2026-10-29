@@ -48,6 +48,8 @@ export function NightRow({
             </span>
           </span>
           <span className="block text-sm tabular-nums text-base-content/60 dark:text-base-content/75">
+            {night.tech_free_at !== null &&
+              `Tech free ${formatTime(night.tech_free_at)} · `}
             {night.get_ready_at !== null &&
               `Ready ${formatTime(night.get_ready_at)} · `}
             {formatTime(night.bedtime)} – {formatTime(night.woke_at)}

@@ -17,6 +17,8 @@ export interface SleepNight {
   fall_asleep_minutes: number;
   // When getting ready for bed started, before bedtime; null when not logged.
   get_ready_at: number | null;
+  // When screens were put away for the night; null when not logged.
+  tech_free_at: number | null;
   // Time spent awake during the night; not counted as sleep.
   awake_minutes: number;
   notes: string;
@@ -32,6 +34,7 @@ interface Row {
   woke_at: string;
   fall_asleep_minutes: number;
   get_ready_at: string | null;
+  tech_free_at: string | null;
   awake_minutes: number;
   notes: string;
 }
@@ -43,6 +46,7 @@ const fromRow = (r: Row): SleepNight => ({
   bedtime: fromDbTime(r.bedtime),
   woke_at: fromDbTime(r.woke_at),
   get_ready_at: r.get_ready_at === null ? null : fromDbTime(r.get_ready_at),
+  tech_free_at: r.tech_free_at === null ? null : fromDbTime(r.tech_free_at),
 });
 
 // Newest night first.
@@ -57,6 +61,7 @@ export default function useSleep(userId?: string) {
           ...n,
           fall_asleep_minutes: n.fall_asleep_minutes ?? 0,
           get_ready_at: n.get_ready_at ?? null,
+          tech_free_at: n.tech_free_at ?? null,
           awake_minutes: n.awake_minutes ?? 0,
           notes: n.notes ?? "",
         }))
@@ -82,7 +87,7 @@ export default function useSleep(userId?: string) {
     supabase
       .from("sleep_nights")
       .select(
-        "id, night, quality, bedtime, woke_at, fall_asleep_minutes, get_ready_at, awake_minutes, notes",
+        "id, night, quality, bedtime, woke_at, fall_asleep_minutes, get_ready_at, tech_free_at, awake_minutes, notes",
       )
       .order("night", { ascending: false })
       .then(({ data, error }) => {
@@ -118,6 +123,8 @@ export default function useSleep(userId?: string) {
           woke_at: toDbTime(night.woke_at),
           get_ready_at:
             night.get_ready_at === null ? null : toDbTime(night.get_ready_at),
+          tech_free_at:
+            night.tech_free_at === null ? null : toDbTime(night.tech_free_at),
         },
         { onConflict: "user_id,night" },
       );
