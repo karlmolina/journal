@@ -6,15 +6,12 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 // scrolling only re-renders the bar, never the page under it.
 export default function FloatingBar({
   currentCard,
-  doneBlock,
   elapsed,
   paused,
   onCurrent,
   onClock,
 }: {
   currentCard: RefObject<HTMLElement | null>;
-  // Just after a set: that set and the button under it.
-  doneBlock: HTMLElement | null;
   elapsed: string;
   paused: boolean;
   onCurrent: () => void;
@@ -35,7 +32,7 @@ export default function FloatingBar({
     const underBar = [...document.querySelectorAll(".btn-primary")].some(
       (b) => !bar.current?.contains(b) && nearBottom(b),
     );
-    const el = doneBlock ?? currentCard.current;
+    const el = currentCard.current;
     // The current exercise's main button under the corner clock.
     setClockCovers(
       !!el &&
@@ -47,13 +44,6 @@ export default function FloatingBar({
     // Never over a Start button, wherever it is.
     if (!el || underBar) return setAwayFrom(null);
     const r = el.getBoundingClientRect();
-    if (doneBlock) {
-      // A set just finished stays where it is, so only once it's off
-      // screen, or so nearly that the button would cover it.
-      return setAwayFrom(
-        r.bottom < 96 ? "above" : r.top > zone ? "below" : null,
-      );
-    }
     // The exercise's top away from the top of the screen, and the page able
     // to scroll it there.
     const off = r.top - parseFloat(getComputedStyle(el).scrollMarginTop || "0");
