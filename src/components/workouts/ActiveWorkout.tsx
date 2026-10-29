@@ -451,17 +451,16 @@ export default function ActiveWorkout({
     const earlier = logged.filter((s) => s.id !== fixing?.id);
     const loggedSets = logged.length > 0 && (
       <div className="flex flex-col gap-2">
-        {earlier.length > 0 && (
-          <SetList
-            sets={earlier}
-            suggestions={suggestions}
-            onUpdate={onUpdateSet}
-            onRemove={onRemoveSets}
-            onSplit={onSplitSet}
-            isUnilateral={isUnilateral}
-            hideNames
-          />
-        )}
+        {/* Mounted from the first set, so the sets that join it ease in. */}
+        <SetList
+          sets={earlier}
+          suggestions={suggestions}
+          onUpdate={onUpdateSet}
+          onRemove={onRemoveSets}
+          onSplit={onSplitSet}
+          isUnilateral={isUnilateral}
+          hideNames
+        />
         {fixing && earlier.length < logged.length && fixingEditor(fixing)}
       </div>
     );

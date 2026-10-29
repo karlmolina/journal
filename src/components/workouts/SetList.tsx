@@ -98,6 +98,15 @@ export default function SetList({
   editRest = false,
 }: SetListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Sets that turn up after the list is on screen ease in, like a set just
+  // finished joining the ones before it; those already there don't.
+  const [seen, setSeen] = useState(() => new Set(sets.map((s) => s.id)));
+  const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
+  const added = sets.filter((s) => !seen.has(s.id)).map((s) => s.id);
+  if (added.length > 0) {
+    setSeen(new Set([...seen, ...added]));
+    setFresh(new Set([...fresh, ...added]));
+  }
   const groups = groupSets(sets).map(({ name, sets }) => ({
     name,
     sets,
@@ -114,7 +123,7 @@ export default function SetList({
   }
 
   return (
-    <div className={`flex flex-col ${dense ? "gap-3" : "gap-4"}`}>
+    <div className={`flex flex-col empty:hidden ${dense ? "gap-3" : "gap-4"}`}>
       {groups.map(({ name, sets, labels }) => {
         const tag = supersetTags?.get(nameKey(name));
         // The library entry, so you can see or change what it works.
@@ -230,7 +239,13 @@ export default function SetList({
                 ) : (
                   <li
                     key={set.id}
-                    className={`flex items-center font-medium text-base-content/80 dark:text-[color-mix(in_oklab,var(--color-base-content),white_30%)] ${dense ? "gap-2 min-h-6 text-sm" : "gap-3 min-h-8"}`}
+                    onAnimationEnd={() => {
+                      if (!fresh.has(set.id)) return;
+                      const rest = new Set(fresh);
+                      rest.delete(set.id);
+                      setFresh(rest);
+                    }}
+                    className={`${fresh.has(set.id) ? "animate-expand-in " : ""}flex items-center font-medium text-base-content/80 dark:text-[color-mix(in_oklab,var(--color-base-content),white_30%)] ${dense ? "gap-2 min-h-6 text-sm" : "gap-3 min-h-8"}`}
                   >
                     <span
                       className={`shrink-0 text-xs font-semibold tracking-wide text-base-content/50 dark:text-base-content/75 ${dense ? "w-8 tabular-nums" : "w-22"}`}
