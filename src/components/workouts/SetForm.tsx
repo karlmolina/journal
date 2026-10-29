@@ -143,6 +143,9 @@ interface SetFormProps {
   onDelete?: () => void;
   onDeleteExercise?: { label: string; run: () => void };
   onAdd?: (set: SetInput) => void;
+  // Editing a logged set: also the rest taken before it, fixable when the
+  // rest clock ran too long or wasn't stopped in time.
+  rest?: boolean;
   // Instead of a button to save: each change saves on its own, shortly
   // after you stop typing or dragging.
   onChange?: (set: SetInput) => void;
@@ -162,6 +165,7 @@ export default function SetForm({
   onDelete,
   onDeleteExercise,
   onAdd,
+  rest,
   onChange,
 }: SetFormProps) {
   const [exercise, setExercise] = useState(initial?.exercise_name ?? "");
@@ -178,6 +182,17 @@ export default function SetForm({
     parse: parseClock,
     format: (n) => (n > 0 ? formatClock(n) : ""),
   });
+  const [restTime, setRestTime] = useState(
+    initial?.rest_seconds ? formatClock(initial.rest_seconds) : "",
+  );
+  const dragRest = useDragAdjust({
+    value: restTime,
+    onChange: setRestTime,
+    label: "Rest before",
+    min: 0,
+    parse: parseClock,
+    format: (n) => (n > 0 ? formatClock(n) : ""),
+  });
   // One-side-at-a-time sets say which side; tapping the chosen side again
   // clears it.
   const [side, setSide] = useState<Side | null>(initial?.side ?? null);
@@ -188,10 +203,12 @@ export default function SetForm({
     ? Number(weight)
     : null;
   const parsedTime = parseClock(time);
+  const parsedRest = parseClock(restTime);
   const invalid =
     (reps.trim() !== "" && parsedReps === null) ||
     (weight.trim() !== "" && parsedWeight === null) ||
-    (time.trim() !== "" && parsedTime === null);
+    (time.trim() !== "" && parsedTime === null) ||
+    (!!rest && restTime.trim() !== "" && parsedRest === null);
   const canAdd =
     exercise.trim() !== "" &&
     !invalid &&
@@ -203,6 +220,7 @@ export default function SetForm({
     weight: parsedWeight,
     duration_seconds: parsedTime,
     side,
+    ...(rest && { rest_seconds: parsedRest }),
   };
   const key = JSON.stringify(values);
   const saved = useRef(key);
@@ -291,9 +309,28 @@ export default function SetForm({
           />
         )}
       </RepsWeightFields>
+      {rest && (
+        <div className="flex items-center gap-2">
+          <label className={unitFieldClass} {...dragRest.bind}>
+            <input
+              className={unitInputClass}
+              inputMode="numeric"
+              placeholder="0:00"
+              value={restTime}
+              onChange={(e) => setRestTime(e.target.value)}
+              aria-label="Rest before this set, in seconds or minutes:seconds"
+            />
+            <span className={unitClass} aria-hidden>
+              rest before
+            </span>
+          </label>
+          {/* Half the row, under reps, so it doesn't read as a third field. */}
+          <span className="flex-1" aria-hidden />
+        </div>
+      )}
       {invalid && (
         <p className="text-sm font-semibold text-error">
-          Use whole reps, a weight like 22.5, and time like 45 or 1:30.
+          Use whole reps, a weight like 22.5, and times like 45 or 1:30.
         </p>
       )}
       {onAdd && (
@@ -351,6 +388,7 @@ export default function SetForm({
         </div>
       )}
       {dragTime.picker}
+      {dragRest.picker}
     </form>
   );
 }

@@ -374,6 +374,7 @@ export default function ActiveWorkout({
           bigTime
           goalSeconds={prefillFor(s.exercise_name).duration_seconds}
           initial={s}
+          rest={s.rest_seconds != null}
           onChange={(changes) => onUpdateSet(s, changes)}
         />
       </div>
