@@ -52,20 +52,19 @@ interface Cached {
 
 const CACHE_KEY = "meals";
 
+const EMPTY: Cached = { meals: [], plan: [], settings: DEFAULT_SETTINGS };
+
 const byName = (meals: Meal[]) =>
   [...meals].sort((a, b) => a.name.localeCompare(b.name));
+// The plan in the order meals were added to it.
+const byAdded = (plan: PlannedMeal[]) =>
+  [...plan].sort((a, b) => a.created_at.localeCompare(b.created_at));
 
 // The meal library, the meals planned next and the Meals tab's settings, all
 // loaded together since every page of the tab needs them.
 export default function useMeals(userId?: string) {
   const [data, setData] = useState<Cached>(() =>
-    userId
-      ? readUserCache<Cached>(CACHE_KEY, userId, {
-          meals: [],
-          plan: [],
-          settings: DEFAULT_SETTINGS,
-        })
-      : { meals: [], plan: [], settings: DEFAULT_SETTINGS },
+    userId ? readUserCache<Cached>(CACHE_KEY, userId, EMPTY) : EMPTY,
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -229,9 +228,7 @@ export default function useMeals(userId?: string) {
               : {
                   ...d,
                   meals: byName([...d.meals, meal]),
-                  plan: [...d.plan, ...planned].sort((a, b) =>
-                    a.created_at.localeCompare(b.created_at),
-                  ),
+                  plan: byAdded([...d.plan, ...planned]),
                 },
           ),
         onError: (err) => fail("Couldn't delete that meal.", err),
@@ -303,9 +300,7 @@ export default function useMeals(userId?: string) {
               ? d
               : {
                   ...d,
-                  plan: [...d.plan, planned].sort((a, b) =>
-                    a.created_at.localeCompare(b.created_at),
-                  ),
+                  plan: byAdded([...d.plan, planned]),
                 },
           ),
         onError: (err) => fail("Couldn't update your plan.", err),
