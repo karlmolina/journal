@@ -90,6 +90,17 @@ body {
     transform: translateY(-4px);
   }
 }
+/* A set joining the list grows into place, so the box under it slides down
+   instead of jumping. */
+@keyframes row-in {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 4rem;
+  }
+}
 @keyframes section-open {
   from {
     grid-template-rows: 0fr;
@@ -122,6 +133,10 @@ body {
 }
 .animate-expand-in {
   animation: expand-in 180ms ease-out;
+}
+.animate-row-in {
+  overflow: hidden;
+  animation: row-in 220ms ease-out;
 }
 .animate-section-open {
   display: grid;
@@ -156,6 +171,7 @@ body {
   .animate-fade-in,
   .animate-pop-in,
   .animate-expand-in,
+  .animate-row-in,
   .animate-section-open,
   .animate-section-close {
     animation: none;
