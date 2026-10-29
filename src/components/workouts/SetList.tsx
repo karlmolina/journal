@@ -188,6 +188,7 @@ export default function SetList({
                     <SetForm
                       suggestions={suggestions}
                       initial={set}
+                      rest
                       isUnilateral={isUnilateral}
                       onSplit={
                         onSplit &&
