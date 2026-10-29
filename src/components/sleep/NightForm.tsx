@@ -30,16 +30,21 @@ function TimeField({
   label,
   value,
   onChange,
+  fallback,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  // Where a drag starts when the field is empty.
+  fallback?: number;
+  placeholder?: string;
 }) {
   const drag = useDragAdjust({
     value,
     onChange,
     label,
-    parse: parseTime,
+    parse: (text) => parseTime(text) ?? fallback ?? null,
     format: formatTime,
   });
   const invalid = value.trim() !== "" && parseTime(value) === null;
@@ -49,9 +54,10 @@ function TimeField({
       <label className={`${dragBoxClass} flex-1 min-w-0`} {...drag.bind}>
         <span className={labelClass}>{label}</span>
         <input
-          className={`w-full min-w-0 bg-transparent text-center text-2xl font-extrabold tracking-tight tabular-nums outline-none ${
+          className={`w-full min-w-0 bg-transparent text-center text-2xl font-extrabold tracking-tight tabular-nums outline-none placeholder:text-base-content/25 ${
             invalid ? "text-error" : ""
           }`}
+          placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           // Typed times like "2330" or "11p" are tidied up once you're done.
@@ -67,18 +73,20 @@ function TimeField({
   );
 }
 
-// Minutes it took to fall asleep, one minute per row on the wheel.
-function FallAsleepField({
+// Minutes spent awake in bed, one minute per row on the wheel.
+function MinutesField({
+  label,
   value,
   onChange,
 }: {
+  label: string;
   value: string;
   onChange: (value: string) => void;
 }) {
   const drag = useDragAdjust({
     value,
     onChange,
-    label: "Time to fall asleep",
+    label,
     min: 0,
     max: MAX_FALL_ASLEEP,
     parse: (text) => parseMinutes(text) ?? 0,
@@ -88,8 +96,8 @@ function FallAsleepField({
 
   return (
     <>
-      <label className={dragBoxClass} {...drag.bind}>
-        <span className={labelClass}>Time to fall asleep</span>
+      <label className={`${dragBoxClass} flex-1 min-w-0`} {...drag.bind}>
+        <span className={labelClass}>{label}</span>
         <span className="flex items-baseline gap-1">
           <input
             className={`w-12 bg-transparent text-right text-2xl font-extrabold tracking-tight tabular-nums outline-none placeholder:text-base-content/25 ${
@@ -99,7 +107,7 @@ function FallAsleepField({
             placeholder="0"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            aria-label="Minutes to fall asleep"
+            aria-label={`${label}, in minutes`}
           />
           <span className="text-lg font-bold text-base-content/40 dark:text-base-content/60">
             min
@@ -122,7 +130,12 @@ export default function NightForm({
   night: string;
   existing?: SleepNight;
   // Times from the most recent night, as a starting point for a new one.
-  lastTimes: { bedtime: number; woke_at: number; fall_asleep_minutes: number };
+  lastTimes: {
+    bedtime: number;
+    woke_at: number;
+    fall_asleep_minutes: number;
+    get_ready_at: number | null;
+  };
   onNightChange: (night: string) => void;
   onSave: (input: NightInput) => void;
   onDelete?: () => void;
@@ -139,6 +152,17 @@ export default function NightForm({
   const [fallAsleep, setFallAsleep] = useState(
     String(existing?.fall_asleep_minutes ?? lastTimes.fall_asleep_minutes),
   );
+  // Optional: nights logged before this field have no get-ready time.
+  const [getReady, setGetReady] = useState(() => {
+    const t = existing ? existing.get_ready_at : lastTimes.get_ready_at;
+    return t === null ? "" : formatTime(t);
+  });
+  const [awake, setAwake] = useState(
+    existing && existing.awake_minutes > 0
+      ? String(existing.awake_minutes)
+      : "",
+  );
+  const [notes, setNotes] = useState(existing?.notes ?? "");
 
   // An empty score starts a drag from the middle, not from "no sleep".
   const dragQuality = useDragAdjust({
@@ -155,24 +179,32 @@ export default function NightForm({
   const q = parseQuality(quality);
   const bed = parseTime(bedtime);
   const woke = parseTime(wokeAt);
-  // Left empty means it was straight away.
+  // Left empty means it was straight away, or no time awake.
   const fell = fallAsleep.trim() === "" ? 0 : parseMinutes(fallAsleep);
+  const up = awake.trim() === "" ? 0 : parseMinutes(awake);
+  const ready = getReady.trim() === "" ? null : parseTime(getReady);
+  const readyInvalid = getReady.trim() !== "" && ready === null;
   const duration =
-    bed !== null && woke !== null && fell !== null
-      ? sleepMinutes(bed, woke, fell)
+    bed !== null && woke !== null && fell !== null && up !== null
+      ? sleepMinutes(bed, woke, fell + up)
       : null;
   const canSave =
     q !== null &&
     bed !== null &&
     woke !== null &&
     fell !== null &&
+    up !== null &&
+    !readyInvalid &&
     night !== "";
   const unchanged =
     existing !== undefined &&
     q === existing.quality &&
     bed === existing.bedtime &&
     woke === existing.woke_at &&
-    fell === existing.fall_asleep_minutes;
+    fell === existing.fall_asleep_minutes &&
+    up === existing.awake_minutes &&
+    ready === existing.get_ready_at &&
+    notes.trim() === existing.notes;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,6 +215,9 @@ export default function NightForm({
       bedtime: bed,
       woke_at: woke,
       fall_asleep_minutes: fell,
+      awake_minutes: up,
+      get_ready_at: ready,
+      notes: notes.trim(),
     });
   };
 
@@ -231,17 +266,43 @@ export default function NightForm({
       {dragQuality.picker}
 
       <div className="flex gap-2">
+        <TimeField
+          label="Get ready for bed"
+          value={getReady}
+          onChange={setGetReady}
+          // An empty field starts dragging half an hour before bedtime.
+          fallback={(bed ?? lastTimes.bedtime) - 30}
+          placeholder="–"
+        />
         <TimeField label="Bedtime" value={bedtime} onChange={setBedtime} />
-        <TimeField label="Woke up" value={wokeAt} onChange={setWokeAt} />
       </div>
-      <FallAsleepField value={fallAsleep} onChange={setFallAsleep} />
+      <div className="flex gap-2">
+        <MinutesField
+          label="To fall asleep"
+          value={fallAsleep}
+          onChange={setFallAsleep}
+        />
+        <MinutesField
+          label="Awake at night"
+          value={awake}
+          onChange={setAwake}
+        />
+      </div>
+      <TimeField label="Woke up" value={wokeAt} onChange={setWokeAt} />
       <p className="text-center text-sm font-semibold text-base-content/60 dark:text-base-content/75">
-        {duration !== null
+        {duration !== null && !readyInvalid
           ? `${formatSleep(duration)} of sleep`
-          : fell === null
-            ? `Minutes to fall asleep, from 0 to ${MAX_FALL_ASLEEP}`
+          : fell === null || up === null
+            ? `Minutes awake, from 0 to ${MAX_FALL_ASLEEP}`
             : "Use times like 11:30 PM or 23:30"}
       </p>
+      <textarea
+        className="min-h-20 rounded-2xl bg-base-content/8 px-3 py-2.5 outline-none transition placeholder:text-base-content/40 focus:bg-base-content/12"
+        placeholder="Notes: caffeine, dreams, what woke you up…"
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        aria-label="Notes"
+      />
 
       <button
         type="submit"

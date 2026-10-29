@@ -42,19 +42,28 @@ export function NightRow({
                 sleepMinutes(
                   night.bedtime,
                   night.woke_at,
-                  night.fall_asleep_minutes,
+                  night.fall_asleep_minutes + night.awake_minutes,
                 ),
               )}
             </span>
           </span>
           <span className="block text-sm tabular-nums text-base-content/60 dark:text-base-content/75">
+            {night.get_ready_at !== null &&
+              `Ready ${formatTime(night.get_ready_at)} · `}
             {formatTime(night.bedtime)} – {formatTime(night.woke_at)}
             {night.fall_asleep_minutes > 0 &&
               ` · ${formatSleep(night.fall_asleep_minutes)} to fall asleep`}
+            {night.awake_minutes > 0 &&
+              ` · ${formatSleep(night.awake_minutes)} awake`}
           </span>
           <span className="block text-sm font-medium">
             {QUALITY_WORDS[night.quality]}
           </span>
+          {night.notes && (
+            <span className="mt-0.5 block whitespace-pre-line text-sm text-base-content/70 dark:text-base-content/80">
+              {night.notes}
+            </span>
+          )}
         </span>
       </button>
     </li>
@@ -69,7 +78,7 @@ export function WeekSummary({ nights }: { nights: SleepNight[] }) {
     week.reduce((sum, n) => sum + f(n), 0) / week.length;
   const quality = avg((n) => n.quality);
   const minutes = avg((n) =>
-    sleepMinutes(n.bedtime, n.woke_at, n.fall_asleep_minutes),
+    sleepMinutes(n.bedtime, n.woke_at, n.fall_asleep_minutes + n.awake_minutes),
   );
 
   return (

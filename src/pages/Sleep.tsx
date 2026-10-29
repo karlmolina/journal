@@ -24,11 +24,13 @@ export default function Sleep() {
         bedtime: nights[0].bedtime,
         woke_at: nights[0].woke_at,
         fall_asleep_minutes: nights[0].fall_asleep_minutes,
+        get_ready_at: nights[0].get_ready_at,
       }
     : {
         bedtime: DEFAULT_BEDTIME,
         woke_at: DEFAULT_WOKE_AT,
         fall_asleep_minutes: 0,
+        get_ready_at: null,
       };
 
   return (
