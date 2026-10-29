@@ -369,7 +369,7 @@ export default function ActiveWorkout({
   // The set just stopped, fixable in place until the next one starts: its
   // time on the big clock, side, reps and weight, saving as they change.
   const fixingEditor = (s: WorkoutSet) => (
-    <div className="flex flex-col gap-2 animate-fade-in">
+    <div className="flex flex-col gap-2">
       <div className="flex flex-col rounded-2xl bg-base-content/5 p-3">
         <SetForm
           key={s.id}
