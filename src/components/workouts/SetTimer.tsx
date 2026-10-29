@@ -133,14 +133,24 @@ export default function SetTimer({
   // The set's box opens out when it starts from a rest or the start button,
   // not when it takes the place of the set just finished (which has the
   // same box). Decided as the phase changes, so a tick can't cut it short.
+  // Going on to the other side of a set is the exception: its box closes and
+  // opens again, since it's a set of its own.
   const [prevPhase, setPrevPhase] = useState(state.phase);
+  const [prevSwitched, setPrevSwitched] = useState(false);
   const [opening, setOpening] = useState(false);
   // Starting from a rest, the box is already there: only what's new in it
   // opens out, and the rest's title closes.
   const [fromRest, setFromRest] = useState(false);
   if (state.phase !== prevPhase) {
     setPrevPhase(state.phase);
-    setOpening(state.phase === "running" && prevPhase !== "done");
+    setPrevSwitched(
+      state.phase === "done" &&
+        state.then.phase === "ready" &&
+        !!state.then.switchTo,
+    );
+    setOpening(
+      state.phase === "running" && (prevPhase !== "done" || prevSwitched),
+    );
     setFromRest(state.phase === "running" && prevPhase === "resting");
   }
   const [name, setName] = useState(exercise);
