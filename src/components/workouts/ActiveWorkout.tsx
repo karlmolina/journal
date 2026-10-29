@@ -748,7 +748,7 @@ export default function ActiveWorkout({
               {exercises.length > 0 && !showEmpty && (
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] self-center"
+                  className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] self-center mt-3"
                   onClick={() => setExtraOpen(true)}
                 >
                   + Add exercise
