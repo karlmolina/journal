@@ -475,7 +475,7 @@ export default function SetTimer({
     const restBlock = (
       <div className="flex w-full flex-col items-center text-center">
         <p className="text-lg font-bold text-base-content/60 dark:text-base-content/80">
-          {rested >= goal ? "Rested" : "Resting"}
+          Resting
         </p>
         <div className="mb-3 w-full">
           <ClockRow
