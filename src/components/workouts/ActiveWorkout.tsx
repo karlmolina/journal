@@ -325,7 +325,11 @@ export default function ActiveWorkout({
 
   // In a plan the rest shows in the exercise's card, under its title and
   // sets; otherwise it heads the timer.
-  const timer = (inPlan = false, aboveClock?: ReactNode) => (
+  const timer = (
+    inPlan = false,
+    aboveClock?: ReactNode,
+    headerAction?: ReactNode,
+  ) => (
     <SetTimer
       workoutId={workout.id}
       storageKey={timerKey}
@@ -358,6 +362,7 @@ export default function ActiveWorkout({
       doneSlot={doneSlot}
       // A plan's exercise cards have Swap exercise instead.
       hideChange={inPlan}
+      headerAction={headerAction}
     />
   );
 
@@ -521,8 +526,8 @@ export default function ActiveWorkout({
           className={`${restCardClass} scroll-mt-4 flex flex-col gap-3`}
         >
           {label}
-          {timer(true, loggedSets)}
-          {!setBusy && actions}
+          {/* Level with the title; not mid-set. */}
+          {timer(true, loggedSets, !setBusy && actions)}
         </section>
       );
 
@@ -531,11 +536,14 @@ export default function ActiveWorkout({
       <section className={`${cardClass} flex flex-col gap-2`}>
         {label}
         <div>
-          <p
-            className={`text-xl font-bold leading-tight ${complete ? "text-base-content/70 dark:text-base-content/85" : ""}`}
-          >
-            {e.name}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <p
+              className={`text-xl font-bold leading-tight ${complete ? "text-base-content/70 dark:text-base-content/85" : ""}`}
+            >
+              {e.name}
+            </p>
+            {actions}
+          </div>
           <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
             {describeTarget({ ...e, sets: e.planned_sets })}
             {!group && e.rest_seconds > 0 && ` · rest ${e.rest_seconds}s`}
@@ -553,7 +561,6 @@ export default function ActiveWorkout({
         </div>
         {!complete && <ExerciseHowTo exercise={lookup(e.name)} />}
         {loggedSets}
-        {actions}
       </section>
     );
   };

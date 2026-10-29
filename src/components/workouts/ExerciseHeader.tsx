@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Side } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
 import { sideLabel } from "../../functions/planProgress";
@@ -38,6 +39,7 @@ export default function ExerciseHeader({
   lookup,
   exerciseNotes,
   foldHowTo,
+  corner,
 }: {
   name: string;
   side?: Side | null;
@@ -47,13 +49,18 @@ export default function ExerciseHeader({
   lookup?: (exercise: string) => Exercise | undefined;
   exerciseNotes?: ExerciseNotesProps;
   foldHowTo?: boolean;
+  // Level with the title, at the right.
+  corner?: ReactNode;
 }) {
   return (
     <div className="w-full flex flex-col">
       {/* The biggest text on the screen: what you're doing now. */}
-      <p className="text-4xl font-extrabold leading-tight tracking-tight">
-        {name}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-4xl font-extrabold leading-tight tracking-tight">
+          {name}
+        </p>
+        {corner}
+      </div>
       {side && (
         <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
           {sideLabel(side)}

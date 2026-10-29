@@ -82,7 +82,7 @@ function RestField({
   );
 }
 
-// At the foot of each exercise's card, one Options button. It opens a
+// In the corner of each exercise's card, one Options button. It opens a
 // dialog to do the exercise now instead of the current one, swap it for
 // another for this workout, end it before all its sets are done, or fix
 // the rest taken before each of its sets.
@@ -129,16 +129,24 @@ export default function StepActions({
 
   return (
     <>
-      <div className="flex justify-center">
-        <button
-          type="button"
-          className={actionClass}
-          onClick={() => setOpen(true)}
-          aria-haspopup="dialog"
+      <button
+        type="button"
+        className={`${actionClass} btn-square shrink-0`}
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-label="Options"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="size-5"
+          aria-hidden
         >
-          Options
-        </button>
-      </div>
+          <circle cx="12" cy="5" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="12" cy="19" r="2" />
+        </svg>
+      </button>
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 dark:bg-black/70 animate-fade-in p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
