@@ -732,7 +732,7 @@ export default function ActiveWorkout({
           {shownIndex === null && (
             <>
               {exercises.length > 0 && (
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center pt-3">
                   <p className="text-sm font-bold text-center text-base-content/70 dark:text-base-content/85">
                     Every planned set is done. Nice work.
                   </p>
