@@ -119,6 +119,31 @@ export function ClockRow({
   );
 }
 
+// Right / Left. Without onSide they only show which side it is, so the set
+// timer can keep the row in place while the set is going.
+export function SideChips({
+  side,
+  onSide,
+}: {
+  side: Side | null;
+  onSide?: (side: Side | null) => void;
+}) {
+  return (
+    <div className="flex gap-1.5" role="group" aria-label="Side">
+      {(["right", "left"] as const).map((s) => (
+        <Chip
+          key={s}
+          selected={side === s}
+          disabled={!onSide}
+          onClick={() => onSide?.(side === s ? null : s)}
+        >
+          {s === "left" ? "Left" : "Right"}
+        </Chip>
+      ))}
+    </div>
+  );
+}
+
 interface SetFormProps {
   // Exercise names used before, most recent first.
   suggestions: string[];
@@ -278,19 +303,7 @@ export default function SetForm({
           suggestions={suggestions}
         />
       )}
-      {showSide && (
-        <div className="flex gap-1.5" role="group" aria-label="Side">
-          {(["right", "left"] as const).map((s) => (
-            <Chip
-              key={s}
-              selected={side === s}
-              onClick={() => setSide(side === s ? null : s)}
-            >
-              {s === "left" ? "Left" : "Right"}
-            </Chip>
-          ))}
-        </div>
-      )}
+      {showSide && <SideChips side={side} onSide={setSide} />}
       <RepsWeightFields
         reps={reps}
         weight={weight}

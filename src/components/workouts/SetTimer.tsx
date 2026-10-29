@@ -6,7 +6,7 @@ import type { Exercise } from "../../hooks/useExercises";
 import { onGrid } from "../../hooks/useClock";
 import { formatClock } from "../../functions/formatDuration";
 import { FIRST_SIDE, SECOND_SIDE } from "../../functions/planProgress";
-import SetForm, { ClockRow, RepsWeightFields } from "./SetForm";
+import SetForm, { ClockRow, RepsWeightFields, SideChips } from "./SetForm";
 import ExerciseInput from "./ExerciseInput";
 import ExerciseHowTo from "./ExerciseHowTo";
 import ExerciseNote, { type ExerciseNotesProps } from "./ExerciseNote";
@@ -326,10 +326,10 @@ export default function SetTimer({
     return (
       <div className="flex flex-col">
         {header(state.exercise, state.side)}
-        {aboveClock}
+        {aboveClock && <div className="mt-2">{aboveClock}</div>}
         {/* Laid out like the set once it's done, so nothing moves on Finish. */}
         <div
-          className={`${aboveClock ? "mt-2" : ""} mb-2 flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3`}
+          className="mt-2 mb-2 flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3"
         >
           <ClockRow
             goalSeconds={prefillFor(state.exercise).duration_seconds}
@@ -344,6 +344,7 @@ export default function SetTimer({
               </p>
             }
           />
+          {state.side && <SideChips side={state.side} />}
           <RepsWeightFields
             big
             reps={fields.reps}
@@ -413,7 +414,7 @@ export default function SetTimer({
         {same
           ? name.trim() && header(name.trim(), side)
           : header(state.exercise, state.side)}
-        {aboveClock}
+        {aboveClock && <div className="mt-2">{aboveClock}</div>}
         {doneSlot ? (
           createPortal(button, doneSlot)
         ) : (
