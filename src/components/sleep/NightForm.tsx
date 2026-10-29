@@ -7,6 +7,7 @@ import {
   formatSleep,
   formatTime,
   MAX_FALL_ASLEEP,
+  minutesBefore,
   parseMinutes,
   parseTime,
   qualityText,
@@ -32,6 +33,7 @@ function TimeField({
   onChange,
   fallback,
   placeholder,
+  detail,
 }: {
   label: string;
   value: string;
@@ -39,6 +41,8 @@ function TimeField({
   // Where a drag starts when the field is empty.
   fallback?: number;
   placeholder?: string;
+  // A small line under the time.
+  detail?: string;
 }) {
   const drag = useDragAdjust({
     value,
@@ -67,6 +71,11 @@ function TimeField({
           }}
           aria-label={label}
         />
+        {detail !== undefined && (
+          <span className="min-h-5 text-center text-sm font-semibold text-base-content/60 dark:text-base-content/75">
+            {detail}
+          </span>
+        )}
       </label>
       {drag.picker}
     </>
@@ -135,6 +144,7 @@ export default function NightForm({
     woke_at: number;
     fall_asleep_minutes: number;
     get_ready_at: number | null;
+    tech_free_at: number | null;
   };
   onNightChange: (night: string) => void;
   onSave: (input: NightInput) => void;
@@ -155,6 +165,11 @@ export default function NightForm({
   // Optional: nights logged before this field have no get-ready time.
   const [getReady, setGetReady] = useState(() => {
     const t = existing ? existing.get_ready_at : lastTimes.get_ready_at;
+    return t === null ? "" : formatTime(t);
+  });
+  // Optional, like the get-ready time.
+  const [techFree, setTechFree] = useState(() => {
+    const t = existing ? existing.tech_free_at : lastTimes.tech_free_at;
     return t === null ? "" : formatTime(t);
   });
   const [awake, setAwake] = useState(
@@ -184,6 +199,8 @@ export default function NightForm({
   const up = awake.trim() === "" ? 0 : parseMinutes(awake);
   const ready = getReady.trim() === "" ? null : parseTime(getReady);
   const readyInvalid = getReady.trim() !== "" && ready === null;
+  const offline = techFree.trim() === "" ? null : parseTime(techFree);
+  const offlineInvalid = techFree.trim() !== "" && offline === null;
   const duration =
     bed !== null && woke !== null && fell !== null && up !== null
       ? sleepMinutes(bed, woke, fell + up)
@@ -195,6 +212,7 @@ export default function NightForm({
     fell !== null &&
     up !== null &&
     !readyInvalid &&
+    !offlineInvalid &&
     night !== "";
   const unchanged =
     existing !== undefined &&
@@ -204,6 +222,7 @@ export default function NightForm({
     fell === existing.fall_asleep_minutes &&
     up === existing.awake_minutes &&
     ready === existing.get_ready_at &&
+    offline === existing.tech_free_at &&
     notes.trim() === existing.notes;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -217,6 +236,7 @@ export default function NightForm({
       fall_asleep_minutes: fell,
       awake_minutes: up,
       get_ready_at: ready,
+      tech_free_at: offline,
       notes: notes.trim(),
     });
   };
@@ -265,6 +285,21 @@ export default function NightForm({
 
       {dragQuality.picker}
 
+      <div className="flex">
+        <TimeField
+          label="Tech free"
+          value={techFree}
+          onChange={setTechFree}
+          // An empty field starts dragging an hour before bedtime.
+          fallback={(bed ?? lastTimes.bedtime) - 60}
+          placeholder="–"
+          detail={
+            offline !== null && bed !== null
+              ? `${formatSleep(minutesBefore(offline, bed))} before bed`
+              : "Screens away for the night"
+          }
+        />
+      </div>
       <div className="flex gap-2">
         <TimeField
           label="Get ready for bed"
@@ -290,7 +325,7 @@ export default function NightForm({
       </div>
       <TimeField label="Woke up" value={wokeAt} onChange={setWokeAt} />
       <p className="text-center text-sm font-semibold text-base-content/60 dark:text-base-content/75">
-        {duration !== null && !readyInvalid
+        {duration !== null && !readyInvalid && !offlineInvalid
           ? `${formatSleep(duration)} of sleep`
           : fell === null || up === null
             ? `Minutes awake, from 0 to ${MAX_FALL_ASLEEP}`
