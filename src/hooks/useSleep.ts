@@ -15,6 +15,11 @@ export interface SleepNight {
   woke_at: number;
   // How long it took to fall asleep; not counted as sleep.
   fall_asleep_minutes: number;
+  // When getting ready for bed started, before bedtime; null when not logged.
+  get_ready_at: number | null;
+  // Time spent awake during the night; not counted as sleep.
+  awake_minutes: number;
+  notes: string;
 }
 
 export type NightInput = Omit<SleepNight, "id">;
@@ -26,6 +31,9 @@ interface Row {
   bedtime: string;
   woke_at: string;
   fall_asleep_minutes: number;
+  get_ready_at: string | null;
+  awake_minutes: number;
+  notes: string;
 }
 
 const CACHE_KEY = "sleep_nights";
@@ -34,6 +42,7 @@ const fromRow = (r: Row): SleepNight => ({
   ...r,
   bedtime: fromDbTime(r.bedtime),
   woke_at: fromDbTime(r.woke_at),
+  get_ready_at: r.get_ready_at === null ? null : fromDbTime(r.get_ready_at),
 });
 
 // Newest night first.
@@ -41,12 +50,15 @@ const sortNights = (nights: SleepNight[]) =>
   [...nights].sort((a, b) => b.night.localeCompare(a.night));
 
 export default function useSleep(userId?: string) {
-  // Nights cached before fall_asleep_minutes existed count it as 0.
+  // Nights cached before the newer fields existed get their defaults.
   const [nights, setNights] = useState<SleepNight[]>(() =>
     userId
       ? readUserCache<SleepNight[]>(CACHE_KEY, userId, []).map((n) => ({
           ...n,
           fall_asleep_minutes: n.fall_asleep_minutes ?? 0,
+          get_ready_at: n.get_ready_at ?? null,
+          awake_minutes: n.awake_minutes ?? 0,
+          notes: n.notes ?? "",
         }))
       : [],
   );
@@ -69,7 +81,9 @@ export default function useSleep(userId?: string) {
     let cancelled = false;
     supabase
       .from("sleep_nights")
-      .select("id, night, quality, bedtime, woke_at, fall_asleep_minutes")
+      .select(
+        "id, night, quality, bedtime, woke_at, fall_asleep_minutes, get_ready_at, awake_minutes, notes",
+      )
       .order("night", { ascending: false })
       .then(({ data, error }) => {
         if (cancelled) return;
@@ -102,6 +116,8 @@ export default function useSleep(userId?: string) {
           ...night,
           bedtime: toDbTime(night.bedtime),
           woke_at: toDbTime(night.woke_at),
+          get_ready_at:
+            night.get_ready_at === null ? null : toDbTime(night.get_ready_at),
         },
         { onConflict: "user_id,night" },
       );

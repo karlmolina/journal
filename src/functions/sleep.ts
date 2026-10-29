@@ -71,10 +71,10 @@ export const toDbTime = (minutes: number) => {
   return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 };
 
-// A wake-up at or before bedtime is the next morning. The time it took to fall
-// asleep doesn't count as sleep.
-export const sleepMinutes = (bedtime: number, wokeAt: number, fallAsleep = 0) =>
-  Math.max(0, wrap(wokeAt - bedtime) - fallAsleep);
+// A wake-up at or before bedtime is the next morning. Time spent awake in bed
+// (falling asleep, awake in the night) doesn't count as sleep.
+export const sleepMinutes = (bedtime: number, wokeAt: number, awake = 0) =>
+  Math.max(0, wrap(wokeAt - bedtime) - awake);
 
 export const MAX_FALL_ASLEEP = 720;
 
