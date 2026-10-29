@@ -319,13 +319,12 @@ export default function SetTimer({
   // Once a set is going its reps and weight are in the fields below, so the
   // title only says which set it is.
   const going = state.phase === "running" || state.phase === "done";
-  const header = (exerciseName: string, setSide?: Side | null) => (
+  const header = (exerciseName: string) => (
     <ExerciseHeader
       // Keyed, with the sets below: the same ones carry over as the timer
       // goes from resting to running, instead of being rebuilt.
       key="header"
       name={exerciseName}
-      side={setSide}
       target={going ? (setLabel ?? target) : target}
       notes={notes}
       goal={goal}
@@ -339,7 +338,7 @@ export default function SetTimer({
     const fields = { ...planned(state.exercise), ...state };
     return (
       <div className="flex flex-col">
-        {header(state.exercise, state.side)}
+        {header(state.exercise)}
         {aboveClock && (
           <div key="above" className="mt-2">
             {aboveClock}
@@ -411,7 +410,7 @@ export default function SetTimer({
   if (state.phase === "logging")
     return (
       <div className="flex flex-col gap-2">
-        {state.exercise && header(state.exercise, state.side)}
+        {state.exercise && header(state.exercise)}
         {aboveClock}
         <SetForm
           suggestions={suggestions}
@@ -453,8 +452,8 @@ export default function SetTimer({
     return (
       <div className="flex flex-col">
         {same
-          ? name.trim() && header(name.trim(), side)
-          : header(state.exercise, state.side)}
+          ? name.trim() && header(name.trim())
+          : header(state.exercise)}
         {aboveClock && (
           <div key="above" className="mt-2">
             {aboveClock}
@@ -514,7 +513,7 @@ export default function SetTimer({
     if (restInCard)
       return (
         <div className="flex flex-col">
-          {header(name.trim(), side)}
+          {header(name.trim())}
           {aboveClock && <div key="above">{aboveClock}</div>}
           <div className="w-full mt-4 flex flex-col items-center">
             {restBlock}
@@ -568,7 +567,7 @@ export default function SetTimer({
           )}
         </>
       ) : (
-        header(name.trim(), side)
+        header(name.trim())
       )}
       {aboveClock && <div key="above">{aboveClock}</div>}
       <button

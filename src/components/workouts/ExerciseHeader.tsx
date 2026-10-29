@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
-import type { Side } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
-import { sideLabel } from "../../functions/planProgress";
 import ExerciseHowTo from "./ExerciseHowTo";
 import ExerciseNote, { type ExerciseNotesProps } from "./ExerciseNote";
 
@@ -32,7 +30,6 @@ export function PlanLines({
 // next exercise's card.
 export default function ExerciseHeader({
   name,
-  side,
   target,
   notes,
   goal,
@@ -41,7 +38,6 @@ export default function ExerciseHeader({
   title,
 }: {
   name: string;
-  side?: Side | null;
   target?: string;
   notes?: string;
   goal?: string;
@@ -60,11 +56,6 @@ export default function ExerciseHeader({
           </p>
         )}
       </div>
-      {side && (
-        <p className="text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
-          {sideLabel(side)}
-        </p>
-      )}
       <PlanLines target={target} notes={notes} goal={goal} />
       <div className="w-full mt-2 flex flex-col gap-2 text-left">
         <ExerciseHowTo exercise={lookup?.(name)} />
