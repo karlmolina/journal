@@ -258,6 +258,7 @@ export default function ActiveWorkout({
   // plan moves on to another exercise and whenever a set starts.
   const currentCard = useRef<HTMLElement>(null);
   // Under the set just finished, for the button on to the rest or next set.
+  const [doneSlot, setDoneSlot] = useState<HTMLElement | null>(null);
   const toCurrent = () => currentCard.current;
   // When the plan moves on, a rest starts or a set starts; one scroll for
   // all of them, once the page settles.
@@ -333,7 +334,6 @@ export default function ActiveWorkout({
     inPlan = false,
     aboveClock?: ReactNode,
     headerTitle?: ReactNode,
-    doneBox?: ReactNode,
   ) => (
     <SetTimer
       workoutId={workout.id}
@@ -364,7 +364,7 @@ export default function ActiveWorkout({
       onSlotChange={setSlot}
       onPhaseChange={onPhaseChange}
       restInCard={inPlan}
-      doneBox={doneBox}
+      doneSlot={doneSlot}
       // A plan's exercise cards have Swap exercise instead.
       hideChange={inPlan}
       headerTitle={headerTitle}
@@ -373,47 +373,23 @@ export default function ActiveWorkout({
 
   // The set just stopped, fixable in place until the next one starts: its
   // time on the big clock, side, reps and weight, saving as they change.
-  const fixingForm = (s: WorkoutSet) => (
-    <SetForm
-      key={s.id}
-      suggestions={suggestions}
-      hideExercise
-      bigTime
-      goalSeconds={prefillFor(s.exercise_name).duration_seconds}
-      initial={s}
-      onChange={(changes) => onUpdateSet(s, changes)}
-    />
-  );
-  // Just stopped, the timer shows it in the box the next set runs in, so
-  // the box stays put as the next set starts; after that (a rest) it sits
-  // above the timer.
-  const fixingDone = timerPhase === "done";
-  const aboveFix = fixing && !fixingDone ? fixing : undefined;
-  // As the next set starts it folds away, while its row grows into the list,
-  // rather than vanishing and pulling everything under it up.
-  const [lastAboveFix, setLastAboveFix] = useState(aboveFix);
-  if (aboveFix && aboveFix !== lastAboveFix) setLastAboveFix(aboveFix);
-  if (fixingDone && lastAboveFix) setLastAboveFix(undefined);
-  const shownFix = aboveFix ?? lastAboveFix;
-  const fixLeaving = !aboveFix;
-  // Given an exercise's sets, only in that exercise's card.
-  const fixingAbove = (among?: WorkoutSet[]) =>
-    shownFix &&
-    (!among || among.some((s) => s.id === shownFix.id)) && (
-      <div
-        className={fixLeaving ? "animate-box-out pointer-events-none" : ""}
-        onAnimationEnd={(e) => {
-          if (fixLeaving && e.target === e.currentTarget)
-            setLastAboveFix(undefined);
-        }}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="flex flex-col rounded-2xl bg-base-content/5 p-3">
-            {fixingForm(shownFix)}
-          </div>
-        </div>
+  const fixingEditor = (s: WorkoutSet) => (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-col rounded-2xl bg-base-content/5 p-3">
+        <SetForm
+          key={s.id}
+          suggestions={suggestions}
+          hideExercise
+          bigTime
+          goalSeconds={prefillFor(s.exercise_name).duration_seconds}
+          initial={s}
+          onChange={(changes) => onUpdateSet(s, changes)}
+        />
       </div>
-    );
+      {/* Right under it: on to the rest or the next set. */}
+      <div ref={setDoneSlot} className="empty:hidden" />
+    </div>
+  );
 
   const setList = (list: WorkoutSet[], newestFirst = false) => (
     <SetList
@@ -478,11 +454,8 @@ export default function ActiveWorkout({
     );
     // Its sets so far, the one just stopped last and fixable.
     const earlier = logged.filter((s) => s.id !== fixing?.id);
-    // Nothing to show yet when the only set is the one in the timer's box;
-    // marked so the timer drops the space it leaves above that box.
-    const blank = earlier.length === 0 && !fixingAbove(logged);
     const loggedSets = logged.length > 0 && (
-      <div className="flex flex-col gap-2" data-blank={blank || undefined}>
+      <div className="flex flex-col gap-2">
         {/* Mounted from the first set, so the sets that join it ease in. */}
         <SetList
           sets={earlier}
@@ -493,7 +466,7 @@ export default function ActiveWorkout({
           isUnilateral={isUnilateral}
           hideNames
         />
-        {fixingAbove(logged)}
+        {fixing && earlier.length < logged.length && fixingEditor(fixing)}
       </div>
     );
     const actions = (titleClassName: string) => (
@@ -565,9 +538,6 @@ export default function ActiveWorkout({
             setBusy
               ? undefined
               : actions("text-4xl font-extrabold leading-tight tracking-tight"),
-            fixing && fixingDone && earlier.length < logged.length
-              ? fixingForm(fixing)
-              : undefined,
           )}
         </section>
       );
@@ -789,12 +759,7 @@ export default function ActiveWorkout({
                   ref={currentCard}
                   className={`${resting ? restCardClass : cardClass} scroll-mt-4`}
                 >
-                  {timer(
-                    undefined,
-                    fixingAbove(),
-                    undefined,
-                    fixing && fixingDone ? fixingForm(fixing) : undefined,
-                  )}
+                  {timer(undefined, fixing && fixingEditor(fixing))}
                 </section>
               )}
             </>
@@ -803,12 +768,7 @@ export default function ActiveWorkout({
       ) : (
         <>
           <section ref={currentCard} className={`${cardClass} scroll-mt-4`}>
-            {timer(
-              undefined,
-              fixingAbove(),
-              undefined,
-              fixing && fixingDone ? fixingForm(fixing) : undefined,
-            )}
+            {timer(undefined, fixing && fixingEditor(fixing))}
           </section>
           {sets.length > (fixing ? 1 : 0) && (
             <section className={cardClass}>

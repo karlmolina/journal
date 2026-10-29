@@ -90,17 +90,6 @@ body {
     transform: translateY(-4px);
   }
 }
-/* A set joining the list grows into place, so the box under it slides down
-   instead of jumping. */
-@keyframes row-in {
-  from {
-    max-height: 0;
-    opacity: 0;
-  }
-  to {
-    max-height: 4rem;
-  }
-}
 @keyframes section-open {
   from {
     grid-template-rows: 0fr;
@@ -111,15 +100,6 @@ body {
   from {
     grid-template-rows: 1fr;
     opacity: 1;
-  }
-}
-/* The set fixed over a rest folds away as the next set starts, taking the
-   gap over it along. */
-@keyframes box-out {
-  from {
-    grid-template-rows: 1fr;
-    opacity: 1;
-    margin-top: 0;
   }
 }
 @keyframes toast-out {
@@ -143,10 +123,6 @@ body {
 .animate-expand-in {
   animation: expand-in 180ms ease-out;
 }
-.animate-row-in {
-  overflow: hidden;
-  animation: row-in 220ms ease-out;
-}
 .animate-section-open {
   display: grid;
   /* An explicit end to animate to; "none" can't be interpolated from 0fr. */
@@ -158,13 +134,6 @@ body {
   grid-template-rows: 0fr;
   opacity: 0;
   animation: section-close 220ms ease-out;
-}
-.animate-box-out {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  margin-top: -0.5rem;
-  animation: box-out 220ms ease-out;
 }
 .animate-toast-out {
   animation: toast-out 150ms ease-in forwards;
@@ -187,10 +156,8 @@ body {
   .animate-fade-in,
   .animate-pop-in,
   .animate-expand-in,
-  .animate-row-in,
   .animate-section-open,
-  .animate-section-close,
-  .animate-box-out {
+  .animate-section-close {
     animation: none;
   }
   .animate-fade-out,

@@ -245,7 +245,7 @@ export default function SetList({
                       rest.delete(set.id);
                       setFresh(rest);
                     }}
-                    className={`${fresh.has(set.id) ? "animate-row-in " : ""}flex items-center font-medium text-base-content/80 dark:text-[color-mix(in_oklab,var(--color-base-content),white_30%)] ${dense ? "gap-2 min-h-6 text-sm" : "gap-3 min-h-8"}`}
+                    className={`${fresh.has(set.id) ? "animate-expand-in " : ""}flex items-center font-medium text-base-content/80 dark:text-[color-mix(in_oklab,var(--color-base-content),white_30%)] ${dense ? "gap-2 min-h-6 text-sm" : "gap-3 min-h-8"}`}
                   >
                     <span
                       className={`shrink-0 text-xs font-semibold tracking-wide text-base-content/50 dark:text-base-content/75 ${dense ? "w-8 tabular-nums" : "w-22"}`}

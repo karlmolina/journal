@@ -1,5 +1,6 @@
 import type React from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
 import { onGrid } from "../../hooks/useClock";
@@ -28,9 +29,6 @@ const COUNTDOWN = 3;
 
 const restTitleClass =
   "text-center text-lg font-bold text-base-content/60 dark:text-base-content/80";
-// What goes over the set's box, spaced from it; gone when there's nothing to
-// show, so the box sits the same with or without it.
-const aboveClass = "mt-2 has-[>[data-blank]]:hidden";
 
 // A buzz when the planned rest is up (no sound); the screen shows it too.
 function restTargetAlert() {
@@ -81,8 +79,9 @@ interface SetTimerProps {
   // In a plan's exercise card the rest goes under the title and sets, just
   // over the start button; otherwise it heads the timer.
   restInCard?: boolean;
-  // The set just finished, fixable, shown in the box the next set runs in.
-  doneBox?: React.ReactNode;
+  // Just under the set just finished, for the button that goes on to the
+  // rest or the next set; without one it shows in place.
+  doneSlot?: HTMLElement | null;
   // In a plan, Swap exercise on the card picks another exercise instead.
   hideChange?: boolean;
   // Level with the exercise's title, at the right.
@@ -117,7 +116,7 @@ export default function SetTimer({
   onSlotChange,
   onPhaseChange,
   restInCard = false,
-  doneBox,
+  doneSlot,
   hideChange = false,
   headerTitle,
 }: SetTimerProps) {
@@ -134,14 +133,24 @@ export default function SetTimer({
   // The set's box opens out when it starts from a rest or the start button,
   // not when it takes the place of the set just finished (which has the
   // same box). Decided as the phase changes, so a tick can't cut it short.
+  // Going on to the other side of a set is the exception: its box closes and
+  // opens again, since it's a set of its own.
   const [prevPhase, setPrevPhase] = useState(state.phase);
+  const [prevSwitched, setPrevSwitched] = useState(false);
   const [opening, setOpening] = useState(false);
   // Starting from a rest, the box is already there: only what's new in it
   // opens out, and the rest's title closes.
   const [fromRest, setFromRest] = useState(false);
   if (state.phase !== prevPhase) {
     setPrevPhase(state.phase);
-    setOpening(state.phase === "running" && prevPhase !== "done");
+    setPrevSwitched(
+      state.phase === "done" &&
+        state.then.phase === "ready" &&
+        !!state.then.switchTo,
+    );
+    setOpening(
+      state.phase === "running" && (prevPhase !== "done" || prevSwitched),
+    );
     setFromRest(state.phase === "running" && prevPhase === "resting");
   }
   const [name, setName] = useState(exercise);
@@ -348,13 +357,15 @@ export default function SetTimer({
       <div className="flex flex-col">
         {header(state.exercise)}
         {aboveClock && (
-          <div key="above" className={aboveClass}>
+          <div key="above" className="mt-2">
             {aboveClock}
           </div>
         )}
         {/* Laid out like the set once it's done, so nothing moves on Finish.
             Opens out as the set starts. */}
-        <div className={opening && !fromRest ? "animate-section-open" : ""}>
+        <div
+          className={opening && !fromRest ? "animate-section-open" : ""}
+        >
           <div className="min-h-0 overflow-hidden">
             <div className="mt-2 mb-2 flex flex-col rounded-2xl bg-base-content/5 p-3">
               {fromRest && (
@@ -474,26 +485,19 @@ export default function SetTimer({
     const same = name.trim().toLowerCase() === state.exercise.toLowerCase();
     return (
       <div className="flex flex-col">
-        {same ? name.trim() && header(name.trim()) : header(state.exercise)}
+        {same
+          ? name.trim() && header(name.trim())
+          : header(state.exercise)}
         {aboveClock && (
-          <div key="above" className={aboveClass}>
+          <div key="above" className="mt-2">
             {aboveClock}
           </div>
         )}
-        {/* The box and button sit where the running set's do, so the box
-            carries over as the next set starts. */}
-        {doneBox ? (
-          <div>
-            <div className="min-h-0 overflow-hidden">
-              <div className="mt-2 mb-2 flex flex-col rounded-2xl bg-base-content/5 p-3">
-                {doneBox}
-              </div>
-            </div>
-          </div>
+        {doneSlot ? (
+          createPortal(button, doneSlot)
         ) : (
-          <div className="mt-2" />
+          <div className="mt-2">{button}</div>
         )}
-        {button}
       </div>
     );
   }
