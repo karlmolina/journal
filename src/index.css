@@ -113,6 +113,15 @@ body {
     opacity: 1;
   }
 }
+/* The set fixed over a rest folds away as the next set starts, taking the
+   gap over it along. */
+@keyframes box-out {
+  from {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    margin-top: 0;
+  }
+}
 @keyframes toast-out {
   to {
     opacity: 0;
@@ -150,6 +159,13 @@ body {
   opacity: 0;
   animation: section-close 220ms ease-out;
 }
+.animate-box-out {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: -0.5rem;
+  animation: box-out 220ms ease-out;
+}
 .animate-toast-out {
   animation: toast-out 150ms ease-in forwards;
 }
@@ -173,7 +189,8 @@ body {
   .animate-expand-in,
   .animate-row-in,
   .animate-section-open,
-  .animate-section-close {
+  .animate-section-close,
+  .animate-box-out {
     animation: none;
   }
   .animate-fade-out,

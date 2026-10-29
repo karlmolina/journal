@@ -388,10 +388,30 @@ export default function ActiveWorkout({
   // the box stays put as the next set starts; after that (a rest) it sits
   // above the timer.
   const fixingDone = timerPhase === "done";
-  const fixingAbove = (s: WorkoutSet) =>
-    !fixingDone && (
-      <div className="flex flex-col rounded-2xl bg-base-content/5 p-3">
-        {fixingForm(s)}
+  const aboveFix = fixing && !fixingDone ? fixing : undefined;
+  // As the next set starts it folds away, while its row grows into the list,
+  // rather than vanishing and pulling everything under it up.
+  const [lastAboveFix, setLastAboveFix] = useState(aboveFix);
+  if (aboveFix && aboveFix !== lastAboveFix) setLastAboveFix(aboveFix);
+  if (fixingDone && lastAboveFix) setLastAboveFix(undefined);
+  const shownFix = aboveFix ?? lastAboveFix;
+  const fixLeaving = !aboveFix;
+  // Given an exercise's sets, only in that exercise's card.
+  const fixingAbove = (among?: WorkoutSet[]) =>
+    shownFix &&
+    (!among || among.some((s) => s.id === shownFix.id)) && (
+      <div
+        className={fixLeaving ? "animate-box-out pointer-events-none" : ""}
+        onAnimationEnd={(e) => {
+          if (fixLeaving && e.target === e.currentTarget)
+            setLastAboveFix(undefined);
+        }}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-col rounded-2xl bg-base-content/5 p-3">
+            {fixingForm(shownFix)}
+          </div>
+        </div>
       </div>
     );
 
@@ -460,9 +480,7 @@ export default function ActiveWorkout({
     const earlier = logged.filter((s) => s.id !== fixing?.id);
     // Nothing to show yet when the only set is the one in the timer's box;
     // marked so the timer drops the space it leaves above that box.
-    const blank =
-      earlier.length === 0 &&
-      !(fixing && !fixingDone && earlier.length < logged.length);
+    const blank = earlier.length === 0 && !fixingAbove(logged);
     const loggedSets = logged.length > 0 && (
       <div className="flex flex-col gap-2" data-blank={blank || undefined}>
         {/* Mounted from the first set, so the sets that join it ease in. */}
@@ -475,7 +493,7 @@ export default function ActiveWorkout({
           isUnilateral={isUnilateral}
           hideNames
         />
-        {fixing && earlier.length < logged.length && fixingAbove(fixing)}
+        {fixingAbove(logged)}
       </div>
     );
     const actions = (titleClassName: string) => (
@@ -773,7 +791,7 @@ export default function ActiveWorkout({
                 >
                   {timer(
                     undefined,
-                    fixing && fixingAbove(fixing),
+                    fixingAbove(),
                     undefined,
                     fixing && fixingDone ? fixingForm(fixing) : undefined,
                   )}
@@ -787,7 +805,7 @@ export default function ActiveWorkout({
           <section ref={currentCard} className={`${cardClass} scroll-mt-4`}>
             {timer(
               undefined,
-              fixing && fixingAbove(fixing),
+              fixingAbove(),
               undefined,
               fixing && fixingDone ? fixingForm(fixing) : undefined,
             )}
