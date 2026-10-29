@@ -323,8 +323,6 @@ export default function SetTimer({
       lookup={lookup}
       exerciseNotes={exerciseNotes}
       corner={headerAction}
-      // Room for the set just finished, without scrolling to it.
-      foldHowTo={state.phase === "done"}
     />
   );
 

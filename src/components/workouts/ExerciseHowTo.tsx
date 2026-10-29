@@ -2,21 +2,12 @@ import { useState } from "react";
 import type { Exercise } from "../../hooks/useExercises";
 
 // The library's description of an exercise, two lines until tapped open.
-// Folded, it's just the link, to make room (for the set just finished).
-export default function ExerciseHowTo({
-  exercise,
-  folded = false,
-}: {
-  exercise?: Exercise;
-  folded?: boolean;
-}) {
+export default function ExerciseHowTo({ exercise }: { exercise?: Exercise }) {
   const [open, setOpen] = useState(false);
-  // Close again when the workout moves on to another exercise, or folds it.
+  // Close again when the workout moves on to another exercise.
   const [shownFor, setShownFor] = useState(exercise?.id);
-  const [wasFolded, setWasFolded] = useState(folded);
-  if (exercise?.id !== shownFor || folded !== wasFolded) {
+  if (exercise?.id !== shownFor) {
     setShownFor(exercise?.id);
-    setWasFolded(folded);
     setOpen(false);
   }
 
@@ -24,8 +15,7 @@ export default function ExerciseHowTo({
     return null;
   const more = exercise.steps.length > 0 || !!exercise.equipment;
   // Short descriptions fit in two lines, so there's nothing to open.
-  const toggles = more || folded || (exercise.description?.length ?? 0) > 90;
-  const shut = folded && !open;
+  const toggles = more || (exercise.description?.length ?? 0) > 90;
 
   return (
     // The whole box is a tap target; the button inside is for keyboards.
@@ -33,7 +23,7 @@ export default function ExerciseHowTo({
       className={`w-full rounded-xl bg-base-content/5 px-3 py-2 text-left text-sm font-medium text-base-content/75 dark:text-base-content/85 ${toggles ? "cursor-pointer" : ""}`}
       onClick={() => toggles && setOpen(!open)}
     >
-      {exercise.description && !shut && (
+      {exercise.description && (
         <p className={open ? "" : "line-clamp-2"}>{exercise.description}</p>
       )}
       {more && (
@@ -62,10 +52,10 @@ export default function ExerciseHowTo({
       {toggles && (
         <button
           type="button"
-          className={`${shut ? "" : "mt-0.5 "}block text-xs font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] cursor-pointer`}
+          className={`mt-0.5 block text-xs font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] cursor-pointer`}
           aria-expanded={open}
         >
-          {open ? "Show less" : more || shut ? "How to do it" : "Show more"}
+          {open ? "Show less" : more ? "How to do it" : "Show more"}
         </button>
       )}
     </div>
