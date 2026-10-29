@@ -119,6 +119,8 @@ body {
 }
 .animate-section-open {
   display: grid;
+  /* An explicit end to animate to; "none" can't be interpolated from 0fr. */
+  grid-template-rows: 1fr;
   animation: section-open 220ms ease-out;
 }
 .animate-toast-out {
