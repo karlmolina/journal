@@ -105,11 +105,11 @@ export function ClockRow({
   goalSeconds?: number | null;
 }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
       <span />
       {clock}
       {goalSeconds ? (
-        <span className="text-lg font-bold tabular-nums text-base-content/55 dark:text-base-content/75">
+        <span className="whitespace-nowrap text-lg font-bold tabular-nums text-base-content/55 dark:text-base-content/75">
           / {formatClock(goalSeconds)}
         </span>
       ) : (
