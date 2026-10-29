@@ -288,6 +288,22 @@ export default function useWorkouts(userId?: string) {
     );
   }, [updateActive]);
 
+  // Sets the stopwatch to a new time by moving the start, e.g. when it was
+  // started late or left running.
+  const setElapsed = useCallback(
+    (seconds: number) => {
+      const w = state.current.active;
+      if (!w) return;
+      const until = w.paused_at ? Date.parse(w.paused_at) : Date.now();
+      const started = until - (seconds + w.paused_seconds) * 1000;
+      updateActive(
+        { started_at: new Date(started).toISOString() },
+        "Couldn't change the workout time.",
+      );
+    },
+    [updateActive],
+  );
+
   const finish = useCallback(
     (notes: string) => {
       const w = state.current.active;
@@ -589,6 +605,7 @@ export default function useWorkouts(userId?: string) {
     start,
     pause,
     resume,
+    setElapsed,
     finish,
     reopen,
     discard,

@@ -86,6 +86,8 @@ interface ActiveWorkoutProps {
   exerciseNotes: ExerciseNotesProps;
   onPause: () => void;
   onResume: () => void;
+  // Sets the workout clock to this many seconds.
+  onElapsedChange: (seconds: number) => void;
   onFinish: (notes: string) => void;
   onDiscard: () => void;
   onSupersetsChange: (supersets: Supersets) => void;
@@ -118,6 +120,7 @@ export default function ActiveWorkout({
   initialExercise,
   onPause,
   onResume,
+  onElapsedChange,
   onFinish,
   onDiscard,
   onSupersetsChange,
@@ -373,7 +376,6 @@ export default function ActiveWorkout({
           bigTime
           goalSeconds={prefillFor(s.exercise_name).duration_seconds}
           initial={s}
-          rest={s.rest_seconds != null}
           onChange={(changes) => onUpdateSet(s, changes)}
         />
       </div>
@@ -466,6 +468,7 @@ export default function ActiveWorkout({
         // A fresh form for each exercise.
         key={e.name}
         step={e}
+        sets={logged}
         complete={complete}
         suggestions={suggestions}
         // Not mid-set: the timer stays with the set it's timing.
@@ -494,6 +497,16 @@ export default function ActiveWorkout({
                 side: s.side,
               });
         }}
+        onRest={(s, rest_seconds) =>
+          onUpdateSet(s, {
+            exercise_name: s.exercise_name,
+            reps: s.reps,
+            weight: s.weight,
+            duration_seconds: s.duration_seconds,
+            side: s.side,
+            rest_seconds,
+          })
+        }
         onEnd={(ended) => {
           onPlanChange(endExercise(workout.plan_changes, i, ended));
           // Move on to what's next once it's done.
@@ -657,6 +670,7 @@ export default function ActiveWorkout({
           onNotesChange={setNotes}
           onPause={onPause}
           onResume={onResume}
+          onElapsedChange={onElapsedChange}
           onClose={() => setFinishing(false)}
           onFinish={() => onFinish(notes)}
         />

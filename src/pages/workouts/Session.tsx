@@ -133,6 +133,7 @@ export default function Session() {
     start,
     pause,
     resume,
+    setElapsed,
     finish,
     reopen,
     discard,
@@ -363,6 +364,7 @@ export default function Session() {
           initialExercise={initialExercise}
           onPause={pause}
           onResume={resume}
+          onElapsedChange={setElapsed}
           onFinish={finish}
           onDiscard={discard}
           onSupersetsChange={setSupersets}
