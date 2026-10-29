@@ -354,18 +354,21 @@ export default function SetTimer({
                 goalSeconds={prefillFor(state.exercise).duration_seconds}
                 clock={
                   // The box the time sits in once the set is done, not editable
-                  // while it runs.
+                  // while it runs. Wide for the countdown, shrinking to the
+                  // clock's size as the set starts.
                   <div
-                    className="my-1 rounded-2xl bg-base-content/6 px-4 py-1"
+                    className={`my-1 rounded-2xl bg-base-content/6 px-4 py-1 transition-[width] duration-300 ease-out motion-reduce:transition-none ${
+                      countdown > 0 ? "w-72 max-w-full" : "w-44"
+                    }`}
                     role="timer"
                   >
                     {countdown > 0 ? (
-                      <p className="text-4xl font-extrabold tracking-tight tabular-nums text-center text-base-content/45 dark:text-base-content/70">
+                      <p className="whitespace-nowrap text-4xl font-extrabold tracking-tight tabular-nums text-center text-base-content/45 dark:text-base-content/70">
                         Starting in {countdown}
                       </p>
                     ) : (
                       <input
-                        className="pointer-events-none w-36 bg-transparent text-center text-4xl font-extrabold tracking-tight tabular-nums outline-none"
+                        className="pointer-events-none w-full bg-transparent text-center text-4xl font-extrabold tracking-tight tabular-nums outline-none"
                         value={formatClock(since(state.startedAt))}
                         readOnly
                         tabIndex={-1}
