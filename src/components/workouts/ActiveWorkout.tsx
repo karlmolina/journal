@@ -458,8 +458,13 @@ export default function ActiveWorkout({
     );
     // Its sets so far, the one just stopped last and fixable.
     const earlier = logged.filter((s) => s.id !== fixing?.id);
+    // Nothing to show yet when the only set is the one in the timer's box;
+    // marked so the timer drops the space it leaves above that box.
+    const blank =
+      earlier.length === 0 &&
+      !(fixing && !fixingDone && earlier.length < logged.length);
     const loggedSets = logged.length > 0 && (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2" data-blank={blank || undefined}>
         {/* Mounted from the first set, so the sets that join it ease in. */}
         <SetList
           sets={earlier}
@@ -781,11 +786,11 @@ export default function ActiveWorkout({
         <>
           <section ref={currentCard} className={`${cardClass} scroll-mt-4`}>
             {timer(
-                    undefined,
-                    fixing && fixingAbove(fixing),
-                    undefined,
-                    fixing && fixingDone ? fixingForm(fixing) : undefined,
-                  )}
+              undefined,
+              fixing && fixingAbove(fixing),
+              undefined,
+              fixing && fixingDone ? fixingForm(fixing) : undefined,
+            )}
           </section>
           {sets.length > (fixing ? 1 : 0) && (
             <section className={cardClass}>

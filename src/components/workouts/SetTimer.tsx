@@ -28,6 +28,9 @@ const COUNTDOWN = 3;
 
 const restTitleClass =
   "text-center text-lg font-bold text-base-content/60 dark:text-base-content/80";
+// What goes over the set's box, spaced from it; gone when there's nothing to
+// show, so the box sits the same with or without it.
+const aboveClass = "mt-2 has-[>[data-blank]]:hidden";
 
 // A buzz when the planned rest is up (no sound); the screen shows it too.
 function restTargetAlert() {
@@ -345,15 +348,13 @@ export default function SetTimer({
       <div className="flex flex-col">
         {header(state.exercise)}
         {aboveClock && (
-          <div key="above" className="mt-2">
+          <div key="above" className={aboveClass}>
             {aboveClock}
           </div>
         )}
         {/* Laid out like the set once it's done, so nothing moves on Finish.
             Opens out as the set starts. */}
-        <div
-          className={opening && !fromRest ? "animate-section-open" : ""}
-        >
+        <div className={opening && !fromRest ? "animate-section-open" : ""}>
           <div className="min-h-0 overflow-hidden">
             <div className="mt-2 mb-2 flex flex-col rounded-2xl bg-base-content/5 p-3">
               {fromRest && (
@@ -473,11 +474,9 @@ export default function SetTimer({
     const same = name.trim().toLowerCase() === state.exercise.toLowerCase();
     return (
       <div className="flex flex-col">
-        {same
-          ? name.trim() && header(name.trim())
-          : header(state.exercise)}
+        {same ? name.trim() && header(name.trim()) : header(state.exercise)}
         {aboveClock && (
-          <div key="above" className="mt-2">
+          <div key="above" className={aboveClass}>
             {aboveClock}
           </div>
         )}
