@@ -6,6 +6,7 @@ import {
   mutedClass,
 } from "../../components/meals/MealParts";
 import { useMealsData, type Meal } from "../../hooks/useMeals";
+import useWakeLock from "../../hooks/useWakeLock";
 import {
   formatMinutes,
   hasRecipe,
@@ -192,6 +193,8 @@ export default function Recipe({ mealId }: { mealId: string }) {
   const planned = plan.find((p) => p.meal_id === mealId);
   const [editing, setEditing] = useState(false);
   const [servings, setServings] = useState<number | null>(null);
+  // Keep the screen on while cooking from the recipe.
+  useWakeLock();
 
   if (!meal)
     return loading ? (
