@@ -312,6 +312,9 @@ export default function SetTimer({
   const going = state.phase === "running" || state.phase === "done";
   const header = (exerciseName: string, setSide?: Side | null) => (
     <ExerciseHeader
+      // Keyed, with the sets below: the same ones carry over as the timer
+      // goes from resting to running, instead of being rebuilt.
+      key="header"
       name={exerciseName}
       side={setSide}
       target={going ? (setLabel ?? target) : target}
@@ -330,7 +333,11 @@ export default function SetTimer({
     return (
       <div className="flex flex-col">
         {header(state.exercise, state.side)}
-        {aboveClock && <div className="mt-2">{aboveClock}</div>}
+        {aboveClock && (
+          <div key="above" className="mt-2">
+            {aboveClock}
+          </div>
+        )}
         {/* Laid out like the set once it's done, so nothing moves on Finish.
             Opens out as the set starts. */}
         <div className="animate-section-open">
@@ -433,7 +440,11 @@ export default function SetTimer({
         {same
           ? name.trim() && header(name.trim(), side)
           : header(state.exercise, state.side)}
-        {aboveClock && <div className="mt-2">{aboveClock}</div>}
+        {aboveClock && (
+          <div key="above" className="mt-2">
+            {aboveClock}
+          </div>
+        )}
         {doneSlot ? (
           createPortal(button, doneSlot)
         ) : (
@@ -489,7 +500,7 @@ export default function SetTimer({
       return (
         <div className="flex flex-col">
           {header(name.trim(), side)}
-          {aboveClock}
+          {aboveClock && <div key="above">{aboveClock}</div>}
           <div className="w-full mt-2 flex flex-col items-center">
             {restBlock}
             {start}
@@ -500,7 +511,9 @@ export default function SetTimer({
       <div className="flex flex-col items-center text-center">
         {restBlock}
         {aboveClock && (
-          <div className="w-full text-left mt-3">{aboveClock}</div>
+          <div key="above" className="w-full text-left mt-3">
+            {aboveClock}
+          </div>
         )}
         <div className="w-full mt-2 flex flex-col items-center">{start}</div>
       </div>
@@ -542,7 +555,7 @@ export default function SetTimer({
       ) : (
         header(name.trim(), side)
       )}
-      {aboveClock}
+      {aboveClock && <div key="above">{aboveClock}</div>}
       <button
         type="button"
         className={primaryClass}
