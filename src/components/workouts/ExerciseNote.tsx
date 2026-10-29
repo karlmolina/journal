@@ -242,7 +242,7 @@ export default function ExerciseNote({
           aria-expanded={open}
           onClick={() => setOpen(!open)}
         >
-          {entries.length === 1 ? "Your note" : `Your notes (${entries.length})`}
+          Notes ({entries.length})
           {" · "}
           {open ? "Hide" : "Show"}
         </button>
