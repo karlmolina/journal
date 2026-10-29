@@ -349,6 +349,30 @@ export default function useWorkouts(userId?: string) {
     [fail, load],
   );
 
+  // Changes how long a finished workout took by moving its end.
+  const setPastElapsed = useCallback(
+    async (id: string, seconds: number) => {
+      const prev = state.current.history.find((w) => w.id === id);
+      if (!prev?.ended_at) return;
+      const ended_at = new Date(
+        Date.parse(prev.started_at) + (seconds + prev.paused_seconds) * 1000,
+      ).toISOString();
+      const put = (w: Workout) => (h: Workout[]) =>
+        h.map((x) => (x.id === id ? w : x));
+      setHistory(put({ ...prev, ended_at }));
+      setError(null);
+      const { error } = await supabase
+        .from("workouts")
+        .update({ ended_at })
+        .eq("id", id);
+      if (error) {
+        setHistory(put(prev));
+        fail("Couldn't change the workout time.", error);
+      }
+    },
+    [fail],
+  );
+
   const setSupersets = useCallback(
     (supersets: string[][]) =>
       updateActive({ supersets }, "Couldn't save the superset."),
@@ -606,6 +630,7 @@ export default function useWorkouts(userId?: string) {
     pause,
     resume,
     setElapsed,
+    setPastElapsed,
     finish,
     reopen,
     discard,
