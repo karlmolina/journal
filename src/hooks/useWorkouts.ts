@@ -104,8 +104,20 @@ const normalize = (w: Workout): Workout => ({
       side: s.side ?? null,
       rest_seconds: s.rest_seconds ?? null,
     }))
-    .sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    .sort(byCreated),
 });
+
+// Sets in the order they were done; workouts newest first.
+const byCreated = (a: WorkoutSet, b: WorkoutSet) =>
+  a.created_at.localeCompare(b.created_at);
+const byStartedDesc = (a: Workout, b: Workout) =>
+  b.started_at.localeCompare(a.started_at);
+
+// Puts a workout back in the history, if it isn't there already.
+const restore = (history: Workout[], workout: Workout) =>
+  history.some((w) => w.id === workout.id)
+    ? history
+    : [...history, workout].sort(byStartedDesc);
 
 interface Cached {
   active: Workout | null;
@@ -328,13 +340,7 @@ export default function useWorkouts(userId?: string) {
         .eq("id", id);
       if (error) {
         setActive(null);
-        setHistory((h) =>
-          h.some((w) => w.id === id)
-            ? h
-            : [...h, prev].sort((a, b) =>
-                b.started_at.localeCompare(a.started_at),
-              ),
-        );
+        setHistory((h) => restore(h, prev));
         // Most likely a workout is running on another device; show that one.
         fail("Couldn't continue the workout.", error);
         load();
@@ -388,18 +394,22 @@ export default function useWorkouts(userId?: string) {
         message: "Workout deleted",
         rows: [`workouts:${id}`],
         commit: () => supabase.from("workouts").delete().eq("id", id),
-        undo: () =>
-          setHistory((h) =>
-            h.some((w) => w.id === id)
-              ? h
-              : [...h, workout].sort((a, b) =>
-                  b.started_at.localeCompare(a.started_at),
-                ),
-          ),
+        undo: () => setHistory((h) => restore(h, workout)),
         onError: (error) => fail("Couldn't delete the workout.", error),
       });
     },
     [fail],
+  );
+
+  // Changes the sets of a workout, the running one or a past one.
+  const editSets = useCallback(
+    (workoutId: string, fn: (sets: WorkoutSet[]) => WorkoutSet[]) => {
+      const apply = (w: Workout) =>
+        w.id === workoutId ? { ...w, workout_sets: fn(w.workout_sets) } : w;
+      setActive((w) => (w ? apply(w) : w));
+      setHistory((h) => h.map(apply));
+    },
+    [],
   );
 
   const setSets = (
@@ -452,12 +462,8 @@ export default function useWorkouts(userId?: string) {
       if (removed.length === 0) return;
       const workoutId = removed[0].workout_id;
       const ids = new Set(removed.map((s) => s.id));
-      const edit = (fn: (sets: WorkoutSet[]) => WorkoutSet[]) => {
-        const apply = (w: Workout) =>
-          w.id === workoutId ? { ...w, workout_sets: fn(w.workout_sets) } : w;
-        setActive((w) => (w ? apply(w) : w));
-        setHistory((h) => h.map(apply));
-      };
+      const edit = (fn: (sets: WorkoutSet[]) => WorkoutSet[]) =>
+        editSets(workoutId, fn);
       edit((sets) => sets.filter((s) => !ids.has(s.id)));
       setError(null);
       const one = removed.length === 1;
@@ -474,7 +480,7 @@ export default function useWorkouts(userId?: string) {
             [
               ...sets,
               ...removed.filter((r) => !sets.some((s) => s.id === r.id)),
-            ].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+            ].sort(byCreated),
           ),
         onError: (error) =>
           fail(
@@ -483,7 +489,7 @@ export default function useWorkouts(userId?: string) {
           ),
       });
     },
-    [fail],
+    [fail, editSets],
   );
 
   // Sets can be corrected in the running workout and in past ones.
@@ -493,19 +499,10 @@ export default function useWorkouts(userId?: string) {
       changes: Partial<NewSet>,
       linked?: Promise<string | null>,
     ) => {
-      const replace = (next: WorkoutSet) => (w: Workout) =>
-        w.id === set.workout_id
-          ? {
-              ...w,
-              workout_sets: w.workout_sets.map((s) =>
-                s.id === set.id ? next : s,
-              ),
-            }
-          : w;
-      const apply = (next: WorkoutSet) => {
-        setActive((w) => (w ? replace(next)(w) : w));
-        setHistory((h) => h.map(replace(next)));
-      };
+      const apply = (next: WorkoutSet) =>
+        editSets(set.workout_id, (sets) =>
+          sets.map((s) => (s.id === set.id ? next : s)),
+        );
       apply({ ...set, ...changes });
       setError(null);
       if (linked) {
@@ -524,7 +521,7 @@ export default function useWorkouts(userId?: string) {
         fail("Couldn't update that set.", error);
       }
     },
-    [fail],
+    [fail, editSets],
   );
 
   // Turns one logged set into two, halving its time, for a set that should
@@ -544,14 +541,8 @@ export default function useWorkouts(userId?: string) {
         rest_seconds: null,
         created_at: new Date(Date.parse(set.created_at) + 1).toISOString(),
       };
-      const edit = (fn: (sets: WorkoutSet[]) => WorkoutSet[]) => {
-        const apply = (w: Workout) =>
-          w.id === set.workout_id
-            ? { ...w, workout_sets: fn(w.workout_sets) }
-            : w;
-        setActive((w) => (w ? apply(w) : w));
-        setHistory((h) => h.map(apply));
-      };
+      const edit = (fn: (sets: WorkoutSet[]) => WorkoutSet[]) =>
+        editSets(set.workout_id, fn);
       const unsplit = () =>
         edit((sets) =>
           sets
@@ -561,7 +552,7 @@ export default function useWorkouts(userId?: string) {
       edit((sets) =>
         sets
           .flatMap((s) => (s.id === set.id ? [first, second] : [s]))
-          .sort((a, b) => a.created_at.localeCompare(b.created_at)),
+          .sort(byCreated),
       );
       setError(null);
       const saved = (async () => {
@@ -600,7 +591,7 @@ export default function useWorkouts(userId?: string) {
         onError: (error) => fail("Couldn't split that set.", error),
       });
     },
-    [fail],
+    [fail, editSets],
   );
 
   return {
