@@ -208,6 +208,7 @@ export default function WorkoutHistoryCard({
               onRemove={onRemoveSets}
               isUnilateral={isUnilateral}
               dense
+              editRest
               supersetTags={tags}
               bodyPartsOf={bodyPartsOf}
             />
