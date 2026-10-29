@@ -20,6 +20,7 @@ import type {
 import type { Exercise } from "../../hooks/useExercises";
 import type { ExerciseNotesProps } from "./ExerciseNote";
 import useClock from "../../hooks/useClock";
+import useWakeLock from "../../hooks/useWakeLock";
 import { formatClock } from "../../functions/formatDuration";
 import {
   currentExerciseIndex,
@@ -136,6 +137,8 @@ export default function ActiveWorkout({
   // One clock drives the workout time and the set and rest timers.
   const clockOrigin = Date.parse(workout.started_at);
   const now = useClock(clockOrigin);
+  // Keep the screen on for the whole workout, except while it's paused.
+  useWakeLock(!paused);
   const sets = workout.workout_sets;
   // An exercise finished early counts as done with the sets it has.
   const exercises: Step[] = (planned?.session.exercises ?? []).map((e) => ({
