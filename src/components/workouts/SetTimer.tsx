@@ -1,6 +1,5 @@
 import type React from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
 import { onGrid } from "../../hooks/useClock";
@@ -79,9 +78,8 @@ interface SetTimerProps {
   // In a plan's exercise card the rest goes under the title and sets, just
   // over the start button; otherwise it heads the timer.
   restInCard?: boolean;
-  // Just under the set just finished, for the button that goes on to the
-  // rest or the next set; without one it shows in place.
-  doneSlot?: HTMLElement | null;
+  // The set just finished, fixable, shown in the box the next set runs in.
+  doneBox?: React.ReactNode;
   // In a plan, Swap exercise on the card picks another exercise instead.
   hideChange?: boolean;
   // Level with the exercise's title, at the right.
@@ -116,7 +114,7 @@ export default function SetTimer({
   onSlotChange,
   onPhaseChange,
   restInCard = false,
-  doneSlot,
+  doneBox,
   hideChange = false,
   headerTitle,
 }: SetTimerProps) {
@@ -483,11 +481,20 @@ export default function SetTimer({
             {aboveClock}
           </div>
         )}
-        {doneSlot ? (
-          createPortal(button, doneSlot)
+        {/* The box and button sit where the running set's do, so the box
+            carries over as the next set starts. */}
+        {doneBox ? (
+          <div>
+            <div className="min-h-0 overflow-hidden">
+              <div className="mt-2 mb-2 flex flex-col rounded-2xl bg-base-content/5 p-3">
+                {doneBox}
+              </div>
+            </div>
+          </div>
         ) : (
-          <div className="mt-2">{button}</div>
+          <div className="mt-2" />
         )}
+        {button}
       </div>
     );
   }

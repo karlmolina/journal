@@ -258,7 +258,6 @@ export default function ActiveWorkout({
   // plan moves on to another exercise and whenever a set starts.
   const currentCard = useRef<HTMLElement>(null);
   // Under the set just finished, for the button on to the rest or next set.
-  const [doneSlot, setDoneSlot] = useState<HTMLElement | null>(null);
   const toCurrent = () => currentCard.current;
   // When the plan moves on, a rest starts or a set starts; one scroll for
   // all of them, once the page settles.
@@ -334,6 +333,7 @@ export default function ActiveWorkout({
     inPlan = false,
     aboveClock?: ReactNode,
     headerTitle?: ReactNode,
+    doneBox?: ReactNode,
   ) => (
     <SetTimer
       workoutId={workout.id}
@@ -364,7 +364,7 @@ export default function ActiveWorkout({
       onSlotChange={setSlot}
       onPhaseChange={onPhaseChange}
       restInCard={inPlan}
-      doneSlot={doneSlot}
+      doneBox={doneBox}
       // A plan's exercise cards have Swap exercise instead.
       hideChange={inPlan}
       headerTitle={headerTitle}
@@ -373,23 +373,27 @@ export default function ActiveWorkout({
 
   // The set just stopped, fixable in place until the next one starts: its
   // time on the big clock, side, reps and weight, saving as they change.
-  const fixingEditor = (s: WorkoutSet) => (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-col rounded-2xl bg-base-content/5 p-3">
-        <SetForm
-          key={s.id}
-          suggestions={suggestions}
-          hideExercise
-          bigTime
-          goalSeconds={prefillFor(s.exercise_name).duration_seconds}
-          initial={s}
-          onChange={(changes) => onUpdateSet(s, changes)}
-        />
-      </div>
-      {/* Right under it: on to the rest or the next set. */}
-      <div ref={setDoneSlot} className="empty:hidden" />
-    </div>
+  const fixingForm = (s: WorkoutSet) => (
+    <SetForm
+      key={s.id}
+      suggestions={suggestions}
+      hideExercise
+      bigTime
+      goalSeconds={prefillFor(s.exercise_name).duration_seconds}
+      initial={s}
+      onChange={(changes) => onUpdateSet(s, changes)}
+    />
   );
+  // Just stopped, the timer shows it in the box the next set runs in, so
+  // the box stays put as the next set starts; after that (a rest) it sits
+  // above the timer.
+  const fixingDone = timerPhase === "done";
+  const fixingAbove = (s: WorkoutSet) =>
+    !fixingDone && (
+      <div className="flex flex-col rounded-2xl bg-base-content/5 p-3">
+        {fixingForm(s)}
+      </div>
+    );
 
   const setList = (list: WorkoutSet[], newestFirst = false) => (
     <SetList
@@ -466,7 +470,7 @@ export default function ActiveWorkout({
           isUnilateral={isUnilateral}
           hideNames
         />
-        {fixing && earlier.length < logged.length && fixingEditor(fixing)}
+        {fixing && earlier.length < logged.length && fixingAbove(fixing)}
       </div>
     );
     const actions = (titleClassName: string) => (
@@ -538,6 +542,9 @@ export default function ActiveWorkout({
             setBusy
               ? undefined
               : actions("text-4xl font-extrabold leading-tight tracking-tight"),
+            fixing && fixingDone && earlier.length < logged.length
+              ? fixingForm(fixing)
+              : undefined,
           )}
         </section>
       );
@@ -759,7 +766,12 @@ export default function ActiveWorkout({
                   ref={currentCard}
                   className={`${resting ? restCardClass : cardClass} scroll-mt-4`}
                 >
-                  {timer(undefined, fixing && fixingEditor(fixing))}
+                  {timer(
+                    undefined,
+                    fixing && fixingAbove(fixing),
+                    undefined,
+                    fixing && fixingDone ? fixingForm(fixing) : undefined,
+                  )}
                 </section>
               )}
             </>
@@ -768,7 +780,12 @@ export default function ActiveWorkout({
       ) : (
         <>
           <section ref={currentCard} className={`${cardClass} scroll-mt-4`}>
-            {timer(undefined, fixing && fixingEditor(fixing))}
+            {timer(
+                    undefined,
+                    fixing && fixingAbove(fixing),
+                    undefined,
+                    fixing && fixingDone ? fixingForm(fixing) : undefined,
+                  )}
           </section>
           {sets.length > (fixing ? 1 : 0) && (
             <section className={cardClass}>
