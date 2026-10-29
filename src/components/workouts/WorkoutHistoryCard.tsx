@@ -1,7 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SetInput, Workout, WorkoutSet } from "../../hooks/useWorkouts";
 import { elapsedSeconds } from "../../hooks/useWorkouts";
-import { formatDuration } from "../../functions/formatDuration";
+import {
+  formatClock,
+  formatDuration,
+  parseClock,
+} from "../../functions/formatDuration";
+import useDragAdjust from "../../hooks/useDragAdjust";
+import { unitFieldClass, unitInputClass } from "./SetForm";
 import SetList from "./SetList";
 import {
   bodyPartLabel,
@@ -84,7 +90,65 @@ interface WorkoutHistoryCardProps {
   onRemoveSets?: (sets: WorkoutSet[]) => void;
   // Picks the workout back up, for one ended before it was done.
   onContinue?: () => void;
+  // Sets how long the workout took, in seconds.
+  onElapsedChange?: (seconds: number) => void;
   onDelete: () => void;
+}
+
+// How long the workout took, typed or dragged on a wheel a minute at a
+// time, saved shortly after it stops changing.
+function WorkoutTimeField({
+  seconds,
+  onChange,
+}: {
+  seconds: number;
+  onChange: (seconds: number) => void;
+}) {
+  const [text, setText] = useState(formatClock(seconds));
+  const drag = useDragAdjust({
+    value: text,
+    onChange: setText,
+    label: "Workout time",
+    min: 0,
+    parse: (t) => {
+      const s = parseClock(t);
+      return s === null ? null : Math.floor(s / 60);
+    },
+    format: (m) => formatClock(m * 60),
+  });
+  const parsed = parseClock(text);
+  const invalid = parsed === null;
+  // The card's handler is made fresh on each render; the latest one saves.
+  const save = useRef(onChange);
+  useEffect(() => {
+    save.current = onChange;
+  });
+  useEffect(() => {
+    if (parsed === null || parsed === seconds) return;
+    const id = setTimeout(() => save.current(parsed), 800);
+    return () => clearTimeout(id);
+  }, [parsed, seconds]);
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="shrink-0 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+        Workout time
+      </span>
+      <label
+        className={`${unitFieldClass} max-w-40 ${invalid ? "ring-2 ring-error" : ""}`}
+        {...drag.bind}
+      >
+        <input
+          className={unitInputClass}
+          inputMode="numeric"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          aria-label="Workout time, as minutes:seconds or hours:minutes:seconds"
+        />
+      </label>
+      {drag.picker}
+    </div>
+  );
 }
 
 export default function WorkoutHistoryCard({
@@ -98,6 +162,7 @@ export default function WorkoutHistoryCard({
   onSplitSet,
   onRemoveSets,
   onContinue,
+  onElapsedChange,
   onDelete,
 }: WorkoutHistoryCardProps) {
   const [open, setOpen] = useState(false);
@@ -198,6 +263,13 @@ export default function WorkoutHistoryCard({
             <p className="whitespace-pre-wrap text-sm font-medium text-base-content/90 dark:text-[color-mix(in_oklab,var(--color-base-content),white_45%)]">
               {workout.notes}
             </p>
+          )}
+          {onElapsedChange && (
+            <WorkoutTimeField
+              key={workout.ended_at}
+              seconds={elapsedSeconds(workout)}
+              onChange={onElapsedChange}
+            />
           )}
           {setCount > 0 ? (
             <SetList

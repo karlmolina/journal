@@ -134,6 +134,7 @@ export default function Session() {
     pause,
     resume,
     setElapsed,
+    setPastElapsed,
     finish,
     reopen,
     discard,
@@ -440,6 +441,7 @@ export default function Session() {
                     ? () => reopen(w.id)
                     : undefined
                 }
+                onElapsedChange={(seconds) => setPastElapsed(w.id, seconds)}
                 onDelete={() => removeWorkout(w.id)}
               />
             ))}
