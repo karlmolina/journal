@@ -142,6 +142,8 @@ export default function ExerciseNote({
   // "new", a note's id, or null when not editing.
   const [editing, setEditing] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // Folded to just its heading until tapped open.
+  const [open, setOpen] = useState(false);
   const entries = notes.notesFor(exercise);
   const active = injuries.filter((i) => !i.healed_on);
   const byId = new Map(injuries.map((i) => [i.id, i]));
@@ -227,23 +229,41 @@ export default function ExerciseNote({
   };
 
   return (
-    <div className="w-full rounded-xl bg-accent/10 px-3 py-2 text-left text-sm font-medium flex flex-col gap-2">
+    <div className="w-full rounded-xl bg-accent/10 px-3 py-2 text-left text-sm font-medium">
       <div className="flex items-baseline justify-between gap-2">
-        <span className={`text-xs font-bold ${accentText}`}>
-          {entries.length === 1 ? "Your note" : "Your notes"}
-        </span>
-        {add}
-      </div>
-      <ol className="flex flex-col gap-2">{shown.map(renderEntry)}</ol>
-      {entries.length > SHOWN && (
         <button
           type="button"
-          className="self-start text-xs font-bold text-base-content/55 dark:text-base-content/75 cursor-pointer"
-          onClick={() => setShowAll(!showAll)}
+          className={`text-xs font-bold cursor-pointer ${accentText}`}
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
         >
-          {showAll ? "Show fewer" : `Show all ${entries.length}`}
+          {entries.length === 1 ? "Your note" : `Your notes (${entries.length})`}
+          {" · "}
+          {open ? "Hide" : "Show"}
         </button>
-      )}
+        {add}
+      </div>
+      {/* Stays mounted so it folds shut as smoothly as it opens. */}
+      <div
+        aria-hidden={!open}
+        inert={!open}
+        className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+      >
+        <div className="overflow-hidden">
+          <div className="mt-2 flex flex-col gap-2">
+            <ol className="flex flex-col gap-2">{shown.map(renderEntry)}</ol>
+            {entries.length > SHOWN && (
+              <button
+                type="button"
+                className="self-start text-xs font-bold text-base-content/55 dark:text-base-content/75 cursor-pointer"
+                onClick={() => setShowAll(!showAll)}
+              >
+                {showAll ? "Show fewer" : `Show all ${entries.length}`}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
