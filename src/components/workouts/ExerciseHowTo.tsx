@@ -36,17 +36,28 @@ export default function ExerciseHowTo({
       {exercise.description && !shut && (
         <p className={open ? "" : "line-clamp-2"}>{exercise.description}</p>
       )}
-      {open && exercise.steps.length > 0 && (
-        <ol className="mt-1.5 list-decimal pl-5 flex flex-col gap-0.5 animate-expand-in">
-          {exercise.steps.map((step, i) => (
-            <li key={i}>{step}</li>
-          ))}
-        </ol>
-      )}
-      {open && exercise.equipment && (
-        <p className="mt-1.5 animate-expand-in">
-          <span className="font-bold">Equipment:</span> {exercise.equipment}
-        </p>
+      {more && (
+        // Stays mounted so it can fold shut as smoothly as it opens.
+        <div
+          aria-hidden={!open}
+          className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+        >
+          <div className="overflow-hidden">
+            {exercise.steps.length > 0 && (
+              <ol className="mt-1.5 list-decimal pl-5 flex flex-col gap-0.5">
+                {exercise.steps.map((step, i) => (
+                  <li key={i}>{step}</li>
+                ))}
+              </ol>
+            )}
+            {exercise.equipment && (
+              <p className="mt-1.5">
+                <span className="font-bold">Equipment:</span>{" "}
+                {exercise.equipment}
+              </p>
+            )}
+          </div>
+        </div>
       )}
       {toggles && (
         <button
