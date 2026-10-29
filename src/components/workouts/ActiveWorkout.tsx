@@ -328,7 +328,7 @@ export default function ActiveWorkout({
   const timer = (
     inPlan = false,
     aboveClock?: ReactNode,
-    headerAction?: ReactNode,
+    headerTitle?: ReactNode,
   ) => (
     <SetTimer
       workoutId={workout.id}
@@ -362,7 +362,7 @@ export default function ActiveWorkout({
       doneSlot={doneSlot}
       // A plan's exercise cards have Swap exercise instead.
       hideChange={inPlan}
-      headerAction={headerAction}
+      headerTitle={headerTitle}
     />
   );
 
@@ -464,8 +464,9 @@ export default function ActiveWorkout({
         {fixing && earlier.length < logged.length && fixingEditor(fixing)}
       </div>
     );
-    const actions = (
+    const actions = (titleClassName: string) => (
       <StepActions
+        titleClassName={titleClassName}
         // A fresh form for each exercise.
         key={e.name}
         step={e}
@@ -525,8 +526,13 @@ export default function ActiveWorkout({
           className={`${restCardClass} scroll-mt-4 flex flex-col gap-3`}
         >
           {label}
-          {/* Level with the title; not mid-set. */}
-          {timer(true, loggedSets, !setBusy && actions)}
+          {/* The title opens the options; not mid-set. */}
+          {timer(
+            true,
+            loggedSets,
+            !setBusy &&
+              actions("text-4xl font-extrabold leading-tight tracking-tight"),
+          )}
         </section>
       );
 
@@ -536,12 +542,9 @@ export default function ActiveWorkout({
         {label}
         <div>
           <div className="flex items-start justify-between gap-2">
-            <p
-              className={`text-xl font-bold leading-tight ${complete ? "text-base-content/70 dark:text-base-content/85" : ""}`}
-            >
-              {e.name}
-            </p>
-            {actions}
+            {actions(
+              `text-xl font-bold leading-tight ${complete ? "text-base-content/70 dark:text-base-content/85" : ""}`,
+            )}
           </div>
           <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
             {describeTarget({ ...e, sets: e.planned_sets })}

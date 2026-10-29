@@ -82,12 +82,13 @@ function RestField({
   );
 }
 
-// In the corner of each exercise's card, one Options button. It opens a
+// The title of each exercise's card is its Options button. It opens a
 // dialog to do the exercise now instead of the current one, swap it for
 // another for this workout, end it before all its sets are done, or fix
 // the rest taken before each of its sets.
 export default function StepActions({
   step,
+  titleClassName,
   sets,
   complete,
   suggestions,
@@ -97,6 +98,7 @@ export default function StepActions({
   onRest,
 }: {
   step: Step;
+  titleClassName: string;
   // Its sets logged so far.
   sets: WorkoutSet[];
   complete: boolean;
@@ -131,21 +133,12 @@ export default function StepActions({
     <>
       <button
         type="button"
-        className={`${actionClass} btn-square shrink-0`}
+        className={`${titleClassName} text-left cursor-pointer`}
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        aria-label="Options"
+        aria-label={`${step.name} options`}
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          className="size-5"
-          aria-hidden
-        >
-          <circle cx="12" cy="5" r="2" />
-          <circle cx="12" cy="12" r="2" />
-          <circle cx="12" cy="19" r="2" />
-        </svg>
+        {step.name}
       </button>
       {open && (
         <div

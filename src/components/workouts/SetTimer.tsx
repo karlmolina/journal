@@ -82,7 +82,7 @@ interface SetTimerProps {
   // In a plan, Swap exercise on the card picks another exercise instead.
   hideChange?: boolean;
   // Level with the exercise's title, at the right.
-  headerAction?: React.ReactNode;
+  headerTitle?: React.ReactNode;
 }
 
 export type TimerPhase = Phase["phase"];
@@ -115,7 +115,7 @@ export default function SetTimer({
   restInCard = false,
   doneSlot,
   hideChange = false,
-  headerAction,
+  headerTitle,
 }: SetTimerProps) {
   const [state, setStateNow] = useState<Phase>(() =>
     readSaved(storageKey, workoutId),
@@ -331,7 +331,7 @@ export default function SetTimer({
       goal={goal}
       lookup={lookup}
       exerciseNotes={exerciseNotes}
-      corner={headerAction}
+      title={headerTitle}
     />
   );
 
