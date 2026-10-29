@@ -338,14 +338,26 @@ export default function SetTimer({
           <ClockRow
             goalSeconds={prefillFor(state.exercise).duration_seconds}
             clock={
-              <p
-                className={`my-1 px-4 py-1 text-4xl font-extrabold tracking-tight tabular-nums text-center ${countdown > 0 ? "text-base-content/45 dark:text-base-content/70" : ""}`}
+              // The box the time sits in once the set is done, not editable
+              // while it runs.
+              <div
+                className="my-1 rounded-2xl bg-base-content/6 px-4 py-1"
                 role="timer"
               >
-                {countdown > 0
-                  ? `Starting in ${countdown}`
-                  : formatClock(since(state.startedAt))}
-              </p>
+                {countdown > 0 ? (
+                  <p className="text-4xl font-extrabold tracking-tight tabular-nums text-center text-base-content/45 dark:text-base-content/70">
+                    Starting in {countdown}
+                  </p>
+                ) : (
+                  <input
+                    className="pointer-events-none w-36 bg-transparent text-center text-4xl font-extrabold tracking-tight tabular-nums outline-none"
+                    value={formatClock(since(state.startedAt))}
+                    readOnly
+                    tabIndex={-1}
+                    aria-label="Time"
+                  />
+                )}
+              </div>
             }
           />
           {state.side && <SideChips side={state.side} />}
