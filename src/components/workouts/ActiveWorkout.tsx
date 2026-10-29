@@ -254,9 +254,6 @@ export default function ActiveWorkout({
   const currentCard = useRef<HTMLElement>(null);
   // Under the set just finished, for the button on to the rest or next set.
   const [doneSlot, setDoneSlot] = useState<HTMLElement | null>(null);
-  const doneBlock = (timerPhase === "done" && doneSlot?.parentElement) || null;
-  const doneRef = useRef(doneBlock);
-  doneRef.current = doneBlock;
   const toCurrent = () => currentCard.current;
   // When the plan moves on, a rest starts or a set starts; one scroll for
   // all of them, once the page settles.
@@ -791,14 +788,9 @@ export default function ActiveWorkout({
       </div>
       <FloatingBar
         currentCard={currentCard}
-        doneBlock={doneBlock}
         elapsed={elapsed}
         paused={paused}
-        onCurrent={() =>
-          doneBlock
-            ? scrollToTop(() => doneRef.current)
-            : scrollToTop(toCurrent)
-        }
+        onCurrent={() => scrollToTop(toCurrent)}
         onClock={() => setFinishing(true)}
       />
       {/* Room to scroll the current exercise to the top near the end. Sized
