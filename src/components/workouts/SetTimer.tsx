@@ -127,6 +127,15 @@ export default function SetTimer({
     writeSaved(storageKey, workoutId, next);
     setStateNow(next);
   };
+  // The set's box opens out when it starts from a rest or the start button,
+  // not when it takes the place of the set just finished (which has the
+  // same box). Decided as the phase changes, so a tick can't cut it short.
+  const [prevPhase, setPrevPhase] = useState(state.phase);
+  const [opening, setOpening] = useState(false);
+  if (state.phase !== prevPhase) {
+    setPrevPhase(state.phase);
+    setOpening(state.phase === "running" && prevPhase !== "done");
+  }
   const [name, setName] = useState(exercise);
   // Follow the plan when it moves on to the next exercise.
   const [prevExercise, setPrevExercise] = useState(exercise);
@@ -338,7 +347,7 @@ export default function SetTimer({
         )}
         {/* Laid out like the set once it's done, so nothing moves on Finish.
             Opens out as the set starts. */}
-        <div className="animate-section-open">
+        <div className={opening ? "animate-section-open" : ""}>
           <div className="min-h-0 overflow-hidden">
             <div className="mt-2 mb-2 flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3">
               <ClockRow
