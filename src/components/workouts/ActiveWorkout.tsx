@@ -732,13 +732,13 @@ export default function ActiveWorkout({
           {shownIndex === null && (
             <>
               {exercises.length > 0 && (
-                <div className="flex flex-col items-center pt-3">
+                <div className="flex flex-col items-center">
                   <p className="text-sm font-bold text-center text-base-content/70 dark:text-base-content/85">
                     Every planned set is done. Nice work.
                   </p>
                   <button
                     type="button"
-                    className={`${primaryClass} mt-2`}
+                    className={`${primaryClass} mt-4`}
                     onClick={() => setFinishing(true)}
                   >
                     Finish workout
@@ -748,7 +748,7 @@ export default function ActiveWorkout({
               {exercises.length > 0 && !showEmpty && (
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] self-center mt-3"
+                  className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] self-center"
                   onClick={() => setExtraOpen(true)}
                 >
                   + Add exercise
