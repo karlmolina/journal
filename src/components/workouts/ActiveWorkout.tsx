@@ -51,7 +51,8 @@ import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 import AddPlanExercise from "./AddPlanExercise";
-import StepActions, { actionClass, type Step } from "./StepActions";
+import StepActions, { type Step } from "./StepActions";
+import { primaryClass } from "./RestStartButton";
 import SupersetLink from "./SupersetLink";
 import FloatingBar from "./FloatingBar";
 import WorkoutClockDialog from "./WorkoutClockDialog";
@@ -237,6 +238,8 @@ export default function ActiveWorkout({
     timerPhase === "done" && fixing ? indexOf(fixing.exercise_name) : -1;
   const shownIndex = held !== -1 ? held : selectedIndex;
   const shown = shownIndex !== null ? exercises[shownIndex] : undefined;
+  const showEmpty =
+    exercises.length === 0 || extraOpen || timerPhase !== "ready";
   // Which set it is: the one just done while it's being fixed, else the next.
   const setLabel =
     shown &&
@@ -305,6 +308,8 @@ export default function ActiveWorkout({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   // The add-exercise form, and whether it adds to the plan day too.
   const [adding, setAdding] = useState(false);
+  // After every planned set, the empty exercise card waits until asked for.
+  const [extraOpen, setExtraOpen] = useState(false);
   const [addToPlan, setAddToPlan] = useState(false);
   const [notes, setNotes] = useState("");
   const elapsed = formatClock(elapsedSeconds(workout, now));
@@ -712,7 +717,7 @@ export default function ActiveWorkout({
               onAdd={(exercise) => onAddExercise(exercise, addToPlan)}
               onCancel={() => setAdding(false)}
             />
-          ) : (
+          ) : shownIndex === null && exercises.length > 0 ? null : (
             <button
               type="button"
               className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] self-center"
@@ -733,19 +738,30 @@ export default function ActiveWorkout({
                   </p>
                   <button
                     type="button"
-                    className={actionClass}
+                    className={`${primaryClass} mt-2`}
                     onClick={() => setFinishing(true)}
                   >
                     Finish workout
                   </button>
                 </div>
               )}
-              <section
-                ref={currentCard}
-                className={`${resting ? restCardClass : cardClass} scroll-mt-4`}
-              >
-                {timer(undefined, fixing && fixingEditor(fixing))}
-              </section>
+              {exercises.length > 0 && !showEmpty && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] self-center"
+                  onClick={() => setExtraOpen(true)}
+                >
+                  + Add exercise
+                </button>
+              )}
+              {showEmpty && (
+                <section
+                  ref={currentCard}
+                  className={`${resting ? restCardClass : cardClass} scroll-mt-4`}
+                >
+                  {timer(undefined, fixing && fixingEditor(fixing))}
+                </section>
+              )}
             </>
           )}
         </>
