@@ -351,7 +351,12 @@ export default function SetTimer({
           <div className="min-h-0 overflow-hidden">
             <div className="mt-2 mb-2 flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3">
               <ClockRow
-                goalSeconds={prefillFor(state.exercise).duration_seconds}
+                // The goal waits for the set to start timing.
+                goalSeconds={
+                  countdown > 0
+                    ? null
+                    : prefillFor(state.exercise).duration_seconds
+                }
                 clock={
                   // The box the time sits in once the set is done, not editable
                   // while it runs. Wide for the countdown, shrinking to the
