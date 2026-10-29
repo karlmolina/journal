@@ -473,18 +473,25 @@ export default function SetTimer({
     // The rest's clock, in the set clock's place; the start button under it
     // fills as it goes.
     const restBlock = (
-      <div className="flex flex-col items-center text-center">
-        <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
-          {rested >= goal
-            ? `Rested · target ${formatClock(goal)} reached`
-            : `Resting · target ${formatClock(goal)}`}
+      <div className="flex w-full flex-col items-center text-center">
+        <p className="text-lg font-bold text-base-content/60 dark:text-base-content/80">
+          {rested >= goal ? "Rested" : "Resting"}
         </p>
-        <p
-          className="mt-1.5 mb-4 text-3xl font-extrabold tracking-tight tabular-nums"
-          role="timer"
-        >
-          {formatClock(rested)}
-        </p>
+        <div className="mb-3 w-full">
+          <ClockRow
+            goalSeconds={goal}
+            clock={
+              <div
+                className="my-1 w-44 rounded-2xl bg-base-content/6 px-4 py-1"
+                role="timer"
+              >
+                <p className="text-4xl font-extrabold tracking-tight tabular-nums text-center">
+                  {formatClock(rested)}
+                </p>
+              </div>
+            }
+          />
+        </div>
       </div>
     );
     const start = (
