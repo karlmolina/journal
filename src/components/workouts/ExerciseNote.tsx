@@ -229,7 +229,12 @@ export default function ExerciseNote({
   };
 
   return (
-    <div className="w-full rounded-xl bg-accent/10 px-3 py-2 text-left text-sm font-medium">
+    // Folded, the whole box is a tap target; the button inside is for
+    // keyboards.
+    <div
+      className={`w-full rounded-xl bg-accent/10 px-3 py-2 text-left text-sm font-medium ${open ? "" : "cursor-pointer"}`}
+      onClick={() => !open && setOpen(true)}
+    >
       <div className="flex items-baseline justify-between gap-2">
         <button
           type="button"
@@ -241,7 +246,7 @@ export default function ExerciseNote({
           {" · "}
           {open ? "Hide" : "Show"}
         </button>
-        {add}
+        {open && add}
       </div>
       {/* Stays mounted so it folds shut as smoothly as it opens. */}
       <div
