@@ -473,7 +473,7 @@ export default function SetTimer({
             : `Resting · target ${formatClock(goal)}`}
         </p>
         <p
-          className="my-1 text-3xl font-extrabold tracking-tight tabular-nums"
+          className="mt-1.5 mb-4 text-3xl font-extrabold tracking-tight tabular-nums"
           role="timer"
         >
           {formatClock(rested)}
@@ -508,7 +508,7 @@ export default function SetTimer({
         <div className="flex flex-col">
           {header(name.trim(), side)}
           {aboveClock && <div key="above">{aboveClock}</div>}
-          <div className="w-full mt-2 flex flex-col items-center">
+          <div className="w-full mt-4 flex flex-col items-center">
             {restBlock}
             {start}
           </div>
