@@ -243,8 +243,6 @@ export default function ExerciseNote({
           onClick={() => setOpen(!open)}
         >
           Notes ({entries.length})
-          {" · "}
-          {open ? "Hide" : "Show"}
         </button>
         {open && add}
       </div>
