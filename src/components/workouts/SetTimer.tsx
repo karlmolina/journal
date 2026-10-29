@@ -27,6 +27,9 @@ const text = (n: number | null | undefined) => (n == null ? "" : String(n));
 // superset, starts timing.
 const COUNTDOWN = 3;
 
+const restTitleClass =
+  "text-lg font-bold text-base-content/60 dark:text-base-content/80";
+
 // A buzz when the planned rest is up (no sound); the screen shows it too.
 function restTargetAlert() {
   navigator.vibrate?.([200, 100, 200]);
@@ -132,9 +135,13 @@ export default function SetTimer({
   // same box). Decided as the phase changes, so a tick can't cut it short.
   const [prevPhase, setPrevPhase] = useState(state.phase);
   const [opening, setOpening] = useState(false);
+  // Starting from a rest, the box is already there: only what's new in it
+  // opens out, and the rest's title closes.
+  const [fromRest, setFromRest] = useState(false);
   if (state.phase !== prevPhase) {
     setPrevPhase(state.phase);
     setOpening(state.phase === "running" && prevPhase !== "done");
+    setFromRest(state.phase === "running" && prevPhase === "resting");
   }
   const [name, setName] = useState(exercise);
   // Follow the plan when it moves on to the next exercise.
@@ -346,9 +353,18 @@ export default function SetTimer({
         )}
         {/* Laid out like the set once it's done, so nothing moves on Finish.
             Opens out as the set starts. */}
-        <div className={opening ? "animate-section-open" : ""}>
+        <div
+          className={opening && !fromRest ? "animate-section-open" : ""}
+        >
           <div className="min-h-0 overflow-hidden">
-            <div className="mt-2 mb-2 flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3">
+            <div className="mt-2 mb-2 flex flex-col rounded-2xl bg-base-content/5 p-3">
+              {fromRest && (
+                <div className="animate-section-close">
+                  <div className="min-h-0 overflow-hidden">
+                    <p className={restTitleClass}>Resting</p>
+                  </div>
+                </div>
+              )}
               <ClockRow
                 // The goal waits for the set to start timing.
                 goalSeconds={
@@ -382,14 +398,22 @@ export default function SetTimer({
                   </div>
                 }
               />
-              {state.side && <SideChips side={state.side} />}
-              <RepsWeightFields
-                big
-                reps={fields.reps}
-                weight={fields.weight}
-                onReps={(reps) => setState({ ...state, ...fields, reps })}
-                onWeight={(weight) => setState({ ...state, ...fields, weight })}
-              />
+              <div className={fromRest ? "animate-section-open" : ""}>
+                <div className="min-h-0 overflow-hidden">
+                  <div className="flex flex-col gap-2 pt-2">
+                    {state.side && <SideChips side={state.side} />}
+                    <RepsWeightFields
+                      big
+                      reps={fields.reps}
+                      weight={fields.weight}
+                      onReps={(reps) => setState({ ...state, ...fields, reps })}
+                      onWeight={(weight) =>
+                        setState({ ...state, ...fields, weight })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -473,11 +497,9 @@ export default function SetTimer({
     // The rest's clock, in the set clock's place; the start button under it
     // fills as it goes.
     const restBlock = (
-      <div className="flex w-full flex-col items-center text-center">
-        <p className="text-lg font-bold text-base-content/60 dark:text-base-content/80">
-          Resting
-        </p>
-        <div className="mb-3 w-full text-left">
+      <div className="mt-2 mb-2 flex w-full flex-col items-center rounded-2xl bg-base-content/5 p-3 text-center">
+        <p className={restTitleClass}>Resting</p>
+        <div className="w-full text-left">
           <ClockRow
             goalSeconds={goal}
             clock={
@@ -522,7 +544,7 @@ export default function SetTimer({
         <div className="flex flex-col">
           {header(name.trim())}
           {aboveClock && <div key="above">{aboveClock}</div>}
-          <div className="w-full mt-4 flex flex-col items-center">
+          <div className="w-full flex flex-col items-center">
             {restBlock}
             {start}
           </div>

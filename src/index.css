@@ -96,6 +96,12 @@ body {
     opacity: 0;
   }
 }
+@keyframes section-close {
+  from {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
 @keyframes toast-out {
   to {
     opacity: 0;
@@ -123,6 +129,12 @@ body {
   grid-template-rows: 1fr;
   animation: section-open 220ms ease-out;
 }
+.animate-section-close {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  animation: section-close 220ms ease-out;
+}
 .animate-toast-out {
   animation: toast-out 150ms ease-in forwards;
 }
@@ -144,7 +156,8 @@ body {
   .animate-fade-in,
   .animate-pop-in,
   .animate-expand-in,
-  .animate-section-open {
+  .animate-section-open,
+  .animate-section-close {
     animation: none;
   }
   .animate-fade-out,
