@@ -179,7 +179,7 @@ export default function ExerciseNote({
         setEditing("new");
       }}
     >
-      {entries.length ? "+ Add a note" : "+ Add your own note"}
+      + Add a note
     </button>
   );
   if (entries.length === 0) return add;
