@@ -530,8 +530,9 @@ export default function ActiveWorkout({
           {timer(
             true,
             loggedSets,
-            !setBusy &&
-              actions("text-4xl font-extrabold leading-tight tracking-tight"),
+            setBusy
+              ? undefined
+              : actions("text-4xl font-extrabold leading-tight tracking-tight"),
           )}
         </section>
       );
