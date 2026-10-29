@@ -219,6 +219,8 @@ export default function ActiveWorkout({
       setPicked(null);
   };
   const [timerPhase, setTimerPhase] = useState<TimerPhase>("ready");
+  // After every planned set, the empty exercise card waits until asked for.
+  const [extraOpen, setExtraOpen] = useState(false);
   // Read by the scrolling below, which can run before the phase's state does.
   const phaseNow = useRef<TimerPhase>("ready");
   const onPhaseChange = useCallback((phase: TimerPhase) => {
@@ -308,8 +310,6 @@ export default function ActiveWorkout({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   // The add-exercise form, and whether it adds to the plan day too.
   const [adding, setAdding] = useState(false);
-  // After every planned set, the empty exercise card waits until asked for.
-  const [extraOpen, setExtraOpen] = useState(false);
   const [addToPlan, setAddToPlan] = useState(false);
   const [notes, setNotes] = useState("");
   const elapsed = formatClock(elapsedSeconds(workout, now));
