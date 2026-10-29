@@ -60,6 +60,9 @@ interface SetListProps {
   newestFirst?: boolean;
   // The sets of one exercise in a card that already names it.
   hideNames?: boolean;
+  // The edit form also fixes the rest before the set, in finished workouts
+  // (a running one does that from the exercise's Options).
+  editRest?: boolean;
 }
 
 // What a set did, in the dense row: the load, then its time when it has one.
@@ -92,6 +95,7 @@ export default function SetList({
   bodyPartsOf,
   newestFirst = false,
   hideNames = false,
+  editRest = false,
 }: SetListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const groups = groupSets(sets).map(({ name, sets }) => ({
@@ -188,6 +192,7 @@ export default function SetList({
                     <SetForm
                       suggestions={suggestions}
                       initial={set}
+                      rest={editRest}
                       isUnilateral={isUnilateral}
                       onSplit={
                         onSplit &&
