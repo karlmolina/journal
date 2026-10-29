@@ -32,6 +32,7 @@ import {
   nextSessionIndex,
   plannedReps,
   plannedSeconds,
+  setsDone,
 } from "../../functions/planProgress";
 import { nameKey } from "../../functions/exerciseName";
 import { exerciseSuggestions } from "../../functions/exerciseSuggestions";
@@ -287,6 +288,34 @@ export default function Session() {
     [plans],
   );
 
+  // Whether a plan workout did every exercise of its day (or ended it early),
+  // so there's nothing left to continue.
+  const planFinished = useCallback(
+    (w: Workout) => {
+      const session = plans.find((p) => p.id === w.plan_id)?.plan.sessions[
+        w.plan_session ?? -1
+      ];
+      return (
+        !!session &&
+        applyPlanChanges(session.exercises, w.plan_changes).every(
+          (e) =>
+            e.ended ||
+            setsDone(
+              {
+                ...e,
+                unilateral:
+                  e.unilateral ??
+                  byLowerName.get(nameKey(e.name))?.unilateral ??
+                  false,
+              },
+              w.workout_sets,
+            ) >= e.sets,
+        )
+      );
+    },
+    [plans, byLowerName],
+  );
+
   const supersetsOf = useCallback(
     (w: Workout): Supersets => {
       if (w.supersets) return w.supersets;
@@ -405,7 +434,9 @@ export default function Session() {
                 onSplitSet={splitSet}
                 onRemoveSets={removeSets}
                 onContinue={
-                  i === 0 && startedToday(w) ? () => reopen(w.id) : undefined
+                  i === 0 && startedToday(w) && !planFinished(w)
+                    ? () => reopen(w.id)
+                    : undefined
                 }
                 onDelete={() => removeWorkout(w.id)}
               />
