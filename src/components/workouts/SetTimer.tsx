@@ -477,7 +477,7 @@ export default function SetTimer({
         <p className="text-lg font-bold text-base-content/60 dark:text-base-content/80">
           Resting
         </p>
-        <div className="mb-3 w-full">
+        <div className="mb-3 w-full text-left">
           <ClockRow
             goalSeconds={goal}
             clock={
