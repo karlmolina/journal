@@ -173,7 +173,11 @@ export default function ExerciseNote({
     <button
       type="button"
       className="self-start text-xs font-bold text-base-content/55 dark:text-base-content/75 cursor-pointer"
-      onClick={() => setEditing("new")}
+      onClick={(e) => {
+        // Not also a tap on the top bar, which closes the box.
+        e.stopPropagation();
+        setEditing("new");
+      }}
     >
       {entries.length ? "+ Add a note" : "+ Add your own note"}
     </button>
@@ -235,12 +239,14 @@ export default function ExerciseNote({
       className={`w-full rounded-xl bg-accent/10 px-3 py-2 text-left text-sm font-medium ${open ? "" : "cursor-pointer"}`}
       onClick={() => !open && setOpen(true)}
     >
-      <div className="flex items-baseline justify-between gap-2">
+      <div
+        className="flex items-baseline justify-between gap-2 cursor-pointer"
+        onClick={() => setOpen(!open)}
+      >
         <button
           type="button"
           className={`text-xs font-bold cursor-pointer ${accentText}`}
           aria-expanded={open}
-          onClick={() => setOpen(!open)}
         >
           Notes ({entries.length})
         </button>
