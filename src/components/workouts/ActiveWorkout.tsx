@@ -60,6 +60,7 @@ import WorkoutClockDialog from "./WorkoutClockDialog";
 import scrollToTop, { isGliding } from "../../functions/scrollToTop";
 import { sameName } from "../../functions/exerciseName";
 import { cardClass } from "../styles";
+import useDraft, { clearDraft } from "../../hooks/useDraft";
 
 // Tinted to stand out: the rest you're in, and the exercise you're on.
 const restCardClass =
@@ -312,9 +313,11 @@ export default function ActiveWorkout({
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   // The add-exercise form, and whether it adds to the plan day too.
-  const [adding, setAdding] = useState(false);
-  const [addToPlan, setAddToPlan] = useState(false);
-  const [notes, setNotes] = useState("");
+  // Kept through a refresh until added, cancelled or finished.
+  const draft = `workout:${workout.id}`;
+  const [adding, setAdding] = useDraft(draft, "adding", false);
+  const [addToPlan, setAddToPlan] = useDraft(draft, "addToPlan", false);
+  const [notes, setNotes] = useDraft(draft, "notes", "");
   const elapsed = formatClock(elapsedSeconds(workout, now));
 
   // Show the running time in the browser tab too.
@@ -687,7 +690,10 @@ export default function ActiveWorkout({
           onResume={onResume}
           onElapsedChange={onElapsedChange}
           onClose={() => setFinishing(false)}
-          onFinish={() => onFinish(notes)}
+          onFinish={() => {
+            clearDraft(draft);
+            onFinish(notes);
+          }}
         />
       )}
 
@@ -703,6 +709,7 @@ export default function ActiveWorkout({
           {adding ? (
             <AddPlanExercise
               submitLabel={addToPlan ? `Add to ${planned.session.day}` : "Add"}
+              draft={`${draft}:add`}
               above={
                 <div className="flex flex-wrap gap-1.5" role="group">
                   <Chip
@@ -793,7 +800,10 @@ export default function ActiveWorkout({
             <button
               type="button"
               className="btn btn-sm btn-error rounded-full font-bold"
-              onClick={onDiscard}
+              onClick={() => {
+                clearDraft(draft);
+                onDiscard();
+              }}
             >
               Discard
             </button>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import useDraft, { clearDraft } from "../../hooks/useDraft";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ServingsField,
@@ -29,16 +30,20 @@ function RecipeForm({
   onSave: (patch: Partial<Meal>) => Promise<boolean>;
   onCancel: () => void;
 }) {
-  const [name, setName] = useState(meal.name);
-  const [servings, setServings] = useState(meal.servings);
-  const [minutes, setMinutes] = useState(
+  // Unsaved edits are kept until they're saved or cancelled.
+  const draft = `recipe:${meal.id}:form`;
+  const [name, setName] = useDraft(draft, "name", meal.name);
+  const [servings, setServings] = useDraft(draft, "servings", meal.servings);
+  const [minutes, setMinutes] = useDraft(
+    draft,
+    "minutes",
     meal.total_minutes ? String(meal.total_minutes) : "",
   );
-  const [link, setLink] = useState(meal.source_url ?? "");
-  const [ingredients, setIngredients] = useState(
+  const [link, setLink] = useDraft(draft, "link", meal.source_url ?? "");
+  const [ingredients, setIngredients] = useDraft(draft, "ingredients", () =>
     meal.ingredients.map((i) => ingredientText(i)).join("\n"),
   );
-  const [steps, setSteps] = useState(meal.steps.join("\n"));
+  const [steps, setSteps] = useDraft(draft, "steps", meal.steps.join("\n"));
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -86,7 +91,10 @@ function RecipeForm({
         .filter(Boolean),
     });
     setBusy(false);
-    if (ok) onCancel();
+    if (ok) {
+      clearDraft(draft);
+      onCancel();
+    }
   };
 
   return (
@@ -158,7 +166,10 @@ function RecipeForm({
         <button
           type="button"
           className="btn btn-ghost flex-1 rounded-full font-bold"
-          onClick={onCancel}
+          onClick={() => {
+            clearDraft(draft);
+            onCancel();
+          }}
           disabled={busy}
         >
           Cancel
@@ -191,7 +202,12 @@ export default function Recipe({ mealId }: { mealId: string }) {
   const navigate = useNavigate();
   const meal = meals.find((m) => m.id === mealId);
   const planned = plan.find((p) => p.meal_id === mealId);
-  const [editing, setEditing] = useState(false);
+  // An open edit form stays open through a refresh.
+  const [editing, setEditing] = useDraft(
+    mealId ? `recipe:${mealId}` : null,
+    "editing",
+    false,
+  );
   const [servings, setServings] = useState<number | null>(null);
   // Keep the screen on while cooking from the recipe.
   useWakeLock();

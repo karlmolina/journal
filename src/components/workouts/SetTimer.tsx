@@ -353,9 +353,7 @@ export default function SetTimer({
         )}
         {/* Laid out like the set once it's done, so nothing moves on Finish.
             Opens out as the set starts. */}
-        <div
-          className={opening && !fromRest ? "animate-section-open" : ""}
-        >
+        <div className={opening && !fromRest ? "animate-section-open" : ""}>
           <div className="min-h-0 overflow-hidden">
             <div className="mt-2 mb-2 flex flex-col rounded-2xl bg-base-content/5 p-3">
               {fromRest && (
@@ -447,6 +445,7 @@ export default function SetTimer({
             duration_seconds: state.seconds,
             side: state.side ?? null,
           }}
+          draft={`timer-set:${workoutId}:${storageKey}`}
           submitLabel="Save set"
           onCancel={() => setState({ phase: "ready", rest: state.rest })}
           onAdd={save}
@@ -475,9 +474,7 @@ export default function SetTimer({
     const same = name.trim().toLowerCase() === state.exercise.toLowerCase();
     return (
       <div className="flex flex-col">
-        {same
-          ? name.trim() && header(name.trim())
-          : header(state.exercise)}
+        {same ? name.trim() && header(name.trim()) : header(state.exercise)}
         {aboveClock && (
           <div key="above" className="mt-2">
             {aboveClock}

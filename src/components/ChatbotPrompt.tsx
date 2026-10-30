@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { fieldClass } from "./styles";
+import useDraft from "../hooks/useDraft";
 
 // Copies the prompt for a chatbot. When the clipboard is blocked, the prompt
 // shows in a box to copy by hand.
@@ -52,11 +53,14 @@ export function CopyPrompt({
 // Where the chatbot's reply goes. It's checked before anything is saved, and
 // what's wrong is listed so the person can ask the bot to fix it.
 export function PasteReply<T>({
+  draft,
   saving,
   parse,
   onImport,
   importLabel,
 }: {
+  // Where a pasted reply is kept until it's imported.
+  draft: string;
   saving: boolean;
   parse: (
     reply: string,
@@ -64,7 +68,7 @@ export function PasteReply<T>({
   onImport: (value: T) => Promise<boolean>;
   importLabel: string;
 }) {
-  const [reply, setReply] = useState("");
+  const [reply, setReply] = useDraft(draft, "reply", "");
   const [errors, setErrors] = useState<string[]>([]);
 
   const handleImport = async () => {

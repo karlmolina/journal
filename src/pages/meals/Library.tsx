@@ -38,6 +38,7 @@ export default function Library() {
   return (
     <div className="flex flex-col gap-3">
       <AddMealBox
+        draft="meal-add:library"
         meals={meals}
         placeholder="Find a meal, add one, or paste a link"
         onAdd={handleAdd}

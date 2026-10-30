@@ -1,4 +1,5 @@
 import { useState } from "react";
+import useDraft from "../../hooks/useDraft";
 import SupersetGroup from "./SupersetGroup";
 import AddPlanExercise from "./AddPlanExercise";
 import type { PlannedExercise, WorkoutPlan } from "../../hooks/useWorkoutPlans";
@@ -102,7 +103,11 @@ export default function PlanView({
 }) {
   const { title, summary, sessions, safety_notes } = plan.plan;
   // The day whose add-exercise form is open.
-  const [adding, setAdding] = useState<number | null>(null);
+  const [adding, setAdding] = useDraft<number | null>(
+    `plan-add:${plan.id}`,
+    "day",
+    null,
+  );
   // The day whose exercises show up and down buttons.
   const [ordering, setOrdering] = useState<number | null>(null);
   return (
@@ -239,6 +244,7 @@ export default function PlanView({
               <div className="mt-2">
                 <AddPlanExercise
                   submitLabel={`Add to ${dayLabel(i)}`}
+                  draft={`plan-add:${plan.id}`}
                   suggestions={suggestions}
                   onAdd={(exercise) => onAddExercise(i, exercise)}
                   onCancel={() => setAdding(null)}

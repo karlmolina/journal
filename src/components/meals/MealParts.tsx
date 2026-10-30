@@ -1,4 +1,5 @@
 import { useState } from "react";
+import useDraft from "../../hooks/useDraft";
 import useDragAdjust from "../../hooks/useDragAdjust";
 import type { Meal } from "../../hooks/useMeals";
 import {
@@ -93,17 +94,20 @@ export type AddedMeal =
 // or paste a recipe link to import it.
 export function AddMealBox({
   meals,
+  draft,
   placeholder,
   onAdd,
   skipIds,
 }: {
+  // Where typed text is kept until it's added.
+  draft: string;
   meals: Meal[];
   placeholder: string;
   onAdd: (added: AddedMeal) => Promise<unknown>;
   // Library meals not to suggest, like ones already planned.
   skipIds?: Set<string>;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft(draft, "text", "");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
