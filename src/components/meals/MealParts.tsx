@@ -56,7 +56,7 @@ export function ServingsField({
   return (
     <>
       <label
-        className={`flex shrink-0 items-baseline gap-1 rounded-xl bg-base-content/8 cursor-ns-resize touch-none transition focus-within:bg-base-content/12 ${
+        className={`flex shrink-0 items-baseline gap-1 rounded-xl bg-base-content/8 transition focus-within:bg-base-content/12 ${
           compact ? "px-2.5 py-1" : "px-3 py-2"
         }`}
         {...drag.bind}

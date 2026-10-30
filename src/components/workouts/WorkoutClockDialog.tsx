@@ -70,7 +70,7 @@ export default function WorkoutClockDialog({
           {paused ? "Paused" : "In progress"} · started {started}
         </p>
         <label
-          className={`rounded-2xl bg-base-content/6 px-4 py-1 transition focus-within:bg-base-content/12 cursor-ns-resize touch-none ${
+          className={`rounded-2xl bg-base-content/6 px-4 py-1 transition focus-within:bg-base-content/12 ${
             invalid ? "ring-2 ring-error" : ""
           }`}
           {...drag.bind}

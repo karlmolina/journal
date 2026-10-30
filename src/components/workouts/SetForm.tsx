@@ -12,7 +12,7 @@ import { boldFieldClass } from "../styles";
 // unit. Tapping anywhere in the box focuses the input, and dragging up or down
 // on it turns a scroll wheel of values instead of scrolling the page.
 export const unitFieldClass =
-  "flex flex-1 min-w-0 items-baseline gap-1 rounded-xl bg-base-content/8 px-3 py-2.5 transition focus-within:bg-base-content/12 cursor-ns-resize touch-none";
+  "flex flex-1 min-w-0 items-baseline gap-1 rounded-xl bg-base-content/8 px-3 py-2.5 transition focus-within:bg-base-content/12";
 export const unitInputClass =
   "w-full min-w-0 bg-transparent text-right font-semibold outline-none";
 export const unitClass =
@@ -302,7 +302,7 @@ export default function SetForm({
           goalSeconds={goalSeconds}
           clock={
             <label
-              className="my-1 rounded-2xl bg-base-content/6 px-4 py-1 transition focus-within:bg-base-content/12 cursor-ns-resize touch-none"
+              className="my-1 rounded-2xl bg-base-content/6 px-4 py-1 transition focus-within:bg-base-content/12"
               {...dragTime.bind}
             >
               <input
