@@ -59,17 +59,18 @@ export const renameInSupersets = (
 ) => groups.map((g) => g.map((n) => (sameName(n, from) ? to : n)));
 
 // Sets of an exercise done so far, where a left and a right make one set.
-// Sets logged without a side count whole.
+// Sets logged without a side count whole, and so does a lone side once the
+// exercise is done both sides at once.
 export function countSets(
   name: string,
   unilateral: boolean,
   sets: Pick<WorkoutSet, "exercise_name" | "side">[],
 ) {
   const mine = sets.filter((s) => sameName(s.exercise_name, name));
-  if (!unilateral) return mine.length;
   const left = mine.filter((s) => s.side === "left").length;
   const right = mine.filter((s) => s.side === "right").length;
-  return mine.length - left - right + Math.min(left, right);
+  const pairs = unilateral ? Math.min(left, right) : Math.max(left, right);
+  return mine.length - left - right + pairs;
 }
 
 // What follows a set of `name` in its superset: the next exercise still
