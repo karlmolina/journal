@@ -18,7 +18,7 @@ import {
 // Same drag-to-adjust boxes as the reps and weight fields: tap to type, drag
 // up or down to change, without scrolling the page.
 const dragBoxClass =
-  "flex flex-col items-center rounded-2xl bg-base-content/8 px-3 py-2.5 transition focus-within:bg-base-content/12 cursor-ns-resize touch-none";
+  "flex flex-col items-center rounded-2xl bg-base-content/8 px-3 py-2.5 transition focus-within:bg-base-content/12";
 const labelClass =
   "text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75";
 

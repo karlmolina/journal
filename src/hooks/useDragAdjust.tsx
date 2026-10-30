@@ -2,7 +2,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import WheelPicker, { DETAIL_ROW_PX, ROW_PX } from "../components/WheelPicker";
 
-// Movement below this is still a tap, which focuses the field for typing.
+// Movement below this is still a tap.
 const DEAD_ZONE_PX = 8;
 // How quickly a flicked wheel slows down: the share of speed kept per ms.
 const FRICTION = 0.997;
@@ -56,8 +56,10 @@ interface DragAdjustOptions {
 // Drag up or down on a number field to turn a scroll wheel of values that
 // floats over the page: down goes higher, up goes lower, one at a time when
 // moving slowly and more per pixel when moving fast. A flick keeps the wheel coasting, and it settles on the nearest value, which
-// becomes the field's value. A tap without moving focuses the field for
-// typing. Spread `bind` on the field's box and render `picker` anywhere.
+// becomes the field's value. Dragging only works once the field has been
+// tapped, so a finger scrolling the page past it doesn't change it; until
+// then the page scrolls as usual. Typing still works once it's tapped.
+// Spread `bind` on the field's box and render `picker` anywhere.
 export default function useDragAdjust({
   value,
   onChange,
@@ -92,6 +94,20 @@ export default function useDragAdjust({
   const frame = useRef(0);
   const closeTimer = useRef(0);
   const releasedAt = useRef(0);
+  // Whether the field has been tapped, so dragging on it turns the wheel. It
+  // stays that way after a drag, until a tap or focus lands somewhere else.
+  const [armed, setArmed] = useState(false);
+  const box = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!armed) return;
+    const disarm = (e: PointerEvent) => {
+      if (current.current || box.current?.contains(e.target as Node)) return;
+      setArmed(false);
+    };
+    document.addEventListener("pointerdown", disarm, true);
+    return () => document.removeEventListener("pointerdown", disarm, true);
+  }, [armed]);
 
   useEffect(
     () => () => {
@@ -186,6 +202,8 @@ export default function useDragAdjust({
       setWheel({ start, position, closing: false });
       return;
     }
+    // Not tapped yet: leave the press to scroll the page or focus the field.
+    if (!armed) return;
     const parsed = parse(value);
     drag.current = {
       id: e.pointerId,
@@ -204,7 +222,8 @@ export default function useDragAdjust({
       if (Math.abs(e.clientY - d.y) < DEAD_ZONE_PX) return;
       d.moved = true;
       e.currentTarget.setPointerCapture(e.pointerId);
-      // A mouse press already focused the field; the wheel takes over.
+      // The field was focused to arm it; the wheel takes over from the
+      // keyboard while dragging.
       (document.activeElement as HTMLElement | null)?.blur();
     }
     move(d, e.clientY, e.timeStamp);
@@ -241,16 +260,34 @@ export default function useDragAdjust({
     coast(d.start, d.position, speed);
   };
 
-  const bind = {
+  const pointer = {
     onPointerDown,
     onPointerMove,
     onPointerUp: onPointerEnd,
     onPointerCancel: onPointerEnd,
   };
 
+  const bind = {
+    ...pointer,
+    onFocus: (e: React.FocusEvent<HTMLElement>) => {
+      box.current = e.currentTarget;
+      setArmed(true);
+    },
+    // Focus moving to another field disarms; the blur from a drag starting
+    // has nowhere to go and keeps it armed.
+    onBlur: (e: React.FocusEvent<HTMLElement>) => {
+      const next = e.relatedTarget as Node | null;
+      if (next && !e.currentTarget.contains(next)) setArmed(false);
+    },
+    // Until tapped, a finger on the field scrolls the page.
+    style: armed
+      ? ({ touchAction: "none", cursor: "ns-resize" } as const)
+      : undefined,
+  };
+
   const picker = wheel && (
     <WheelPicker
-      bind={bind}
+      bind={pointer}
       label={label}
       position={wheel.position}
       closing={wheel.closing}

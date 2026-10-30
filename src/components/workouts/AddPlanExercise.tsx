@@ -10,7 +10,7 @@ import { boldFieldClass } from "../styles";
 // Reads like "3 sets": the number sits right up against its unit, and dragging
 // on the box turns a scroll wheel of values.
 const unitFieldClass =
-  "flex flex-1 min-w-0 items-baseline gap-1 rounded-xl bg-base-content/8 px-3 py-2.5 transition focus-within:bg-base-content/12 cursor-ns-resize touch-none";
+  "flex flex-1 min-w-0 items-baseline gap-1 rounded-xl bg-base-content/8 px-3 py-2.5 transition focus-within:bg-base-content/12";
 const unitInputClass =
   "w-full min-w-0 bg-transparent text-right font-semibold outline-none";
 const unitClass =
