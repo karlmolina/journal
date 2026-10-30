@@ -131,6 +131,9 @@ export function bestWeight(name: string, workouts: Workout[]) {
 // A planned exercise as this workout does it: maybe swapped for another, or
 // ended before all its sets.
 export interface SessionExercise extends PlannedExercise {
+  // Its index in the plan day (or after it, when added), which this
+  // workout's changes go by wherever it's moved to.
+  index: number;
   // The plan's exercise, when another is done instead.
   swapped_from?: string;
   ended?: boolean;
@@ -140,18 +143,29 @@ export interface SessionExercise extends PlannedExercise {
   sides_changed?: boolean;
 }
 
-// The session's exercises with this workout's swaps and early ends. A swap
-// keeps the sets, reps, rest and superset but not the old exercise's weight,
-// goal or notes; whether it's one side at a time comes from the library.
+// The exercises' indexes in today's order: the order moved to, then any it
+// doesn't have (an exercise added since) in their own order.
+export function workoutOrder(changes: PlanChanges | null, count: number) {
+  const order = (changes?.order ?? []).filter(
+    (i, k, all) => i >= 0 && i < count && all.indexOf(i) === k,
+  );
+  for (let i = 0; i < count; i++) if (!order.includes(i)) order.push(i);
+  return order;
+}
+
+// The session's exercises with this workout's swaps and early ends, in
+// today's order. A swap keeps the sets, reps, rest and superset but not the
+// old exercise's weight, goal or notes; whether it's one side at a time
+// comes from the library.
 export function applyPlanChanges(
   exercises: PlannedExercise[],
   changes: PlanChanges | null,
 ): SessionExercise[] {
-  const all: SessionExercise[] = [
+  const all: (PlannedExercise & { added?: boolean })[] = [
     ...exercises,
     ...(changes?.added ?? []).map((e) => ({ ...e, added: true })),
   ];
-  return all.map((e, i) => {
+  const changed = all.map((e, i): SessionExercise => {
     const swap = changes?.swaps?.[i];
     const ended = changes?.ended?.includes(i) ?? false;
     const swapped: SessionExercise = swap
@@ -164,8 +178,9 @@ export function applyPlanChanges(
           superset: e.superset,
           swapped_from: e.name,
           added: e.added,
+          index: i,
         }
-      : { ...e };
+      : { ...e, index: i };
     const unilateral = changes?.sides?.[i];
     const sided: SessionExercise =
       unilateral === undefined
@@ -173,6 +188,7 @@ export function applyPlanChanges(
         : { ...swapped, unilateral, sides_changed: true };
     return ended ? { ...sided, ended } : sided;
   });
+  return workoutOrder(changes, all.length).map((i) => changed[i]);
 }
 
 // Swaps the exercise at `index`; swapping back to the plan's undoes it. Either
@@ -250,16 +266,18 @@ export function supersetRuns(exercises: PlannedExercise[]) {
   return runs;
 }
 
-// Moves the exercise at `index` one place up (-1) or down (1). Inside a
+// Moves the exercise at `index` one place up (-1) or down (1) among `runs`,
+// the exercises in order with each superset's kept together. Inside a
 // superset it moves past its partner; at the superset's edge, or on its own,
 // it moves past the whole neighboring exercise or superset, taking its own
-// superset with it. `from[i]` is where the exercise now at i used to be.
-export function moveExercise(
-  exercises: PlannedExercise[],
+// superset with it. Gives where each exercise came from: `from[i]` is where
+// the exercise now at i used to be.
+export function moveInRuns(
+  runs: number[][],
   index: number,
   direction: -1 | 1,
-): { exercises: PlannedExercise[]; from: number[] } | null {
-  const runs = supersetRuns(exercises).map((r) => r.indices);
+): number[] | null {
+  runs = runs.map((indices) => [...indices]);
   const r = runs.findIndex((indices) => indices.includes(index));
   const run = runs[r];
   const pos = run.indexOf(index);
@@ -269,8 +287,21 @@ export function moveExercise(
     if (!runs[r + direction]) return null;
     [runs[r], runs[r + direction]] = [runs[r + direction], runs[r]];
   }
-  const from = runs.flat();
-  return { exercises: from.map((i) => exercises[i]), from };
+  return runs.flat();
+}
+
+// Moves a plan day's exercise, keeping supersets together (see moveInRuns).
+export function moveExercise(
+  exercises: PlannedExercise[],
+  index: number,
+  direction: -1 | 1,
+): { exercises: PlannedExercise[]; from: number[] } | null {
+  const from = moveInRuns(
+    supersetRuns(exercises).map((r) => r.indices),
+    index,
+    direction,
+  );
+  return from && { exercises: from.map((i) => exercises[i]), from };
 }
 
 // This workout's changes, still pointing at the same exercises after the
@@ -293,6 +324,7 @@ export const remapPlanChanges = (
       one,
     ]),
   ),
+  ...(changes.order && { order: changes.order.map(to) }),
 });
 
 // After a reorder, where each exercise went. Added ones keep their indexes.
