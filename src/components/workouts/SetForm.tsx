@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import ExerciseInput from "./ExerciseInput";
 import Chip from "../Chip";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
 import { formatClock, parseClock } from "../../functions/formatDuration";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
+import useDraft, { clearDraft } from "../../hooks/useDraft";
 import useDragAdjust from "../../hooks/useDragAdjust";
 import { boldFieldClass } from "../styles";
 
@@ -153,6 +154,8 @@ interface SetFormProps {
   // Whether an exercise is done one side at a time, to offer Left / Right.
   isUnilateral?: (exercise: string) => boolean;
   submitLabel?: string;
+  // Where unsaved input is kept until it's saved or the form is closed.
+  draft?: string;
   // The exercise is shown above already (the set timer), so no field for it.
   hideExercise?: boolean;
   // The time is the set timer's big clock, made editable, in place of the
@@ -181,6 +184,7 @@ export default function SetForm({
   initial,
   isUnilateral,
   submitLabel = "Add set",
+  draft,
   hideExercise,
   bigTime,
   goalSeconds,
@@ -193,10 +197,17 @@ export default function SetForm({
   rest,
   onChange,
 }: SetFormProps) {
-  const [exercise, setExercise] = useState(initial?.exercise_name ?? "");
-  const [reps, setReps] = useState(text(initial?.reps));
-  const [weight, setWeight] = useState(text(initial?.weight));
-  const [time, setTime] = useState(
+  const scope = draft ?? null;
+  const [exercise, setExercise] = useDraft(
+    scope,
+    "exercise",
+    initial?.exercise_name ?? "",
+  );
+  const [reps, setReps] = useDraft(scope, "reps", text(initial?.reps));
+  const [weight, setWeight] = useDraft(scope, "weight", text(initial?.weight));
+  const [time, setTime] = useDraft(
+    scope,
+    "time",
     initial?.duration_seconds ? formatClock(initial.duration_seconds) : "",
   );
   const dragTime = useDragAdjust({
@@ -207,7 +218,9 @@ export default function SetForm({
     parse: parseClock,
     format: (n) => (n > 0 ? formatClock(n) : ""),
   });
-  const [restTime, setRestTime] = useState(
+  const [restTime, setRestTime] = useDraft(
+    scope,
+    "restTime",
     initial?.rest_seconds ? formatClock(initial.rest_seconds) : "",
   );
   const dragRest = useDragAdjust({
@@ -220,7 +233,11 @@ export default function SetForm({
   });
   // One-side-at-a-time sets say which side; tapping the chosen side again
   // clears it.
-  const [side, setSide] = useState<Side | null>(initial?.side ?? null);
+  const [side, setSide] = useDraft<Side | null>(
+    scope,
+    "side",
+    initial?.side ?? null,
+  );
   const showSide = side !== null || (isUnilateral?.(exercise) ?? false);
 
   const parsedReps = /^\s*[1-9]\d*\s*$/.test(reps) ? Number(reps) : null;
@@ -269,7 +286,13 @@ export default function SetForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canAdd) return;
+    if (draft) clearDraft(draft);
     onAdd?.(values);
+  };
+  // Closing the form any other way drops the unsaved input too.
+  const leave = (then: () => void) => () => {
+    if (draft) clearDraft(draft);
+    then();
   };
 
   return (
@@ -352,7 +375,7 @@ export default function SetForm({
             <button
               type="button"
               className="btn btn-ghost rounded-full font-bold flex-1"
-              onClick={onCancel}
+              onClick={leave(onCancel)}
             >
               Cancel
             </button>
@@ -370,7 +393,7 @@ export default function SetForm({
         <button
           type="button"
           className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/60 dark:text-base-content/75 self-center"
-          onClick={onSplit}
+          onClick={leave(onSplit)}
         >
           Split into two sets
           {initial?.duration_seconds != null &&
@@ -384,7 +407,7 @@ export default function SetForm({
             <button
               type="button"
               className="btn btn-ghost btn-sm rounded-full font-semibold text-error"
-              onClick={onDelete}
+              onClick={leave(onDelete)}
             >
               Delete set
             </button>
@@ -393,7 +416,7 @@ export default function SetForm({
             <button
               type="button"
               className="btn btn-ghost btn-sm rounded-full font-semibold text-error"
-              onClick={onDeleteExercise.run}
+              onClick={leave(onDeleteExercise.run)}
             >
               {onDeleteExercise.label}
             </button>

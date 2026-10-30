@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React from "react";
+import useDraft, { clearDraft } from "../../hooks/useDraft";
 import Chip from "../Chip";
 import { CopyPrompt, PasteReply } from "../ChatbotPrompt";
 import type { PlanRequest, WorkoutPlan } from "../../hooks/useWorkoutPlans";
@@ -22,6 +23,8 @@ const Step = ({ n, children }: { n: number; children: React.ReactNode }) => (
   </p>
 );
 
+const PREFS = "plan-prefs";
+
 export function PlanForm({
   initial,
   saving,
@@ -40,10 +43,19 @@ export function PlanForm({
   ) => Promise<boolean>;
   onCancel?: () => void;
 }) {
-  const [goals, setGoals] = useState(initial.goals);
-  const [days, setDays] = useState(initial.days_per_week);
-  const [minutes, setMinutes] = useState(initial.minutes_per_session);
-  const [equipment, setEquipment] = useState(initial.equipment);
+  // Unsaved changes survive a refresh until they're saved or cancelled.
+  const [goals, setGoals] = useDraft(PREFS, "goals", initial.goals);
+  const [days, setDays] = useDraft(PREFS, "days", initial.days_per_week);
+  const [minutes, setMinutes] = useDraft(
+    PREFS,
+    "minutes",
+    initial.minutes_per_session,
+  );
+  const [equipment, setEquipment] = useDraft(
+    PREFS,
+    "equipment",
+    initial.equipment,
+  );
 
   const request = (): PlanRequest => ({
     goals: goals.trim(),
@@ -51,6 +63,10 @@ export function PlanForm({
     minutes_per_session: minutes,
     equipment: equipment.trim(),
   });
+  const savePreferences = () => {
+    clearDraft(PREFS);
+    onSavePreferences(request());
+  };
 
   return (
     <div className={`${cardClass} flex flex-col gap-3`}>
@@ -67,7 +83,7 @@ export function PlanForm({
         placeholder="Your goals, like: Get back to running 5k without my knee hurting, and build some upper body strength."
         value={goals}
         onChange={(e) => setGoals(e.target.value)}
-        onBlur={() => onSavePreferences(request())}
+        onBlur={savePreferences}
         aria-label="Goals"
       />
       <div className="flex flex-col gap-1.5">
@@ -100,7 +116,7 @@ export function PlanForm({
         placeholder="Equipment, like dumbbells and a band (optional)"
         value={equipment}
         onChange={(e) => setEquipment(e.target.value)}
-        onBlur={() => onSavePreferences(request())}
+        onBlur={savePreferences}
         aria-label="Equipment"
       />
       <Step n={1}>
@@ -109,17 +125,18 @@ export function PlanForm({
       <CopyPrompt
         disabled={!goals.trim()}
         getPrompt={() => {
-          onSavePreferences(request());
+          savePreferences();
           return buildPrompt(request());
         }}
       />
       <Step n={2}>Paste its reply</Step>
       <PasteReply
+        draft="plan-new"
         saving={saving}
         parse={parsePlan}
         importLabel="Import plan"
         onImport={(plan) => {
-          onSavePreferences(request());
+          savePreferences();
           return onImport(plan, request());
         }}
       />
@@ -127,7 +144,10 @@ export function PlanForm({
         <button
           type="button"
           className="btn btn-ghost rounded-full font-bold"
-          onClick={onCancel}
+          onClick={() => {
+            clearDraft(PREFS);
+            onCancel();
+          }}
           disabled={saving}
         >
           Cancel
@@ -149,7 +169,7 @@ export function ReviseForm({
     instruction: string,
   ) => Promise<boolean>;
 }) {
-  const [instruction, setInstruction] = useState("");
+  const [instruction, setInstruction] = useDraft("plan-revise", "text", "");
 
   return (
     <div className={`${cardClass} flex flex-col gap-3`}>
@@ -175,6 +195,7 @@ export function ReviseForm({
       />
       <Step n={2}>Paste its reply</Step>
       <PasteReply
+        draft="plan-revise"
         saving={saving}
         parse={parsePlan}
         importLabel="Import plan"

@@ -4,6 +4,7 @@ import ExerciseInput from "./ExerciseInput";
 import type { PlannedExercise } from "../../hooks/useWorkoutPlans";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 import useDragAdjust from "../../hooks/useDragAdjust";
+import useDraft, { clearDraft } from "../../hooks/useDraft";
 import { boldFieldClass } from "../styles";
 
 // Reads like "3 sets": the number sits right up against its unit, and dragging
@@ -22,6 +23,7 @@ const weightLabel = WEIGHT_UNIT === "lb" ? "lbs" : WEIGHT_UNIT;
 // and weight.
 export default function AddPlanExercise({
   submitLabel,
+  draft,
   above,
   suggestions,
   onAdd,
@@ -29,6 +31,8 @@ export default function AddPlanExercise({
 }: {
   // Like "Add to Day 2".
   submitLabel: string;
+  // Where unsaved input is kept until it's added or cancelled.
+  draft: string;
   // Shown over the fields, like a choice of where it goes.
   above?: React.ReactNode;
   // Exercise names, most recent first.
@@ -36,12 +40,12 @@ export default function AddPlanExercise({
   onAdd: (exercise: PlannedExercise) => Promise<boolean>;
   onCancel: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [sets, setSets] = useState("3");
-  const [reps, setReps] = useState("10");
-  const [rest, setRest] = useState("60");
-  const [weight, setWeight] = useState("");
-  const [notes, setNotes] = useState("");
+  const [name, setName] = useDraft(draft, "name", "");
+  const [sets, setSets] = useDraft(draft, "sets", "3");
+  const [reps, setReps] = useDraft(draft, "reps", "10");
+  const [rest, setRest] = useDraft(draft, "rest", "60");
+  const [weight, setWeight] = useDraft(draft, "weight", "");
+  const [notes, setNotes] = useDraft(draft, "notes", "");
   const [saving, setSaving] = useState(false);
   const dragSets = useDragAdjust({
     value: sets,
@@ -89,7 +93,10 @@ export default function AddPlanExercise({
           weight: parsedWeight,
         });
         setSaving(false);
-        if (ok) onCancel();
+        if (ok) {
+          clearDraft(draft);
+          onCancel();
+        }
       }}
     >
       {above}
@@ -169,7 +176,10 @@ export default function AddPlanExercise({
         <button
           type="button"
           className="btn btn-ghost rounded-full font-bold flex-1"
-          onClick={onCancel}
+          onClick={() => {
+            clearDraft(draft);
+            onCancel();
+          }}
           disabled={saving}
         >
           Cancel

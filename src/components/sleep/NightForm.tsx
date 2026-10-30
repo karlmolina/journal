@@ -1,6 +1,6 @@
 import type React from "react";
-import { useState } from "react";
 import useDragAdjust from "../../hooks/useDragAdjust";
+import useDraft, { clearDraft } from "../../hooks/useDraft";
 import type { NightInput, SleepNight } from "../../hooks/useSleep";
 import {
   QUALITY_WORDS,
@@ -150,34 +150,46 @@ export default function NightForm({
   onSave: (input: NightInput) => void;
   onDelete?: () => void;
 }) {
-  const [quality, setQuality] = useState(
+  // Unsaved changes survive a refresh, per night.
+  const draft = `sleep:${night}`;
+  const [quality, setQuality] = useDraft(
+    draft,
+    "quality",
     existing ? String(existing.quality) : "",
   );
-  const [bedtime, setBedtime] = useState(
+  const [bedtime, setBedtime] = useDraft(
+    draft,
+    "bedtime",
     formatTime(existing?.bedtime ?? lastTimes.bedtime),
   );
-  const [wokeAt, setWokeAt] = useState(
+  const [wokeAt, setWokeAt] = useDraft(
+    draft,
+    "wokeAt",
     formatTime(existing?.woke_at ?? lastTimes.woke_at),
   );
-  const [fallAsleep, setFallAsleep] = useState(
+  const [fallAsleep, setFallAsleep] = useDraft(
+    draft,
+    "fallAsleep",
     String(existing?.fall_asleep_minutes ?? lastTimes.fall_asleep_minutes),
   );
   // Optional: nights logged before this field have no get-ready time.
-  const [getReady, setGetReady] = useState(() => {
+  const [getReady, setGetReady] = useDraft(draft, "getReady", () => {
     const t = existing ? existing.get_ready_at : lastTimes.get_ready_at;
     return t === null ? "" : formatTime(t);
   });
   // Optional, like the get-ready time.
-  const [techFree, setTechFree] = useState(() => {
+  const [techFree, setTechFree] = useDraft(draft, "techFree", () => {
     const t = existing ? existing.tech_free_at : lastTimes.tech_free_at;
     return t === null ? "" : formatTime(t);
   });
-  const [awake, setAwake] = useState(
+  const [awake, setAwake] = useDraft(
+    draft,
+    "awake",
     existing && existing.awake_minutes > 0
       ? String(existing.awake_minutes)
       : "",
   );
-  const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [notes, setNotes] = useDraft(draft, "notes", existing?.notes ?? "");
 
   // An empty score starts a drag from the middle, not from "no sleep".
   const dragQuality = useDragAdjust({
@@ -228,6 +240,7 @@ export default function NightForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSave) return;
+    clearDraft(draft);
     onSave({
       night,
       quality: q,
@@ -350,7 +363,10 @@ export default function NightForm({
         <button
           type="button"
           className="btn btn-ghost btn-sm rounded-full font-semibold text-error self-center"
-          onClick={onDelete}
+          onClick={() => {
+            clearDraft(draft);
+            onDelete();
+          }}
         >
           Delete night
         </button>

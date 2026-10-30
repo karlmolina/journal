@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import useDraft from "../../hooks/useDraft";
 import {
   Link,
   Navigate,
@@ -46,8 +47,13 @@ export default function Library() {
   const region = params.get("region");
   const purpose = params.get("purpose") as ExercisePurpose | null;
   const [query, setQuery] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // An open form stays open through a refresh, with its unsaved input.
+  const [adding, setAdding] = useDraft("library", "adding", false);
+  const [editingId, setEditingId] = useDraft<string | null>(
+    "library",
+    "editingId",
+    null,
+  );
   // One exercise's own page, linked from past workouts.
   const { exerciseId } = useParams();
 

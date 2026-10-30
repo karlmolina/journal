@@ -1,4 +1,5 @@
 import { useState } from "react";
+import useDraft, { clearDraft } from "../../hooks/useDraft";
 import { Link } from "react-router-dom";
 import type { Checkin, Injury } from "../../hooks/useInjuries";
 import { today } from "../../hooks/useInjuries";
@@ -92,9 +93,16 @@ export default function InjuryCard({
   const checkins = injury.injury_checkins;
   const last = checkins.at(-1);
   const todays = last?.checked_on === today() ? last : undefined;
-  const [pain, setPain] = useState(todays?.pain ?? last?.pain ?? 0);
-  const [notes, setNotes] = useState(todays?.notes ?? "");
-  const [editing, setEditing] = useState(!todays);
+  // Today's unsaved check-in is kept until it's checked in.
+  const draft = `checkin:${injury.id}:${today()}`;
+  const startPain = todays?.pain ?? last?.pain ?? 0;
+  const startNotes = todays?.notes ?? "";
+  const [pain, setPain] = useDraft(draft, "pain", startPain);
+  const [notes, setNotes] = useDraft(draft, "notes", startNotes);
+  // Open while there's an unsaved change to today's check-in.
+  const [editing, setEditing] = useState(
+    !todays || pain !== startPain || notes !== startNotes,
+  );
   const [showMore, setShowMore] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const healed = injury.healed_on !== null;
@@ -174,6 +182,7 @@ export default function InjuryCard({
               type="button"
               className="btn btn-primary rounded-full font-bold"
               onClick={() => {
+                clearDraft(draft);
                 onCheckIn(pain, notes);
                 setEditing(false);
               }}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import useDraft, { clearDraft } from "../../hooks/useDraft";
 import { Link } from "react-router-dom";
 import Chip from "../../components/Chip";
 import { CopyPrompt, PasteReply } from "../../components/ChatbotPrompt";
@@ -116,7 +117,8 @@ function RecipePrompt({
   waiting: { meal: Meal; servings: number }[];
 }) {
   const { settings, saveSettings, importRecipes } = useMealsData();
-  const [notes, setNotes] = useState(settings.diet_notes);
+  // Typed notes survive a refresh until they're saved.
+  const [notes, setNotes] = useDraft("diet", "notes", settings.diet_notes);
   const [saving, setSaving] = useState(false);
 
   const toggleDiet = (diet: string) =>
@@ -126,6 +128,7 @@ function RecipePrompt({
         : [...settings.diets, diet],
     });
   const saveNotes = () => {
+    clearDraft("diet");
     if (notes.trim() !== settings.diet_notes)
       saveSettings({ diet_notes: notes.trim() });
   };
@@ -196,6 +199,7 @@ function RecipePrompt({
       />
       <p className={labelClass}>2. Paste its reply</p>
       <PasteReply
+        draft="meal-recipes"
         saving={saving}
         parse={parseRecipes}
         importLabel={waiting.length === 1 ? "Import recipe" : "Import recipes"}
@@ -256,6 +260,7 @@ export default function MealPlan() {
   return (
     <div className="flex flex-col gap-3">
       <AddMealBox
+        draft="meal-add:plan"
         meals={meals}
         placeholder="Add a meal, or paste a recipe link"
         skipIds={new Set(plan.map((p) => p.meal_id))}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import useDraft from "../../hooks/useDraft";
 import { Link } from "react-router-dom";
 import type { SetInput, WorkoutSet } from "../../hooks/useWorkouts";
 import {
@@ -97,7 +98,12 @@ export default function SetList({
   hideNames = false,
   editRest = false,
 }: SetListProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // An open edit stays open through a refresh, with its unsaved changes.
+  const [editingId, setEditingId] = useDraft<string | null>(
+    "set-edit",
+    "id",
+    null,
+  );
   // Sets that turn up after the list is on screen ease in, like a set just
   // finished joining the ones before it; those already there don't.
   const [seen, setSeen] = useState(() => new Set(sets.map((s) => s.id)));
@@ -201,6 +207,7 @@ export default function SetList({
                     <SetForm
                       suggestions={suggestions}
                       initial={set}
+                      draft={`set:${set.id}`}
                       rest={editRest}
                       isUnilateral={isUnilateral}
                       onSplit={

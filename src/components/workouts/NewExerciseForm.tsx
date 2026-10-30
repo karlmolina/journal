@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import useDraft, { clearDraft } from "../../hooks/useDraft";
 import Chip from "../Chip";
 import { BODY_REGIONS } from "../../functions/bodyRegions";
 import type {
@@ -32,17 +33,35 @@ export default function NewExerciseForm({
   onSave,
   onCancel,
 }: NewExerciseFormProps) {
-  const [name, setName] = useState(initial?.name ?? "");
-  const [category, setCategory] = useState<ExerciseCategory>(
+  // Unsaved input is kept until it's saved or cancelled.
+  const draft = `exercise:${initial?.id ?? "new"}`;
+  const [name, setName] = useDraft(draft, "name", initial?.name ?? "");
+  const [category, setCategory] = useDraft<ExerciseCategory>(
+    draft,
+    "category",
     initial?.category ?? "strength",
   );
-  const [purposes, setPurposes] = useState<ExercisePurpose[]>(
+  const [purposes, setPurposes] = useDraft<ExercisePurpose[]>(
+    draft,
+    "purposes",
     initial?.purposes ?? [],
   );
-  const [regions, setRegions] = useState<string[]>(initial?.body_regions ?? []);
-  const [dosage, setDosage] = useState(initial?.dosage ?? "");
-  const [unilateral, setUnilateral] = useState(initial?.unilateral ?? false);
-  const [description, setDescription] = useState(initial?.description ?? "");
+  const [regions, setRegions] = useDraft<string[]>(
+    draft,
+    "regions",
+    initial?.body_regions ?? [],
+  );
+  const [dosage, setDosage] = useDraft(draft, "dosage", initial?.dosage ?? "");
+  const [unilateral, setUnilateral] = useDraft(
+    draft,
+    "unilateral",
+    initial?.unilateral ?? false,
+  );
+  const [description, setDescription] = useDraft(
+    draft,
+    "description",
+    initial?.description ?? "",
+  );
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,7 +78,10 @@ export default function NewExerciseForm({
       description: description.trim() || null,
     });
     setSaving(false);
-    if (saved) onCancel();
+    if (saved) {
+      clearDraft(draft);
+      onCancel();
+    }
   };
 
   const label =
@@ -163,7 +185,10 @@ export default function NewExerciseForm({
         <button
           type="button"
           className="btn btn-ghost rounded-full font-bold flex-1"
-          onClick={onCancel}
+          onClick={() => {
+            clearDraft(draft);
+            onCancel();
+          }}
         >
           Cancel
         </button>

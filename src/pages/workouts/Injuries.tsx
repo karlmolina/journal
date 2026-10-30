@@ -8,11 +8,14 @@ import useInjuries, { today, type Side } from "../../hooks/useInjuries";
 import useExerciseNotes from "../../hooks/useExerciseNotes";
 import { placeKey, placeLabel } from "../../functions/bodyRegions";
 import { fieldClass } from "../../components/styles";
+import useDraft, { clearDraft } from "../../hooks/useDraft";
 
 interface Place {
   region: string;
   side: Side;
 }
+
+const DRAFT = "injury-new";
 
 function NewInjuryForm({
   place,
@@ -28,13 +31,15 @@ function NewInjuryForm({
   }) => void;
   onCancel: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [notes, setNotes] = useState("");
-  const [startedOn, setStartedOn] = useState(today());
-  const [pain, setPain] = useState(5);
+  // Unsaved input is kept until it's added or cancelled.
+  const [name, setName] = useDraft(DRAFT, "name", "");
+  const [notes, setNotes] = useDraft(DRAFT, "notes", "");
+  const [startedOn, setStartedOn] = useDraft(DRAFT, "startedOn", today);
+  const [pain, setPain] = useDraft(DRAFT, "pain", 5);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    clearDraft(DRAFT);
     onSave({
       name: name.trim() || null,
       notes: notes.trim() || null,
@@ -78,7 +83,10 @@ function NewInjuryForm({
         <button
           type="button"
           className="btn btn-ghost rounded-full font-bold flex-1"
-          onClick={onCancel}
+          onClick={() => {
+            clearDraft(DRAFT);
+            onCancel();
+          }}
         >
           Cancel
         </button>

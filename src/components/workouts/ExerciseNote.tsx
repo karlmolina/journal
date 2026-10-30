@@ -1,4 +1,5 @@
 import { useState } from "react";
+import useDraft, { clearDraft } from "../../hooks/useDraft";
 import type {
   ExerciseNoteEntry,
   ExerciseNotes,
@@ -31,6 +32,7 @@ const injuryLabel = (i: Injury) => {
 };
 
 function NoteForm({
+  scope,
   initial,
   injuries,
   initialInjury,
@@ -39,6 +41,8 @@ function NoteForm({
   onCancel,
   onDelete,
 }: {
+  // Where unsaved input is kept until it's saved or cancelled.
+  scope: string;
   initial: string;
   injuries: Injury[];
   initialInjury: string | null;
@@ -47,8 +51,13 @@ function NoteForm({
   onCancel: () => void;
   onDelete?: () => void;
 }) {
-  const [draft, setDraft] = useState(initial);
-  const [injuryId, setInjuryId] = useState(initialInjury);
+  const [draft, setDraft] = useDraft(scope, "note", initial);
+  const [injuryId, setInjuryId] = useDraft(scope, "injury", initialInjury);
+  // Any way out of the form drops the unsaved input.
+  const done = (then: () => void) => () => {
+    clearDraft(scope);
+    then();
+  };
   const [confirmDelete, setConfirmDelete] = useState(false);
   const chip = (selected: boolean) =>
     `rounded-full px-2.5 py-1 text-xs font-bold cursor-pointer ${
@@ -99,7 +108,7 @@ function NoteForm({
             <button
               type="button"
               className="btn btn-sm btn-error rounded-full font-bold mr-auto"
-              onClick={onDelete}
+              onClick={done(onDelete)}
             >
               Delete note
             </button>
@@ -115,14 +124,14 @@ function NoteForm({
         <button
           type="button"
           className="btn btn-sm btn-ghost rounded-full font-bold"
-          onClick={onCancel}
+          onClick={done(onCancel)}
         >
           Cancel
         </button>
         <button
           type="button"
           className="btn btn-sm btn-primary rounded-full font-bold"
-          onClick={() => onSave(draft, injuryId)}
+          onClick={done(() => onSave(draft, injuryId))}
           disabled={!draft.trim()}
         >
           {saveLabel}
@@ -140,7 +149,11 @@ export default function ExerciseNote({
   injuries,
 }: ExerciseNoteProps) {
   // "new", a note's id, or null when not editing.
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editing, setEditing] = useDraft<string | null>(
+    `notes:${exercise}`,
+    "editing",
+    null,
+  );
   const [showAll, setShowAll] = useState(false);
   // Folded to just its heading until tapped open.
   const [open, setOpen] = useState(false);
@@ -157,6 +170,7 @@ export default function ExerciseNote({
   if (editing === "new")
     return (
       <NoteForm
+        scope={`note:${exercise}:new`}
         initial=""
         injuries={active}
         initialInjury={suggested}
@@ -191,6 +205,7 @@ export default function ExerciseNote({
       return (
         <li key={e.id}>
           <NoteForm
+            scope={`note:${exercise}:${e.id}`}
             initial={e.note}
             // Keep a healed injury the note is already linked to on offer.
             injuries={linked && linked.healed_on ? [...active, linked] : active}
