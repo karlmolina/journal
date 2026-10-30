@@ -52,6 +52,9 @@ export interface PlanChanges {
   // Exercises added to this workout only, after the plan's. Their indexes
   // continue from the plan's last one.
   added?: PlannedExercise[];
+  // The exercises' indexes in the order they're done today, when moved
+  // around. Any missing go at the end in their own order.
+  order?: number[];
 }
 
 export interface PlanSessionRef {

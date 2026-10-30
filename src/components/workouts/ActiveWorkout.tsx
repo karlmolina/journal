@@ -27,6 +27,7 @@ import {
   describeTarget,
   endExercise,
   FIRST_SIDE,
+  moveInRuns,
   nextSide,
   SECOND_SIDE,
   setsDone,
@@ -148,9 +149,16 @@ export default function ActiveWorkout({
     planned_sets: e.sets,
     sets: e.ended ? Math.min(e.sets, setsDone(e, sets)) : e.sets,
   }));
-  const supersets = workout.supersets ?? planSupersets(exercises);
   const indexOf = (name: string) =>
     exercises.findIndex((e) => sameName(e.name, name));
+  // A superset's rounds go in the order its exercises are on the page.
+  const at = (name: string) => {
+    const i = indexOf(name);
+    return i === -1 ? Infinity : i;
+  };
+  const supersets = (workout.supersets ?? planSupersets(exercises)).map((g) =>
+    [...g].sort((a, b) => at(a) - at(b)),
+  );
   const done = (name: string, all = sets) =>
     countSets(name, isUnilateral(name), all);
   // Planned exercises have a number of sets; anything else goes on and on.
@@ -312,6 +320,8 @@ export default function ActiveWorkout({
       : null;
   });
 
+  // Moving exercises around, just for today.
+  const [ordering, setOrdering] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   // The add-exercise form, and whether it adds to the plan day too.
@@ -492,7 +502,7 @@ export default function ActiveWorkout({
           onPlanChange(
             swapExercise(
               workout.plan_changes,
-              i,
+              e.index,
               name,
               e.swapped_from ?? e.name,
             ),
@@ -526,7 +536,7 @@ export default function ActiveWorkout({
           onPlanChange(
             setSides(
               workout.plan_changes,
-              i,
+              e.index,
               unilateral,
               // How it is without this workout's switch.
               e.sides_changed ? !e.unilateral : !!e.unilateral,
@@ -534,12 +544,46 @@ export default function ActiveWorkout({
           )
         }
         onEnd={(ended) => {
-          onPlanChange(endExercise(workout.plan_changes, i, ended));
+          onPlanChange(endExercise(workout.plan_changes, e.index, ended));
           // Move on to what's next once it's done.
           if (ended && next) setPicked(null);
         }}
       />
     );
+
+    // While moving them around, each is just its name and arrows.
+    if (ordering)
+      return (
+        <section
+          className={`${current ? restCardClass : cardClass} flex items-center gap-2`}
+        >
+          <div className="flex-1 min-w-0">
+            {label}
+            <p
+              className={`text-xl font-bold leading-tight ${complete ? "text-base-content/70 dark:text-base-content/85" : ""}`}
+            >
+              {e.name}
+            </p>
+            <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
+              {describeTarget({ ...e, sets: e.planned_sets })}
+            </p>
+          </div>
+          <div className="flex gap-1">
+            {([-1, 1] as const).map((direction) => (
+              <button
+                key={direction}
+                type="button"
+                className="btn btn-sm btn-circle bg-base-content/8 border-0 shadow-none text-base"
+                onClick={() => move(i, direction)}
+                disabled={moveInRuns(runIndices, i, direction) === null}
+                aria-label={`Move ${e.name} ${direction < 0 ? "up" : "down"}`}
+              >
+                {direction < 0 ? "↑" : "↓"}
+              </button>
+            ))}
+          </div>
+        </section>
+      );
 
     if (current)
       return (
@@ -600,6 +644,18 @@ export default function ActiveWorkout({
     if (group && last?.group === group) last.indices.push(i);
     else runs.push({ group, indices: [i] });
   });
+  const runIndices = runs.map((r) => r.indices);
+  // Today's order changes; the plan and the exercise picked stay as they are.
+  const move = (i: number, direction: -1 | 1) => {
+    const from = moveInRuns(runIndices, i, direction);
+    if (!from) return;
+    onPlanChange({
+      ...workout.plan_changes,
+      order: from.map((j) => exercises[j].index),
+    });
+    if (picked !== null) setPicked(from.indexOf(picked));
+  };
+
   // Exercises done that aren't in the plan, each with a card where it was
   // done: before the first plan exercise started after it, and never below
   // the current one.
@@ -712,11 +768,23 @@ export default function ActiveWorkout({
 
       {planned ? (
         <>
-          <div className="px-1 pt-1">
-            <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-              {planned.planTitle} · {planned.session.day}
-            </p>
-            <h2 className="font-bold">{planned.session.focus}</h2>
+          <div className="flex items-start gap-2 px-1 pt-1">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+                {planned.planTitle} · {planned.session.day}
+              </p>
+              <h2 className="font-bold">{planned.session.focus}</h2>
+            </div>
+            {/* Not mid-set: the timer stays with the set it's timing. */}
+            {exercises.length > 1 && (ordering || !setBusy) && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]"
+                onClick={() => setOrdering(!ordering)}
+              >
+                {ordering ? "Done" : "Reorder"}
+              </button>
+            )}
           </div>
           {timeline}
           {adding ? (
