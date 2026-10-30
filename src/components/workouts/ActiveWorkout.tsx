@@ -30,6 +30,7 @@ import {
   nextSide,
   SECOND_SIDE,
   setsDone,
+  setSides,
   swapExercise,
   type SessionExercise,
 } from "../../functions/planProgress";
@@ -165,6 +166,7 @@ export default function ActiveWorkout({
       // A first side is followed by the second before moving on.
       const i =
         last.side === FIRST_SIDE &&
+        isUnilateral(last.exercise_name) &&
         nextSide(last.exercise_name, sets) === SECOND_SIDE
           ? indexOf(last.exercise_name)
           : indexOf(
@@ -519,6 +521,17 @@ export default function ActiveWorkout({
             side: s.side,
             rest_seconds,
           })
+        }
+        onSides={(unilateral) =>
+          onPlanChange(
+            setSides(
+              workout.plan_changes,
+              i,
+              unilateral,
+              // How it is without this workout's switch.
+              e.sides_changed ? !e.unilateral : !!e.unilateral,
+            ),
+          )
         }
         onEnd={(ended) => {
           onPlanChange(endExercise(workout.plan_changes, i, ended));

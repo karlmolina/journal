@@ -84,8 +84,9 @@ function RestField({
 
 // The title of each exercise's card is its Options button. It opens a
 // dialog to do the exercise now instead of the current one, swap it for
-// another for this workout, end it before all its sets are done, or fix
-// the rest taken before each of its sets.
+// another for this workout, end it before all its sets are done, switch
+// it between one side at a time and both sides at once, or fix the rest
+// taken before each of its sets.
 export default function StepActions({
   step,
   titleClassName,
@@ -95,6 +96,7 @@ export default function StepActions({
   onPick,
   onSwap,
   onEnd,
+  onSides,
   onRest,
 }: {
   step: Step;
@@ -106,6 +108,8 @@ export default function StepActions({
   onPick?: () => void;
   onSwap: (name: string) => void;
   onEnd: (ended: boolean) => void;
+  // Does it one side at a time (true) or both sides at once, this workout.
+  onSides: (unilateral: boolean) => void;
   onRest: (set: WorkoutSet, seconds: number | null) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -212,6 +216,17 @@ export default function StepActions({
                     onClick={then(() => onSwap(step.swapped_from!))}
                   >
                     Back to {step.swapped_from}
+                  </button>
+                )}
+                {(step.unilateral || step.sides_changed) && (
+                  <button
+                    type="button"
+                    className={optionClass}
+                    onClick={then(() => onSides(!step.unilateral))}
+                  >
+                    {step.unilateral
+                      ? "Both sides at once"
+                      : "Back to one side at a time"}
                   </button>
                 )}
                 {step.ended ? (

@@ -46,6 +46,9 @@ export interface PlanChanges {
   swaps?: Record<string, string>;
   // Finished before all their sets were done.
   ended?: number[];
+  // Switched between one side at a time (true) and both sides at once
+  // (false), just this workout.
+  sides?: Record<string, boolean>;
   // Exercises added to this workout only, after the plan's. Their indexes
   // continue from the plan's last one.
   added?: PlannedExercise[];

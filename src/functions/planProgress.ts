@@ -136,6 +136,8 @@ export interface SessionExercise extends PlannedExercise {
   ended?: boolean;
   // Added to this workout only, not the plan.
   added?: boolean;
+  // Switched to or from one side at a time, just this workout.
+  sides_changed?: boolean;
 }
 
 // The session's exercises with this workout's swaps and early ends. A swap
@@ -164,7 +166,12 @@ export function applyPlanChanges(
           added: e.added,
         }
       : { ...e };
-    return ended ? { ...swapped, ended } : swapped;
+    const unilateral = changes?.sides?.[i];
+    const sided: SessionExercise =
+      unilateral === undefined
+        ? swapped
+        : { ...swapped, unilateral, sides_changed: true };
+    return ended ? { ...sided, ended } : sided;
   });
 }
 
@@ -179,9 +186,13 @@ export function swapExercise(
   const swaps = { ...changes?.swaps };
   if (nameKey(name) === nameKey(planned)) delete swaps[index];
   else swaps[index] = name.trim();
+  // Another exercise goes by its own sides.
+  const sides = { ...changes?.sides };
+  delete sides[index];
   return {
     ...changes,
     swaps,
+    sides,
     ended: (changes?.ended ?? []).filter((i) => i !== index),
   };
 }
@@ -199,6 +210,20 @@ export const endExercise = (
     ...(ended ? [index] : []),
   ],
 });
+
+// Does the exercise at `index` one side at a time or both sides at once,
+// just this workout; back to how it usually is undoes it.
+export function setSides(
+  changes: PlanChanges | null,
+  index: number,
+  unilateral: boolean,
+  usual: boolean,
+): PlanChanges {
+  const sides = { ...changes?.sides };
+  if (unilateral === usual) delete sides[index];
+  else sides[index] = unilateral;
+  return { ...changes, sides };
+}
 
 // Adds an exercise to this workout only, after everything else.
 export const addToWorkout = (
@@ -262,6 +287,12 @@ export const remapPlanChanges = (
     ]),
   ),
   ended: (changes.ended ?? []).map(to),
+  sides: Object.fromEntries(
+    Object.entries(changes.sides ?? {}).map(([i, one]) => [
+      String(to(Number(i))),
+      one,
+    ]),
+  ),
 });
 
 // After a reorder, where each exercise went. Added ones keep their indexes.
