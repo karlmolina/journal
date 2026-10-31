@@ -44,6 +44,10 @@ body {
 }
 
 body {
+  /* Keep content clear of the notch and rounded corners when the installed
+     app is turned sideways (viewport-fit=cover lets the page reach them). */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
   overflow-anchor: none;
   overflow-y: auto;
   -webkit-font-smoothing: antialiased;
