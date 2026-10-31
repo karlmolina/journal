@@ -8,6 +8,21 @@ function syncThemeColor() {
   if (!meta) return;
   const bg = getComputedStyle(document.documentElement).backgroundColor;
   if (bg) meta.setAttribute("content", toHex(bg));
+  syncManifest();
+}
+
+// Android bakes the manifest's colors into the installed app (status and
+// navigation bars, splash screen), so point at the copy for the active theme.
+// public/manifests/ holds one per theme, each with that theme's background.
+function syncManifest() {
+  const link = document.querySelector('link[rel="manifest"]');
+  if (!link) return;
+  const theme =
+    document.documentElement.getAttribute("data-theme") ||
+    (window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light");
+  link.setAttribute("href", `/manifests/${theme}.webmanifest`);
 }
 
 // Computed colors come back as oklch()/lab(), which not every browser accepts
