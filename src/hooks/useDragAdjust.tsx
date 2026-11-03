@@ -20,6 +20,10 @@ const REGRAB_MS = 500;
 const SLOW_PX_MS = 0.4;
 const FAST_PX_MS = 3;
 const MAX_GAIN = 6;
+// A second tap this soon, in ms, and this close, in px, after the first makes
+// a double tap: it readies the field for dragging and puts the keyboard away.
+const DOUBLE_TAP_MS = 350;
+const DOUBLE_TAP_PX = 30;
 
 // How many rows each pixel of movement is worth at this finger speed.
 function gain(pxPerMs: number) {
@@ -58,7 +62,8 @@ interface DragAdjustOptions {
 // moving slowly and more per pixel when moving fast. A flick keeps the wheel coasting, and it settles on the nearest value, which
 // becomes the field's value. Dragging only works once the field has been
 // tapped, so a finger scrolling the page past it doesn't change it; until
-// then the page scrolls as usual. Typing still works once it's tapped.
+// then the page scrolls as usual. Typing still works once it's tapped, and a
+// double tap readies it for dragging without bringing up the keyboard.
 // Spread `bind` on the field's box and render `picker` anywhere.
 export default function useDragAdjust({
   value,
@@ -98,6 +103,13 @@ export default function useDragAdjust({
   // stays that way after a drag, until a tap or focus lands somewhere else.
   const [armed, setArmed] = useState(false);
   const box = useRef<HTMLElement | null>(null);
+  // The last tap's end, and where the current touch began, to spot a double
+  // tap; `double` marks a touch that is the second tap of one.
+  const tap = useRef<{
+    last: { t: number; x: number; y: number } | null;
+    start: { x: number; y: number } | null;
+    double: boolean;
+  }>({ last: null, start: null, double: false });
 
   useEffect(() => {
     if (!armed) return;
@@ -267,8 +279,55 @@ export default function useDragAdjust({
     onPointerCancel: onPointerEnd,
   };
 
+  // A double tap readies the field for dragging without the keyboard: the
+  // first tap focuses it as usual, and the second puts the keyboard away as
+  // soon as it lands and keeps the field from being focused again.
+  const onTouchStart = (e: React.TouchEvent<HTMLElement>) => {
+    const t = tap.current;
+    const touch = e.touches[0];
+    if (e.touches.length !== 1) {
+      t.start = null;
+      return;
+    }
+    t.start = { x: touch.clientX, y: touch.clientY };
+    const last = t.last;
+    t.double =
+      !!last &&
+      e.timeStamp - last.t < DOUBLE_TAP_MS &&
+      Math.hypot(touch.clientX - last.x, touch.clientY - last.y) <
+        DOUBLE_TAP_PX;
+    if (!t.double) return;
+    t.last = null;
+    box.current = e.currentTarget;
+    setArmed(true);
+    const focused = document.activeElement as HTMLElement | null;
+    if (focused && e.currentTarget.contains(focused)) focused.blur();
+  };
+
+  const onTouchEnd = (e: React.TouchEvent<HTMLElement>) => {
+    const t = tap.current;
+    const touch = e.changedTouches[0];
+    const start = t.start;
+    t.start = null;
+    if (t.double) {
+      // Stops the tap from focusing the field and bringing the keyboard back.
+      t.double = false;
+      if (e.cancelable) e.preventDefault();
+      return;
+    }
+    const still =
+      start &&
+      Math.hypot(touch.clientX - start.x, touch.clientY - start.y) <
+        DEAD_ZONE_PX;
+    t.last = still
+      ? { t: e.timeStamp, x: touch.clientX, y: touch.clientY }
+      : null;
+  };
+
   const bind = {
     ...pointer,
+    onTouchStart,
+    onTouchEnd,
     onFocus: (e: React.FocusEvent<HTMLElement>) => {
       box.current = e.currentTarget;
       setArmed(true);
