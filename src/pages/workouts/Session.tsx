@@ -196,25 +196,36 @@ export default function Session() {
       ? plans.find((p) => p.id === active.plan_id)
       : undefined;
     const session = plan?.plan.sessions[active?.plan_session ?? -1];
-    return plan && session
-      ? {
-          planTitle: plan.plan.title,
-          session: {
-            ...session,
-            day: dayLabel(active!.plan_session!),
-            exercises: applyPlanChanges(
-              session.exercises,
-              active?.plan_changes ?? null,
-            ).map((e) => ({
-              ...e,
-              unilateral:
-                e.unilateral ??
-                byLowerName.get(nameKey(e.name))?.unilateral ??
-                false,
-            })),
-          },
-        }
-      : undefined;
+    const withChanges = (exercises: PlannedExercise[]) =>
+      applyPlanChanges(exercises, active?.plan_changes ?? null).map((e) => ({
+        ...e,
+        unilateral:
+          e.unilateral ??
+          byLowerName.get(nameKey(e.name))?.unilateral ??
+          false,
+      }));
+    if (plan && session)
+      return {
+        planTitle: plan.plan.title,
+        session: {
+          ...session,
+          day: dayLabel(active!.plan_session!),
+          exercises: withChanges(session.exercises),
+        },
+      };
+    // An empty workout with exercises added to it follows them like a plan.
+    if (active && !active.plan_id && active.plan_changes?.added?.length)
+      return {
+        planTitle: "",
+        free: true,
+        session: {
+          day: "",
+          focus: "Workout",
+          duration_minutes: 0,
+          exercises: withChanges([]),
+        },
+      };
+    return undefined;
   }, [active, plans, byLowerName]);
 
   // An exercise added during the workout: to this workout only, or to its

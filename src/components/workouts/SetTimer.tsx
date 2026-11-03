@@ -563,7 +563,9 @@ export default function SetTimer({
   // The exercise is a title until you choose to change it. With none yet,
   // it's a field, and stays one while you type.
   if (!state.editing && !name.trim()) setState({ ...state, editing: true });
-  const editing = state.editing || !name.trim();
+  // A plan's card names its exercise (Swap exercise changes it), so a
+  // field left open from before it was in the plan doesn't stay open.
+  const editing = (state.editing && !hideChange) || !name.trim();
   return (
     <div className="flex flex-col gap-2">
       {state.rest && (
