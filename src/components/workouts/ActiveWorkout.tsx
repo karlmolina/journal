@@ -73,6 +73,8 @@ const DEFAULT_REST = 90;
 
 export interface PlannedWorkout {
   planTitle: string;
+  // An empty workout following the exercises added to it, with no plan.
+  free?: boolean;
   // The plan's session with this workout's swaps and early ends applied.
   session: Omit<PlannedSession, "exercises"> & { exercises: SessionExercise[] };
 }
@@ -460,12 +462,12 @@ export default function ActiveWorkout({
         : !current && doneSets > 0
           ? `${Math.min(doneSets, e.planned_sets)} of ${e.planned_sets} sets done`
           : null;
-    const label = (e.swapped_from || e.added || status) && (
+    const label = (e.swapped_from || (e.added && !planned?.free) || status) && (
       <p className="flex justify-between gap-2 text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 tabular-nums">
         <span>
           {e.swapped_from
             ? `Instead of ${e.swapped_from}`
-            : e.added && "Just today"}
+            : e.added && !planned?.free && "Just today"}
         </span>
         <span>{status}</span>
       </p>
@@ -684,7 +686,7 @@ export default function ActiveWorkout({
         <li key={`off:${o.name}`}>
           <section className={`${cardClass} flex flex-col gap-2`}>
             <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-              Not in the plan
+              {planned?.free ? "Not in the list" : "Not in the plan"}
             </p>
             <p className="text-xl font-bold leading-tight">{o.name}</p>
             <SetList
@@ -746,6 +748,42 @@ export default function ActiveWorkout({
     </ol>
   );
 
+  // One more exercise for this workout, or (in a plan) its plan day too.
+  const planDay = planned && !planned.free ? planned.session.day : undefined;
+  const addForm = (
+    <AddPlanExercise
+      submitLabel={addToPlan && planDay ? `Add to ${planDay}` : "Add"}
+      draft={`${draft}:add`}
+      above={
+        planDay && (
+          <div className="flex flex-wrap gap-1.5" role="group">
+            <Chip selected={!addToPlan} onClick={() => setAddToPlan(false)}>
+              Just today
+            </Chip>
+            <Chip selected={addToPlan} onClick={() => setAddToPlan(true)}>
+              Every {planDay}
+            </Chip>
+          </div>
+        )
+      }
+      suggestions={suggestions}
+      onAdd={(exercise) => onAddExercise(exercise, !!planDay && addToPlan)}
+      onCancel={() => setAdding(false)}
+    />
+  );
+  const addButton = (
+    <button
+      type="button"
+      className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] self-center"
+      onClick={() => {
+        setAdding(true);
+        setAddToPlan(false);
+      }}
+    >
+      + Add exercise
+    </button>
+  );
+
   return (
     <div className="flex flex-col gap-3">
       {finishing && (
@@ -770,9 +808,11 @@ export default function ActiveWorkout({
         <>
           <div className="flex items-start gap-2 px-1 pt-1">
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-                {planned.planTitle} · {planned.session.day}
-              </p>
+              {!planned.free && (
+                <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+                  {planned.planTitle} · {planned.session.day}
+                </p>
+              )}
               <h2 className="font-bold">{planned.session.focus}</h2>
             </div>
             {/* Not mid-set: the timer stays with the set it's timing. */}
@@ -787,39 +827,11 @@ export default function ActiveWorkout({
             )}
           </div>
           {timeline}
-          {adding ? (
-            <AddPlanExercise
-              submitLabel={addToPlan ? `Add to ${planned.session.day}` : "Add"}
-              draft={`${draft}:add`}
-              above={
-                <div className="flex flex-wrap gap-1.5" role="group">
-                  <Chip
-                    selected={!addToPlan}
-                    onClick={() => setAddToPlan(false)}
-                  >
-                    Just today
-                  </Chip>
-                  <Chip selected={addToPlan} onClick={() => setAddToPlan(true)}>
-                    Every {planned.session.day}
-                  </Chip>
-                </div>
-              }
-              suggestions={suggestions}
-              onAdd={(exercise) => onAddExercise(exercise, addToPlan)}
-              onCancel={() => setAdding(false)}
-            />
-          ) : shownIndex === null && exercises.length > 0 ? null : (
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] self-center"
-              onClick={() => {
-                setAdding(true);
-                setAddToPlan(false);
-              }}
-            >
-              + Add exercise
-            </button>
-          )}
+          {adding
+            ? addForm
+            : shownIndex === null && exercises.length > 0
+              ? null
+              : addButton}
           {shownIndex === null && (
             <>
               {exercises.length > 0 && (
@@ -861,6 +873,8 @@ export default function ActiveWorkout({
           <section ref={currentCard} className={`${cardClass} scroll-mt-4`}>
             {timer(undefined, fixing && fixingEditor(fixing))}
           </section>
+          {/* Not mid-set: the timer stays with the set it's timing. */}
+          {adding ? addForm : !setBusy && addButton}
           {sets.length > (fixing ? 1 : 0) && (
             <section className={cardClass}>
               {setList(
