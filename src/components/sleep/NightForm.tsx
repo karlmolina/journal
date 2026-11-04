@@ -12,6 +12,7 @@ import {
   parseTime,
   qualityText,
   sleepMinutes,
+  bedMinutes,
   today,
 } from "../../functions/sleep";
 
@@ -217,6 +218,7 @@ export default function NightForm({
     bed !== null && woke !== null && fell !== null && up !== null
       ? sleepMinutes(bed, woke, fell + up)
       : null;
+  const inBed = bed !== null && woke !== null ? bedMinutes(bed, woke) : null;
   const canSave =
     q !== null &&
     bed !== null &&
@@ -339,7 +341,7 @@ export default function NightForm({
       <TimeField label="Woke up" value={wokeAt} onChange={setWokeAt} />
       <p className="text-center text-sm font-semibold text-base-content/60 dark:text-base-content/75">
         {duration !== null && !readyInvalid && !offlineInvalid
-          ? `${formatSleep(duration)} of sleep`
+          ? `${formatSleep(duration)} of sleep · ${formatSleep(inBed ?? 0)} in bed`
           : fell === null || up === null
             ? `Minutes awake, from 0 to ${MAX_FALL_ASLEEP}`
             : "Use times like 11:30 PM or 23:30"}

@@ -1,6 +1,7 @@
 import type { SleepNight } from "../../hooks/useSleep";
 import {
   QUALITY_WORDS,
+  bedMinutes,
   formatNight,
   formatSleep,
   formatTime,
@@ -53,6 +54,7 @@ export function NightRow({
             {night.get_ready_at !== null &&
               `Ready ${formatTime(night.get_ready_at)} · `}
             {formatTime(night.bedtime)} – {formatTime(night.woke_at)}
+            {` · ${formatSleep(bedMinutes(night.bedtime, night.woke_at))} in bed`}
             {night.fall_asleep_minutes > 0 &&
               ` · ${formatSleep(night.fall_asleep_minutes)} to fall asleep`}
             {night.awake_minutes > 0 &&
@@ -82,6 +84,7 @@ export function WeekSummary({ nights }: { nights: SleepNight[] }) {
   const minutes = avg((n) =>
     sleepMinutes(n.bedtime, n.woke_at, n.fall_asleep_minutes + n.awake_minutes),
   );
+  const inBed = avg((n) => bedMinutes(n.bedtime, n.woke_at));
 
   return (
     <p className="px-1 text-sm font-semibold text-base-content/60 dark:text-base-content/75">
@@ -89,7 +92,8 @@ export function WeekSummary({ nights }: { nights: SleepNight[] }) {
       <span className={qualityText(Math.round(quality))}>
         {quality.toFixed(1)}/10
       </span>{" "}
-      · {formatSleep(Math.round(minutes))} a night
+      · {formatSleep(Math.round(minutes))} a night ·{" "}
+      {formatSleep(Math.round(inBed))} in bed
     </p>
   );
 }
