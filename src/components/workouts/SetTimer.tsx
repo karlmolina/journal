@@ -55,7 +55,12 @@ interface SetTimerProps {
   suggestions: string[];
   prefillFor: (exercise: string) => Partial<SetInput>;
   // Rest after a set, and the exercise to do next when it's in a superset.
-  afterSet: (set: SetInput) => { rest: number; next?: string };
+  // `planDone` when it was the plan's last set: nothing is left to rest for.
+  afterSet: (set: SetInput) => {
+    rest: number;
+    next?: string;
+    planDone?: boolean;
+  };
   // The side to do next for one-side-at-a-time exercises, otherwise null.
   sideFor: (exercise: string) => Side | null;
   // The other exercises in this one's superset, if it's in one.
@@ -252,7 +257,8 @@ export default function SetTimer({
   ): Phase => {
     if (set.side === FIRST_SIDE)
       return { phase: "ready", switchTo: SECOND_SIDE, logged };
-    const { rest: target, next } = afterSet(set);
+    const { rest: target, next, planDone } = afterSet(set);
+    if (planDone) return { phase: "ready", logged, planDone };
     if (next) setName(next);
     if (target > 0)
       return {
@@ -307,7 +313,12 @@ export default function SetTimer({
   const carryOn = () => {
     if (state.phase !== "done") return;
     const n = name.trim();
-    if (state.then.phase === "resting" || !n) return setState(state.then);
+    if (
+      state.then.phase === "resting" ||
+      (state.then.phase === "ready" && state.then.planDone) ||
+      !n
+    )
+      return setState(state.then);
     setState({
       phase: "running",
       exercise: n,
@@ -469,13 +480,15 @@ export default function SetTimer({
   if (state.phase === "done") {
     // Named for what's next.
     const label =
-      state.then.phase === "resting"
-        ? "Rest"
-        : name.trim().toLowerCase() !== state.exercise.toLowerCase()
-          ? "Next exercise"
-          : side
-            ? `Start ${side} side`
-            : "Next set";
+      state.then.phase === "ready" && state.then.planDone
+        ? "Done"
+        : state.then.phase === "resting"
+          ? "Rest"
+          : name.trim().toLowerCase() !== state.exercise.toLowerCase()
+            ? "Next exercise"
+            : side
+              ? `Start ${side} side`
+              : "Next set";
     const button = (
       <div className="flex flex-col items-center">
         <button type="button" className={primaryClass} onClick={carryOn}>
