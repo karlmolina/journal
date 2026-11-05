@@ -54,8 +54,15 @@ export type Phase =
     }
   | { phase: "resting"; rest: Rest; logged?: boolean }
   // A set just finished: fix its numbers, then go on to `then`, the rest or
-  // the next set.
-  | { phase: "done"; exercise: string; side?: Side | null; then: Phase };
+  // the next set. `undo` is the set as it was running, to go back to when
+  // Finish was tapped by mistake.
+  | {
+      phase: "done";
+      exercise: string;
+      side?: Side | null;
+      then: Phase;
+      undo?: Phase;
+    };
 
 interface Saved {
   workoutId: string;

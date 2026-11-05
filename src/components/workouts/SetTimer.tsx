@@ -67,6 +67,9 @@ interface SetTimerProps {
   // Your own notes on exercises.
   exerciseNotes?: ExerciseNotesProps;
   onSave: (set: SetInput) => void;
+  // Finish tapped by mistake: the set just saved is taken back out, and its
+  // clock carries on.
+  onUnfinish?: () => void;
   // Whether the set just stopped can still be fixed: until the next starts.
   onLoggedChange?: (logged: boolean) => void;
   // Goes between the exercise's title and its clock or start button: its
@@ -111,6 +114,7 @@ export default function SetTimer({
   lookup,
   exerciseNotes,
   onSave,
+  onUnfinish,
   onLoggedChange,
   aboveClock,
   onSlotChange,
@@ -286,7 +290,16 @@ export default function SetTimer({
       exercise: state.exercise,
       side: state.side,
       then: afterSaving(set, at, true),
+      undo: { ...state, reps, weight },
     });
+  };
+
+  // Back to the set as it was, still timing from when it started.
+  const unfinish = () => {
+    if (state.phase !== "done" || state.undo?.phase !== "running") return;
+    onUnfinish?.();
+    setName(state.undo.exercise);
+    setState(state.undo);
   };
 
   // From the set just finished on to the rest (which began when the set
@@ -464,9 +477,32 @@ export default function SetTimer({
             ? `Start ${side} side`
             : "Next set";
     const button = (
-      <button type="button" className={primaryClass} onClick={carryOn}>
-        {label}
-      </button>
+      <div className="flex flex-col items-center">
+        <button type="button" className={primaryClass} onClick={carryOn}>
+          {label}
+        </button>
+        {state.undo && onUnfinish && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1 gap-1"
+            onClick={unfinish}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M17 10a.75.75 0 0 1-.75.75H5.61l4.17 3.97a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.1l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.6 9.25h10.65A.75.75 0 0 1 17 10Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Back to the set
+          </button>
+        )}
+      </div>
     );
     // No start button here: the one button is under the set just finished.
     // Moving on to another exercise, this card stays the one just done
