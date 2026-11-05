@@ -202,9 +202,16 @@ export default function ActiveWorkout({
   // In a superset the next exercise follows with no rest, and the rest comes
   // after the round (the longest any of its exercises asks for).
   const afterSet = (set: SetInput) => {
+    const all = [...sets, set as WorkoutSet];
+    // The plan's last set: nothing left to rest for.
+    if (
+      exercises.length > 0 &&
+      currentExerciseIndex(exercises, sets) !== null &&
+      currentExerciseIndex(exercises, all) === null
+    )
+      return { rest: 0, planDone: true };
     const group = supersetOf(set.exercise_name, supersets);
     if (!group) return { rest: restFor(set.exercise_name) };
-    const all = [...sets, set as WorkoutSet];
     const { next, rest } = nextInSuperset(
       set.exercise_name,
       group,

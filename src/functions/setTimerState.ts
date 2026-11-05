@@ -24,6 +24,8 @@ export type Phase =
       supersetNext?: string;
       // The set just stopped, to fix its numbers until the next one starts.
       logged?: boolean;
+      // That set was the plan's last: no rest and no next set follow.
+      planDone?: boolean;
     }
   | {
       phase: "running";
