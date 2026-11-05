@@ -220,7 +220,10 @@ export default function ActiveWorkout({
   const supersetWith = (name: string) =>
     supersetOf(name, supersets)?.filter((n) => !sameName(n, name));
 
+  // The exercise picked before the last set, to go back to with it.
+  const pickedBefore = useRef<number | null>(null);
   const handleSave = (set: SetInput) => {
+    pickedBefore.current = picked;
     onAddSet(set);
     // Once the picked exercise has all its sets, or it's in a superset, go
     // back to following the plan, which moves through the superset.
@@ -377,6 +380,11 @@ export default function ActiveWorkout({
       lookup={lookup}
       exerciseNotes={exerciseNotes}
       onSave={handleSave}
+      onUnfinish={() => {
+        // Finish was a mistake: the set comes back out and keeps going.
+        if (fixing) onRemoveSets([fixing]);
+        setPicked(pickedBefore.current);
+      }}
       onLoggedChange={setFixingLast}
       aboveClock={aboveClock}
       onSlotChange={setSlot}
