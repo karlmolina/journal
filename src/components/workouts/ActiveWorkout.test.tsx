@@ -17,6 +17,22 @@ async function doSet(
 }
 
 describe("active workout", () => {
+  it("starts a set at the weight of the last set done of it", async () => {
+    const user = userEvent.setup();
+    const w = renderWorkout(
+      [exercise("Squat", { sets: 3, weight: 100 })],
+      [doneSet("Squat", { weight: 120 })],
+    );
+    render(<w.Harness />);
+
+    await doSet(user);
+
+    expect(w.onAddSet.mock.calls[0][0]).toMatchObject({
+      exercise_name: "Squat",
+      weight: 120,
+    });
+  });
+
   it("saves a set on Finish and offers the rest before the next one", async () => {
     const user = userEvent.setup();
     const w = renderWorkout([exercise("Squat", { sets: 2 })]);
