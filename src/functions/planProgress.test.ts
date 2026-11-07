@@ -10,6 +10,7 @@ import {
   nextSide,
   plannedReps,
   plannedSeconds,
+  setPrefill,
   setSides,
   swapExercise,
   workoutOrder,
@@ -172,5 +173,38 @@ describe("moveExercise", () => {
   });
   it("can't move past the ends", () => {
     expect(moveExercise([ex("Squat"), ex("Row")], 0, -1)).toBeNull();
+  });
+});
+
+describe("setPrefill", () => {
+  const workout = (...sets: Partial<WorkoutSet>[]) =>
+    ({ workout_sets: sets as WorkoutSet[] }) as Workout;
+  const squat = (weight: number | null, reps = 5) =>
+    ({ exercise_name: "Squat", weight, reps }) as Partial<WorkoutSet>;
+  const plan = [ex("Squat", { reps: "8", weight: 100 })];
+
+  it("uses this workout's last set of the exercise for the weight", () => {
+    const active = workout(
+      squat(110),
+      { exercise_name: "Row", weight: 50 },
+      squat(115),
+    );
+    expect(setPrefill("squat", active, [], plan)).toMatchObject({
+      weight: 115,
+      reps: 8,
+    });
+  });
+
+  it("starts at the plan's weight before any set of it today", () => {
+    const active = workout({ exercise_name: "Row", weight: 50 });
+    expect(setPrefill("Squat", active, [workout(squat(90))], plan).weight).toBe(
+      100,
+    );
+  });
+
+  it("falls back to last time without a plan weight", () => {
+    expect(
+      setPrefill("Squat", workout(), [workout(squat(90, 6))]),
+    ).toMatchObject({ weight: 90, reps: 6 });
   });
 });

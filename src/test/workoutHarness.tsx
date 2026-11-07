@@ -4,7 +4,7 @@ import ActiveWorkout from "../components/workouts/ActiveWorkout";
 import type { PlannedExercise } from "../hooks/useWorkoutPlans";
 import type { SetInput, Workout, WorkoutSet } from "../hooks/useWorkouts";
 import type { ExerciseNotes } from "../hooks/useExerciseNotes";
-import { applyPlanChanges, plannedReps } from "../functions/planProgress";
+import { applyPlanChanges, setPrefill } from "../functions/planProgress";
 import { nameKey } from "../functions/exerciseName";
 
 // A planned exercise with the usual fields filled in.
@@ -76,13 +76,7 @@ export function renderWorkout(
         }}
         suggestions={[]}
         timerKey="set_timer_test"
-        prefillFor={(name) => {
-          const e = exercises.find((e) => nameKey(e.name) === nameKey(name));
-          return {
-            reps: e ? plannedReps(e.reps) : null,
-            weight: e?.weight ?? null,
-          };
-        }}
+        prefillFor={(name) => setPrefill(name, workout, [], exercises)}
         isUnilateral={unilateral}
         lookup={() => undefined}
         exerciseNotes={{ notes: noNotes, injuries: [] }}

@@ -27,11 +27,9 @@ import {
   applyPlanChanges,
   followPlanEdit,
   grewFrom,
-  lastSetOf,
+  setPrefill,
   dayLabel,
   nextSessionIndex,
-  plannedReps,
-  plannedSeconds,
   setsDone,
 } from "../../functions/planProgress";
 import { nameKey } from "../../functions/exerciseName";
@@ -259,20 +257,10 @@ export default function Session() {
     [byLowerName],
   );
 
-  // This set's target from the plan: its reps, weight and time. Without
-  // one, the last time you did it.
+  // The numbers a new set starts with: see setPrefill.
   const prefillFor = useCallback(
-    (name: string): Partial<SetInput> => {
-      const last = lastSetOf(name, active ? [active, ...history] : history);
-      const target = planned?.session.exercises.find(
-        (e) => e.name.toLowerCase() === name.toLowerCase(),
-      );
-      return {
-        reps: (target && plannedReps(target.reps)) ?? last?.reps ?? null,
-        weight: target?.weight ?? last?.weight ?? null,
-        duration_seconds: (target && plannedSeconds(target.reps)) ?? null,
-      };
-    },
+    (name: string): Partial<SetInput> =>
+      setPrefill(name, active, history, planned?.session.exercises),
     [active, history, planned],
   );
 
