@@ -55,6 +55,9 @@ interface DragAdjustOptions {
   format?: (n: number) => string;
   // A line shown under each value on the wheel, like what a score means.
   detail?: (n: number) => string;
+  // Drags right away, without a tap first, like the fields of the set you're
+  // on: a finger on them never scrolls the page.
+  immediate?: boolean;
 }
 
 // Drag up or down on a number field to turn a scroll wheel of values that
@@ -64,6 +67,7 @@ interface DragAdjustOptions {
 // tapped, so a finger scrolling the page past it doesn't change it; until
 // then the page scrolls as usual. Typing still works once it's tapped, and a
 // double tap readies it for dragging without bringing up the keyboard.
+// `immediate` fields, the set you're on, skip the tap and drag right away.
 // Spread `bind` on the field's box and render `picker` anywhere.
 export default function useDragAdjust({
   value,
@@ -74,6 +78,7 @@ export default function useDragAdjust({
   parse = parseNumber,
   format = formatNumber,
   detail,
+  immediate = false,
 }: DragAdjustOptions) {
   const rowPx = detail ? DETAIL_ROW_PX : ROW_PX;
   const drag = useRef<{
@@ -101,7 +106,8 @@ export default function useDragAdjust({
   const releasedAt = useRef(0);
   // Whether the field has been tapped, so dragging on it turns the wheel. It
   // stays that way after a drag, until a tap or focus lands somewhere else.
-  const [armed, setArmed] = useState(false);
+  const [tapped, setArmed] = useState(false);
+  const armed = immediate || tapped;
   const box = useRef<HTMLElement | null>(null);
   // The last tap's end, and where the current touch began, to spot a double
   // tap; `double` marks a touch that is the second tap of one.
@@ -112,14 +118,14 @@ export default function useDragAdjust({
   }>({ last: null, start: null, double: false });
 
   useEffect(() => {
-    if (!armed) return;
+    if (!tapped) return;
     const disarm = (e: PointerEvent) => {
       if (current.current || box.current?.contains(e.target as Node)) return;
       setArmed(false);
     };
     document.addEventListener("pointerdown", disarm, true);
     return () => document.removeEventListener("pointerdown", disarm, true);
-  }, [armed]);
+  }, [tapped]);
 
   useEffect(
     () => () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { doneSet, exercise, renderWorkout } from "../../test/workoutHarness";
 
@@ -151,5 +151,27 @@ describe("active workout", () => {
     await doSet(user, "Start right side");
     expect(w.sets()[0].side).toBe("right");
     expect(button("Start left side")).toBeInTheDocument();
+  });
+
+  it("drags the running set's reps without a tap first", async () => {
+    const user = userEvent.setup();
+    const w = renderWorkout([exercise("Squat", { sets: 2 })]);
+    render(<w.Harness />);
+    await user.click(button("Start"));
+
+    const reps = screen.getByRole("textbox", { name: "Reps" });
+    expect(reps).toHaveValue("8");
+    Element.prototype.setPointerCapture ??= () => {};
+    // jsdom's pointer events leave out clientY: mouse events stand in.
+    for (const [type, clientY] of [
+      ["pointerdown", 100],
+      ["pointermove", 200],
+      ["pointermove", 300],
+    ] as const) {
+      const event = new MouseEvent(type, { bubbles: true, clientY });
+      Object.assign(event, { pointerId: 1, pointerType: "touch" });
+      fireEvent(reps.closest("label")!, event);
+    }
+    expect(Number((reps as HTMLInputElement).value)).toBeGreaterThan(8);
   });
 });

@@ -17,7 +17,8 @@ export const unitInputClass =
   "w-full min-w-0 bg-transparent text-right font-semibold outline-none";
 export const unitClass =
   "shrink-0 text-sm font-medium text-base-content/45 dark:text-base-content/65";
-// Readable from across the room, for the set you're on.
+// Readable from across the room, for the set you're on. These drag right
+// away, without the tap other fields need first.
 const bigInputClass =
   "w-full min-w-0 bg-transparent text-right text-4xl font-extrabold tracking-tight tabular-nums outline-none";
 const bigUnitClass =
@@ -49,12 +50,14 @@ export function RepsWeightFields({
     onChange: onReps,
     label: "Reps",
     min: 1,
+    immediate: big,
   });
   const dragWeight = useDragAdjust({
     value: weight,
     onChange: onWeight,
     label: `Weight (${weightLabel})`,
     min: 0,
+    immediate: big,
   });
   const inputClass = big ? bigInputClass : unitInputClass;
   const unit = big ? bigUnitClass : unitClass;
@@ -217,6 +220,8 @@ export default function SetForm({
     min: 0,
     parse: parseClock,
     format: (n) => (n > 0 ? formatClock(n) : ""),
+    // The big clock is the set you're on, so it drags without a tap first.
+    immediate: bigTime,
   });
   const [restTime, setRestTime] = useDraft(
     scope,
