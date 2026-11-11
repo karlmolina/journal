@@ -5,6 +5,7 @@ import ActiveWorkout, {
 } from "../../components/workouts/ActiveWorkout";
 import WorkoutHistoryCard from "../../components/workouts/WorkoutHistoryCard";
 import Chip from "../../components/Chip";
+import SupersetGroup from "../../components/workouts/SupersetGroup";
 import ErrorBanner from "../../components/ErrorBanner";
 import { useAuth } from "../../context/AuthContext";
 import useWorkouts, {
@@ -29,7 +30,10 @@ import {
   grewFrom,
   setPrefill,
   dayLabel,
+  describeTarget,
   nextSessionIndex,
+  supersetLetter,
+  supersetRuns,
   setsDone,
 } from "../../functions/planProgress";
 import { nameKey } from "../../functions/exerciseName";
@@ -39,7 +43,22 @@ import { exerciseSuggestions } from "../../functions/exerciseSuggestions";
 const startedToday = (w: Workout) =>
   new Date(w.started_at).toDateString() === new Date().toDateString();
 
-function UpNext({
+// One planned exercise in the Up next card's list: its name and target.
+function PlanDayExercise({ exercise: e }: { exercise: PlannedExercise }) {
+  return (
+    <div className="py-1">
+      <p className="font-bold leading-snug">{e.name}</p>
+      <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
+        {describeTarget(e)}
+        {!supersetLetter(e) &&
+          e.rest_seconds > 0 &&
+          ` · rest ${e.rest_seconds}s`}
+      </p>
+    </div>
+  );
+}
+
+export function UpNext({
   plan,
   next,
   lookup,
@@ -52,6 +71,8 @@ function UpNext({
 }) {
   const sessions = plan.plan.sessions;
   const [chosen, setChosen] = useState<number | null>(null);
+  // Tapping the day shows its exercises.
+  const [open, setOpen] = useState(false);
   const index = chosen !== null && chosen < sessions.length ? chosen : next;
   const session = sessions[index];
   const equipment = useMemo(
@@ -60,17 +81,75 @@ function UpNext({
   );
   return (
     <section className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-5 sm:px-5 flex flex-col gap-1">
-      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-        {index === next ? "Up next" : "From your plan"} · {plan.plan.title}
-      </p>
-      <p className="text-lg font-bold leading-snug">
-        {dayLabel(index)}: {session.focus}
-      </p>
-      <p className="text-sm font-medium text-base-content/60 dark:text-base-content/80">
-        {session.exercises.length}{" "}
-        {session.exercises.length === 1 ? "exercise" : "exercises"} · about{" "}
-        {session.duration_minutes} min
-      </p>
+      <button
+        type="button"
+        className="-mx-2 -my-1 px-2 py-1 rounded-xl text-left flex flex-col gap-1 cursor-pointer"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls="up-next-exercises"
+      >
+        <span className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+          {index === next ? "Up next" : "From your plan"} · {plan.plan.title}
+        </span>
+        <span className="text-lg font-bold leading-snug">
+          {dayLabel(index)}: {session.focus}
+        </span>
+        <span className="flex items-center gap-1.5 text-sm font-medium text-base-content/60 dark:text-base-content/80">
+          {session.exercises.length}{" "}
+          {session.exercises.length === 1 ? "exercise" : "exercises"} · about{" "}
+          {session.duration_minutes} min
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
+      </button>
+      {open && (
+        <ol
+          id="up-next-exercises"
+          className="mt-2 flex flex-col gap-2 animate-expand-in"
+          aria-label={`${dayLabel(index)} exercises`}
+        >
+          {supersetRuns(session.exercises).map(({ letter, indices }) => (
+            <li key={indices[0]}>
+              {letter ? (
+                <SupersetGroup
+                  size={indices.length}
+                  progress={`${Math.max(
+                    ...indices.map((j) => session.exercises[j].sets),
+                  )} rounds`}
+                  rest={Math.max(
+                    0,
+                    ...indices.map((j) => session.exercises[j].rest_seconds),
+                  )}
+                >
+                  <div className="flex flex-col px-2.5 pb-1">
+                    {indices.map((j) => (
+                      <PlanDayExercise
+                        key={j}
+                        exercise={session.exercises[j]}
+                      />
+                    ))}
+                  </div>
+                </SupersetGroup>
+              ) : (
+                <PlanDayExercise exercise={session.exercises[indices[0]]} />
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
       <div className="mt-3 flex flex-col gap-1.5">
         <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
           Equipment
