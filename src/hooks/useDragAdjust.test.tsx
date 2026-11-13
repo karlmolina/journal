@@ -3,13 +3,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import useDragAdjust from "./useDragAdjust";
 
-function Field({ immediate }: { immediate?: boolean }) {
+function Field() {
   const [value, setValue] = useState("10");
   const drag = useDragAdjust({
     value,
     onChange: setValue,
     label: "Reps",
-    immediate,
   });
   return (
     <>
@@ -47,29 +46,8 @@ const readyToDrag = (box: HTMLElement) =>
 describe("drag to adjust", () => {
   Element.prototype.setPointerCapture ??= vi.fn();
 
-  it("leaves a field that hasn't been tapped alone", () => {
+  it("drags a field right away, without a tap first", () => {
     render(<Field />);
-    const box = screen.getByTestId("box");
-    expect(readyToDrag(box)).toBe(false);
-    dragDown(box, 200);
-    expect(screen.getByRole("textbox", { name: "Reps" })).toHaveValue("10");
-  });
-
-  it("drags a field that has been tapped", () => {
-    render(<Field />);
-    const box = screen.getByTestId("box");
-    fireEvent.focus(screen.getByRole("textbox", { name: "Reps" }));
-    dragDown(box, 200);
-    expect(
-      Number(
-        (screen.getByRole("textbox", { name: "Reps" }) as HTMLInputElement)
-          .value,
-      ),
-    ).toBeGreaterThan(10);
-  });
-
-  it("drags an immediate field without a tap first", () => {
-    render(<Field immediate />);
     const box = screen.getByTestId("box");
     expect(readyToDrag(box)).toBe(true);
     dragDown(box, 200);
@@ -79,5 +57,30 @@ describe("drag to adjust", () => {
           .value,
       ),
     ).toBeGreaterThan(10);
+  });
+
+  it("stays ready to drag after focus moves elsewhere", () => {
+    render(
+      <>
+        <Field />
+        <button>Other</button>
+      </>,
+    );
+    const box = screen.getByTestId("box");
+    fireEvent.focus(screen.getByRole("textbox", { name: "Reps" }));
+    fireEvent.blur(screen.getByRole("textbox", { name: "Reps" }), {
+      relatedTarget: screen.getByRole("button", { name: "Other" }),
+    });
+    expect(readyToDrag(box)).toBe(true);
+  });
+
+  it("leaves a still tap to the field, for typing", () => {
+    render(<Field />);
+    const box = screen.getByTestId("box");
+    pointer(box, "pointerdown", 100);
+    pointer(box, "pointermove", 103);
+    pointer(box, "pointerup", 103);
+    expect(screen.getByRole("textbox", { name: "Reps" })).toHaveValue("10");
+    expect(screen.queryByText("Reps")).toBeNull();
   });
 });
