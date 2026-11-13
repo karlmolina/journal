@@ -50,14 +50,12 @@ export function RepsWeightFields({
     onChange: onReps,
     label: "Reps",
     min: 1,
-    immediate: big,
   });
   const dragWeight = useDragAdjust({
     value: weight,
     onChange: onWeight,
     label: `Weight (${weightLabel})`,
     min: 0,
-    immediate: big,
   });
   const inputClass = big ? bigInputClass : unitInputClass;
   const unit = big ? bigUnitClass : unitClass;
@@ -220,8 +218,6 @@ export default function SetForm({
     min: 0,
     parse: parseClock,
     format: (n) => (n > 0 ? formatClock(n) : ""),
-    // The big clock is the set you're on, so it drags without a tap first.
-    immediate: bigTime,
   });
   const [restTime, setRestTime] = useDraft(
     scope,

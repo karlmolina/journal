@@ -153,7 +153,7 @@ describe("active workout", () => {
     expect(button("Start left side")).toBeInTheDocument();
   });
 
-  it("drags the running set's reps without a tap first", async () => {
+  it("drags the running set's reps right away", async () => {
     const user = userEvent.setup();
     const w = renderWorkout([exercise("Squat", { sets: 2 })]);
     render(<w.Harness />);

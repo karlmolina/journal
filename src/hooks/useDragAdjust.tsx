@@ -20,10 +20,6 @@ const REGRAB_MS = 500;
 const SLOW_PX_MS = 0.4;
 const FAST_PX_MS = 3;
 const MAX_GAIN = 6;
-// A second tap this soon, in ms, and this close, in px, after the first makes
-// a double tap: it readies the field for dragging and puts the keyboard away.
-const DOUBLE_TAP_MS = 350;
-const DOUBLE_TAP_PX = 30;
 
 // How many rows each pixel of movement is worth at this finger speed.
 function gain(pxPerMs: number) {
@@ -55,19 +51,13 @@ interface DragAdjustOptions {
   format?: (n: number) => string;
   // A line shown under each value on the wheel, like what a score means.
   detail?: (n: number) => string;
-  // Drags right away, without a tap first, like the fields of the set you're
-  // on: a finger on them never scrolls the page.
-  immediate?: boolean;
 }
 
 // Drag up or down on a number field to turn a scroll wheel of values that
 // floats over the page: down goes higher, up goes lower, one at a time when
 // moving slowly and more per pixel when moving fast. A flick keeps the wheel coasting, and it settles on the nearest value, which
-// becomes the field's value. Dragging only works once the field has been
-// tapped, so a finger scrolling the page past it doesn't change it; until
-// then the page scrolls as usual. Typing still works once it's tapped, and a
-// double tap readies it for dragging without bringing up the keyboard.
-// `immediate` fields, the set you're on, skip the tap and drag right away.
+// becomes the field's value. A finger on the field drags it right away; a tap
+// that doesn't move still focuses it for typing.
 // Spread `bind` on the field's box and render `picker` anywhere.
 export default function useDragAdjust({
   value,
@@ -78,7 +68,6 @@ export default function useDragAdjust({
   parse = parseNumber,
   format = formatNumber,
   detail,
-  immediate = false,
 }: DragAdjustOptions) {
   const rowPx = detail ? DETAIL_ROW_PX : ROW_PX;
   const drag = useRef<{
@@ -104,29 +93,6 @@ export default function useDragAdjust({
   const frame = useRef(0);
   const closeTimer = useRef(0);
   const releasedAt = useRef(0);
-  // Whether the field has been tapped, so dragging on it turns the wheel. It
-  // stays that way after a drag, until a tap or focus lands somewhere else.
-  const [tapped, setArmed] = useState(false);
-  const armed = immediate || tapped;
-  const box = useRef<HTMLElement | null>(null);
-  // The last tap's end, and where the current touch began, to spot a double
-  // tap; `double` marks a touch that is the second tap of one.
-  const tap = useRef<{
-    last: { t: number; x: number; y: number } | null;
-    start: { x: number; y: number } | null;
-    double: boolean;
-  }>({ last: null, start: null, double: false });
-
-  useEffect(() => {
-    if (!tapped) return;
-    const disarm = (e: PointerEvent) => {
-      if (current.current || box.current?.contains(e.target as Node)) return;
-      setArmed(false);
-    };
-    document.addEventListener("pointerdown", disarm, true);
-    return () => document.removeEventListener("pointerdown", disarm, true);
-  }, [tapped]);
-
   useEffect(
     () => () => {
       cancelAnimationFrame(frame.current);
@@ -220,8 +186,6 @@ export default function useDragAdjust({
       setWheel({ start, position, closing: false });
       return;
     }
-    // Not tapped yet: leave the press to scroll the page or focus the field.
-    if (!armed) return;
     const parsed = parse(value);
     drag.current = {
       id: e.pointerId,
@@ -240,8 +204,7 @@ export default function useDragAdjust({
       if (Math.abs(e.clientY - d.y) < DEAD_ZONE_PX) return;
       d.moved = true;
       e.currentTarget.setPointerCapture(e.pointerId);
-      // The field was focused to arm it; the wheel takes over from the
-      // keyboard while dragging.
+      // The wheel takes over from the keyboard while dragging.
       (document.activeElement as HTMLElement | null)?.blur();
     }
     move(d, e.clientY, e.timeStamp);
@@ -285,69 +248,10 @@ export default function useDragAdjust({
     onPointerCancel: onPointerEnd,
   };
 
-  // A double tap readies the field for dragging without the keyboard: the
-  // first tap focuses it as usual, and the second puts the keyboard away as
-  // soon as it lands and keeps the field from being focused again.
-  const onTouchStart = (e: React.TouchEvent<HTMLElement>) => {
-    const t = tap.current;
-    const touch = e.touches[0];
-    if (e.touches.length !== 1) {
-      t.start = null;
-      return;
-    }
-    t.start = { x: touch.clientX, y: touch.clientY };
-    const last = t.last;
-    t.double =
-      !!last &&
-      e.timeStamp - last.t < DOUBLE_TAP_MS &&
-      Math.hypot(touch.clientX - last.x, touch.clientY - last.y) <
-        DOUBLE_TAP_PX;
-    if (!t.double) return;
-    t.last = null;
-    box.current = e.currentTarget;
-    setArmed(true);
-    const focused = document.activeElement as HTMLElement | null;
-    if (focused && e.currentTarget.contains(focused)) focused.blur();
-  };
-
-  const onTouchEnd = (e: React.TouchEvent<HTMLElement>) => {
-    const t = tap.current;
-    const touch = e.changedTouches[0];
-    const start = t.start;
-    t.start = null;
-    if (t.double) {
-      // Stops the tap from focusing the field and bringing the keyboard back.
-      t.double = false;
-      if (e.cancelable) e.preventDefault();
-      return;
-    }
-    const still =
-      start &&
-      Math.hypot(touch.clientX - start.x, touch.clientY - start.y) <
-        DEAD_ZONE_PX;
-    t.last = still
-      ? { t: e.timeStamp, x: touch.clientX, y: touch.clientY }
-      : null;
-  };
-
   const bind = {
     ...pointer,
-    onTouchStart,
-    onTouchEnd,
-    onFocus: (e: React.FocusEvent<HTMLElement>) => {
-      box.current = e.currentTarget;
-      setArmed(true);
-    },
-    // Focus moving to another field disarms; the blur from a drag starting
-    // has nowhere to go and keeps it armed.
-    onBlur: (e: React.FocusEvent<HTMLElement>) => {
-      const next = e.relatedTarget as Node | null;
-      if (next && !e.currentTarget.contains(next)) setArmed(false);
-    },
-    // Until tapped, a finger on the field scrolls the page.
-    style: armed
-      ? ({ touchAction: "none", cursor: "ns-resize" } as const)
-      : undefined,
+    // A finger on the field turns the wheel instead of scrolling the page.
+    style: { touchAction: "none", cursor: "ns-resize" } as const,
   };
 
   const picker = wheel && (
