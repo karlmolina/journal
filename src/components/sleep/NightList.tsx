@@ -53,14 +53,15 @@ export function NightRow({
               `Tech free ${formatSleep(night.tech_free_minutes)} before · `}
             {night.get_ready_minutes !== null &&
               `Ready ${formatSleep(night.get_ready_minutes)} before · `}
-            {formatTime(night.bedtime)} – {formatTime(night.woke_at)}
+            {formatTime(night.bedtime)} –{" "}
+            {formatTime(night.woke_at + night.out_of_bed_minutes)}
             {` · ${formatSleep(bedMinutes(night.bedtime, night.woke_at, night.out_of_bed_minutes))} in bed`}
             {night.fall_asleep_minutes > 0 &&
               ` · ${formatSleep(night.fall_asleep_minutes)} to fall asleep`}
             {night.awake_minutes > 0 &&
               ` · ${formatSleep(night.awake_minutes)} awake`}
             {night.out_of_bed_minutes > 0 &&
-              ` · ${formatSleep(night.out_of_bed_minutes)} before getting up`}
+              ` · woke ${formatTime(night.woke_at)}, ${formatSleep(night.out_of_bed_minutes)} before getting up`}
           </span>
           <span className="block text-sm font-medium">
             {QUALITY_WORDS[night.quality]}

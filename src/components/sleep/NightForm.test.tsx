@@ -51,8 +51,53 @@ describe("NightForm", () => {
     expect(screen.getByLabelText("Before getting up, in minutes")).toHaveValue(
       "15",
     );
+    // Woke at 7:00 and stayed 15 min, so got out of bed at 7:15.
+    expect(screen.getByLabelText("Got out of bed")).toBeInTheDocument();
     // 8 hr from bedtime to waking, plus 15 min before getting up.
     expect(screen.getByText(/8 hr 15 min in bed/)).toBeInTheDocument();
+  });
+
+  it("puts Got out of bed after Before getting up", () => {
+    render(
+      <NightForm
+        night={existing.night}
+        existing={existing}
+        lastTimes={lastTimes}
+        onNightChange={() => {}}
+        onSave={() => {}}
+      />,
+    );
+    const before = screen.getByText("Before getting up");
+    const out = screen.getByText("Got out of bed");
+    expect(
+      before.compareDocumentPosition(out) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.queryByText("Woke up")).toBeNull();
+  });
+
+  it("saves the wake time as got out of bed minus the minutes before", () => {
+    const onSave = vi.fn();
+    render(
+      <NightForm
+        night={existing.night}
+        existing={existing}
+        lastTimes={lastTimes}
+        onNightChange={() => {}}
+        onSave={onSave}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Got out of bed"), {
+      target: { value: "7:30" },
+    });
+    fireEvent.change(screen.getByLabelText("Before getting up, in minutes"), {
+      target: { value: "40" },
+    });
+    // 7:30 got up, 40 min before: woke at 6:50. In bed 11 PM to 7:30.
+    expect(screen.getByText(/8 hr 30 min in bed/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Update night" }));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ woke_at: 6 * 60 + 50, out_of_bed_minutes: 40 }),
+    );
   });
 
   it("saves the minutes, and empty optional fields as null or 0", () => {

@@ -34,6 +34,7 @@ export const qualityBg = (q: number) =>
 // Wraps past midnight either way, so dragging bedtime down from 12:00 AM
 // lands on 11:45 PM.
 const wrap = (minutes: number) => ((minutes % DAY) + DAY) % DAY;
+export const wrapTime = wrap;
 
 const pad = (n: number) => n.toString().padStart(2, "0");
 

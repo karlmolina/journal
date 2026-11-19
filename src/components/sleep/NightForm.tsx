@@ -13,6 +13,7 @@ import {
   sleepMinutes,
   bedMinutes,
   today,
+  wrapTime,
 } from "../../functions/sleep";
 
 // Same drag-to-adjust boxes as the reps and weight fields: tap to type, drag
@@ -177,11 +178,13 @@ export default function NightForm({
     "bedtime",
     formatTime(existing?.bedtime ?? lastTimes.bedtime),
   );
-  const [wokeAt, setWokeAt] = useDraft(
-    draft,
-    "wokeAt",
-    formatTime(existing?.woke_at ?? lastTimes.woke_at),
-  );
+  // The form asks when he got out of bed; the stored woke_at stays the wake
+  // time, worked out by taking off the minutes before getting up. A new night
+  // starts from when he got up last time.
+  const [gotUp, setGotUp] = useDraft(draft, "gotUp", () => {
+    const from = existing ?? lastTimes;
+    return formatTime(from.woke_at + from.out_of_bed_minutes);
+  });
   const [fallAsleep, setFallAsleep] = useDraft(
     draft,
     "fallAsleep",
@@ -229,11 +232,13 @@ export default function NightForm({
 
   const q = parseQuality(quality);
   const bed = parseTime(bedtime);
-  const woke = parseTime(wokeAt);
+  const outAt = parseTime(gotUp);
   // Left empty means it was straight away, or no time awake.
   const fell = fallAsleep.trim() === "" ? 0 : parseMinutes(fallAsleep);
   const up = awake.trim() === "" ? 0 : parseMinutes(awake);
   const lazy = outOfBed.trim() === "" ? 0 : parseMinutes(outOfBed);
+  const woke =
+    outAt !== null && lazy !== null ? wrapTime(outAt - lazy) : null;
   const ready = getReady.trim() === "" ? null : parseMinutes(getReady);
   const readyInvalid = getReady.trim() !== "" && ready === null;
   const offline = techFree.trim() === "" ? null : parseMinutes(techFree);
@@ -373,12 +378,12 @@ export default function NightForm({
         />
       </div>
       <div className="flex gap-2">
-        <TimeField label="Woke up" value={wokeAt} onChange={setWokeAt} />
         <MinutesField
           label="Before getting up"
           value={outOfBed}
           onChange={setOutOfBed}
         />
+        <TimeField label="Got out of bed" value={gotUp} onChange={setGotUp} />
       </div>
       <p className="text-center text-sm font-semibold text-base-content/60 dark:text-base-content/75">
         {duration !== null && minutesValid
