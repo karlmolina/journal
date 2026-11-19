@@ -339,7 +339,6 @@ export default function NightForm({
 
       {dragQuality.picker}
 
-      <TimeField label="Bedtime" value={bedtime} onChange={setBedtime} />
       <div className="flex gap-2">
         <MinutesField
           label="Get ready for bed"
@@ -360,6 +359,7 @@ export default function NightForm({
           detail={clockBefore(offline, "Screens away")}
         />
       </div>
+      <TimeField label="Bedtime" value={bedtime} onChange={setBedtime} />
       <div className="flex gap-2">
         <MinutesField
           label="To fall asleep"
