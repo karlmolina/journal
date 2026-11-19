@@ -215,11 +215,11 @@ export default function NightForm({
   );
   const [notes, setNotes] = useDraft(draft, "notes", existing?.notes ?? "");
 
-  // An empty score starts a drag from the middle, not from "no sleep".
+  // An empty score starts a drag from the middle, not from "completely exhausted".
   const dragQuality = useDragAdjust({
     value: quality,
     onChange: setQuality,
-    label: "Sleep quality",
+    label: "How rested",
     min: 0,
     max: 10,
     parse: (text) => parseQuality(text) ?? 5,
@@ -312,7 +312,7 @@ export default function NightForm({
       </label>
 
       <label className={dragBoxClass} {...dragQuality.bind}>
-        <span className={labelClass}>Sleep quality</span>
+        <span className={labelClass}>How rested I feel</span>
         <span className="flex items-baseline">
           <input
             className={`w-16 bg-transparent text-right text-5xl font-extrabold tracking-tight tabular-nums outline-none placeholder:text-base-content/25 ${
@@ -322,7 +322,7 @@ export default function NightForm({
             placeholder="–"
             value={quality}
             onChange={(e) => setQuality(e.target.value)}
-            aria-label="Sleep quality from 0 to 10"
+            aria-label="How rested from 0 to 10"
           />
           <span className="text-xl font-bold text-base-content/40 dark:text-base-content/60">
             /10

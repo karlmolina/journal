@@ -94,7 +94,7 @@ export function WeekSummary({ nights }: { nights: SleepNight[] }) {
     <p className="px-1 text-sm font-semibold text-base-content/60 dark:text-base-content/75">
       Last {week.length} nights:{" "}
       <span className={qualityText(Math.round(quality))}>
-        {quality.toFixed(1)}/10
+        {quality.toFixed(1)}/10 rested
       </span>{" "}
       · {formatSleep(Math.round(minutes))} a night ·{" "}
       {formatSleep(Math.round(inBed))} in bed
