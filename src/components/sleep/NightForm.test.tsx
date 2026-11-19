@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import NightForm from "./NightForm";
 import type { SleepNight } from "../../hooks/useSleep";
 import { bedMinutes } from "../../functions/sleep";
+import { setCacheOwner } from "../../functions/userCache";
 
 vi.mock("../../context/AuthContext", () => ({
   useAuth: () => ({ user: { id: "u1" } }),
@@ -128,6 +129,60 @@ describe("NightForm", () => {
         out_of_bed_minutes: 0,
       }),
     );
+  });
+
+  it("undoes unsaved changes back to the saved night", () => {
+    localStorage.clear();
+    setCacheOwner("u1");
+    render(
+      <NightForm
+        night={existing.night}
+        existing={existing}
+        lastTimes={lastTimes}
+        onNightChange={() => {}}
+        onSave={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Undo changes" })).toBeNull();
+    fireEvent.change(screen.getByLabelText("How rested from 0 to 10"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText("Notes"), {
+      target: { value: "coffee late" },
+    });
+    expect(
+      Object.keys(localStorage).some((k) => k.includes("draft_sleep:")),
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Undo changes" }));
+    expect(screen.getByLabelText("How rested from 0 to 10")).toHaveValue("7");
+    expect(screen.getByLabelText("Notes")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Saved" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Undo changes" })).toBeNull();
+    expect(
+      Object.keys(localStorage).some((k) => k.includes("draft_sleep:")),
+    ).toBe(false);
+  });
+
+  it("undoes a new night back to its starting values", () => {
+    localStorage.clear();
+    setCacheOwner("u1");
+    render(
+      <NightForm
+        night="2026-11-19"
+        lastTimes={lastTimes}
+        onNightChange={() => {}}
+        onSave={() => {}}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("How rested from 0 to 10"), {
+      target: { value: "9" },
+    });
+    fireEvent.change(screen.getByLabelText("Bedtime"), {
+      target: { value: "1:00 AM" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Undo changes" }));
+    expect(screen.getByLabelText("How rested from 0 to 10")).toHaveValue("");
+    expect(screen.getByLabelText("Bedtime")).toHaveValue("11:00 PM");
   });
 });
 
