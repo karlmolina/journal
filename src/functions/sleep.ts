@@ -76,9 +76,9 @@ export const toDbTime = (minutes: number) => {
 export const sleepMinutes = (bedtime: number, wokeAt: number, awake = 0) =>
   Math.max(0, wrap(wokeAt - bedtime) - awake);
 
-// Bedtime to waking up, awake or not.
-export const bedMinutes = (bedtime: number, wokeAt: number) =>
-  sleepMinutes(bedtime, wokeAt);
+// Bedtime to getting out of bed, awake or not.
+export const bedMinutes = (bedtime: number, wokeAt: number, outOfBed = 0) =>
+  sleepMinutes(bedtime, wokeAt) + outOfBed;
 
 // How long before bedtime something happened, e.g. putting screens away.
 export const minutesBefore = (time: number, bedtime: number) =>

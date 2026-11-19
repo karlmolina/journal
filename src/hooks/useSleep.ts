@@ -3,7 +3,24 @@ import { supabase } from "../supabase";
 import { readUserCache, writeUserCache } from "../functions/userCache";
 import { notDeleted, queueDelete } from "../functions/undoDelete";
 import { reportError } from "../functions/reportError";
-import { fromDbTime, toDbTime } from "../functions/sleep";
+import { fromDbTime, minutesBefore, toDbTime } from "../functions/sleep";
+
+// Nights cached before get-ready and tech-free became minutes held clock
+// times; turn those into minutes before bedtime.
+type CachedNight = SleepNight & {
+  get_ready_at?: number | null;
+  tech_free_at?: number | null;
+};
+const cachedMinutes = (
+  minutes: number | null | undefined,
+  time: number | null | undefined,
+  bedtime: number,
+) =>
+  minutes !== undefined
+    ? minutes
+    : time === undefined || time === null
+      ? null
+      : minutesBefore(time, bedtime);
 
 export interface SleepNight {
   id: string;
@@ -15,10 +32,14 @@ export interface SleepNight {
   woke_at: number;
   // How long it took to fall asleep; not counted as sleep.
   fall_asleep_minutes: number;
-  // When getting ready for bed started, before bedtime; null when not logged.
-  get_ready_at: number | null;
-  // When screens were put away for the night; null when not logged.
-  tech_free_at: number | null;
+  // Minutes before bedtime that getting ready for bed started; null when not
+  // logged.
+  get_ready_minutes: number | null;
+  // Minutes before bedtime that screens were put away; null when not logged.
+  tech_free_minutes: number | null;
+  // Time in bed after waking up, before getting up; counts as time in bed,
+  // not as sleep.
+  out_of_bed_minutes: number;
   // Time spent awake during the night; not counted as sleep.
   awake_minutes: number;
   notes: string;
@@ -33,8 +54,9 @@ interface Row {
   bedtime: string;
   woke_at: string;
   fall_asleep_minutes: number;
-  get_ready_at: string | null;
-  tech_free_at: string | null;
+  get_ready_minutes: number | null;
+  tech_free_minutes: number | null;
+  out_of_bed_minutes: number;
   awake_minutes: number;
   notes: string;
 }
@@ -45,8 +67,6 @@ const fromRow = (r: Row): SleepNight => ({
   ...r,
   bedtime: fromDbTime(r.bedtime),
   woke_at: fromDbTime(r.woke_at),
-  get_ready_at: r.get_ready_at === null ? null : fromDbTime(r.get_ready_at),
-  tech_free_at: r.tech_free_at === null ? null : fromDbTime(r.tech_free_at),
 });
 
 // Newest night first.
@@ -57,14 +77,25 @@ export default function useSleep(userId?: string) {
   // Nights cached before the newer fields existed get their defaults.
   const [nights, setNights] = useState<SleepNight[]>(() =>
     userId
-      ? readUserCache<SleepNight[]>(CACHE_KEY, userId, []).map((n) => ({
-          ...n,
-          fall_asleep_minutes: n.fall_asleep_minutes ?? 0,
-          get_ready_at: n.get_ready_at ?? null,
-          tech_free_at: n.tech_free_at ?? null,
-          awake_minutes: n.awake_minutes ?? 0,
-          notes: n.notes ?? "",
-        }))
+      ? readUserCache<CachedNight[]>(CACHE_KEY, userId, []).map(
+          ({ get_ready_at, tech_free_at, ...n }) => ({
+            ...n,
+            fall_asleep_minutes: n.fall_asleep_minutes ?? 0,
+            get_ready_minutes: cachedMinutes(
+              n.get_ready_minutes,
+              get_ready_at,
+              n.bedtime,
+            ),
+            tech_free_minutes: cachedMinutes(
+              n.tech_free_minutes,
+              tech_free_at,
+              n.bedtime,
+            ),
+            out_of_bed_minutes: n.out_of_bed_minutes ?? 0,
+            awake_minutes: n.awake_minutes ?? 0,
+            notes: n.notes ?? "",
+          }),
+        )
       : [],
   );
   const [loading, setLoading] = useState(true);
@@ -87,7 +118,7 @@ export default function useSleep(userId?: string) {
     supabase
       .from("sleep_nights")
       .select(
-        "id, night, quality, bedtime, woke_at, fall_asleep_minutes, get_ready_at, tech_free_at, awake_minutes, notes",
+        "id, night, quality, bedtime, woke_at, fall_asleep_minutes, get_ready_minutes, tech_free_minutes, out_of_bed_minutes, awake_minutes, notes",
       )
       .order("night", { ascending: false })
       .then(({ data, error }) => {
@@ -121,10 +152,6 @@ export default function useSleep(userId?: string) {
           ...night,
           bedtime: toDbTime(night.bedtime),
           woke_at: toDbTime(night.woke_at),
-          get_ready_at:
-            night.get_ready_at === null ? null : toDbTime(night.get_ready_at),
-          tech_free_at:
-            night.tech_free_at === null ? null : toDbTime(night.tech_free_at),
         },
         { onConflict: "user_id,night" },
       );
