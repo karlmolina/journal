@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type React from "react";
 import useDragAdjust from "../../hooks/useDragAdjust";
 import useDraft, { clearDraft } from "../../hooks/useDraft";
@@ -168,55 +169,82 @@ export default function NightForm({
 }) {
   // Unsaved changes survive a refresh, per night.
   const draft = `sleep:${night}`;
-  const [quality, setQuality] = useDraft(
-    draft,
-    "quality",
-    existing ? String(existing.quality) : "",
-  );
-  const [bedtime, setBedtime] = useDraft(
-    draft,
-    "bedtime",
-    formatTime(existing?.bedtime ?? lastTimes.bedtime),
-  );
-  // The form asks when he got out of bed; the stored woke_at stays the wake
-  // time, worked out by taking off the minutes before getting up. A new night
-  // starts from when he got up last time.
-  const [gotUp, setGotUp] = useDraft(draft, "gotUp", () => {
+  // What each field shows before any unsaved change: the saved night, or a
+  // new night's starting values. Undo changes puts these back.
+  const [start] = useState(() => {
     const from = existing ?? lastTimes;
-    return formatTime(from.woke_at + from.out_of_bed_minutes);
+    const minutes = (m: number | null) => (m === null ? "" : String(m));
+    return {
+      quality: existing ? String(existing.quality) : "",
+      bedtime: formatTime(from.bedtime),
+      // The form asks when he got out of bed; the stored woke_at stays the
+      // wake time, worked out by taking off the minutes before getting up. A
+      // new night starts from when he got up last time.
+      gotUp: formatTime(from.woke_at + from.out_of_bed_minutes),
+      fallAsleep: String(from.fall_asleep_minutes),
+      // Optional, in minutes before bedtime: nights logged before these
+      // fields have none.
+      getReady: minutes(from.get_ready_minutes),
+      techFree: minutes(from.tech_free_minutes),
+      outOfBed:
+        existing && existing.out_of_bed_minutes > 0
+          ? String(existing.out_of_bed_minutes)
+          : "",
+      awake:
+        existing && existing.awake_minutes > 0
+          ? String(existing.awake_minutes)
+          : "",
+      notes: existing?.notes ?? "",
+    };
   });
+  const [quality, setQuality] = useDraft(draft, "quality", start.quality);
+  const [bedtime, setBedtime] = useDraft(draft, "bedtime", start.bedtime);
+  const [gotUp, setGotUp] = useDraft(draft, "gotUp", start.gotUp);
   const [fallAsleep, setFallAsleep] = useDraft(
     draft,
     "fallAsleep",
-    String(existing?.fall_asleep_minutes ?? lastTimes.fall_asleep_minutes),
+    start.fallAsleep,
   );
-  // Optional, in minutes before bedtime: nights logged before these fields
-  // have none. The draft keys changed when they stopped being clock times, so
-  // an old unsaved time isn't read as minutes.
-  const [getReady, setGetReady] = useDraft(draft, "getReadyMinutes", () => {
-    const m = existing
-      ? existing.get_ready_minutes
-      : lastTimes.get_ready_minutes;
-    return m === null ? "" : String(m);
-  });
-  const [techFree, setTechFree] = useDraft(draft, "techFreeMinutes", () => {
-    const m = existing
-      ? existing.tech_free_minutes
-      : lastTimes.tech_free_minutes;
-    return m === null ? "" : String(m);
-  });
-  const [outOfBed, setOutOfBed] = useDraft(draft, "outOfBed", () => {
-    const m = existing ? existing.out_of_bed_minutes : 0;
-    return m > 0 ? String(m) : "";
-  });
-  const [awake, setAwake] = useDraft(
+  // The draft keys changed when these stopped being clock times, so an old
+  // unsaved time isn't read as minutes.
+  const [getReady, setGetReady] = useDraft(
     draft,
-    "awake",
-    existing && existing.awake_minutes > 0
-      ? String(existing.awake_minutes)
-      : "",
+    "getReadyMinutes",
+    start.getReady,
   );
-  const [notes, setNotes] = useDraft(draft, "notes", existing?.notes ?? "");
+  const [techFree, setTechFree] = useDraft(
+    draft,
+    "techFreeMinutes",
+    start.techFree,
+  );
+  const [outOfBed, setOutOfBed] = useDraft(draft, "outOfBed", start.outOfBed);
+  const [awake, setAwake] = useDraft(draft, "awake", start.awake);
+  const [notes, setNotes] = useDraft(draft, "notes", start.notes);
+
+  const edited =
+    quality !== start.quality ||
+    bedtime !== start.bedtime ||
+    gotUp !== start.gotUp ||
+    fallAsleep !== start.fallAsleep ||
+    getReady !== start.getReady ||
+    techFree !== start.techFree ||
+    outOfBed !== start.outOfBed ||
+    awake !== start.awake ||
+    notes !== start.notes;
+  // Back to the saved night (or the new night's starting values); the
+  // unsaved draft goes with it.
+  const undoChanges = () => {
+    setQuality(start.quality);
+    setBedtime(start.bedtime);
+    setGotUp(start.gotUp);
+    setFallAsleep(start.fallAsleep);
+    setGetReady(start.getReady);
+    setTechFree(start.techFree);
+    setOutOfBed(start.outOfBed);
+    setAwake(start.awake);
+    setNotes(start.notes);
+    clearDraft(draft);
+  };
 
   // An empty score starts a drag from the middle, not from "completely exhausted".
   const dragQuality = useDragAdjust({
@@ -237,8 +265,7 @@ export default function NightForm({
   const fell = fallAsleep.trim() === "" ? 0 : parseMinutes(fallAsleep);
   const up = awake.trim() === "" ? 0 : parseMinutes(awake);
   const lazy = outOfBed.trim() === "" ? 0 : parseMinutes(outOfBed);
-  const woke =
-    outAt !== null && lazy !== null ? wrapTime(outAt - lazy) : null;
+  const woke = outAt !== null && lazy !== null ? wrapTime(outAt - lazy) : null;
   const ready = getReady.trim() === "" ? null : parseMinutes(getReady);
   const readyInvalid = getReady.trim() !== "" && ready === null;
   const offline = techFree.trim() === "" ? null : parseMinutes(techFree);
@@ -407,17 +434,44 @@ export default function NightForm({
       >
         {unchanged ? "Saved" : existing ? "Update night" : "Save night"}
       </button>
-      {onDelete && (
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm rounded-full font-semibold text-error self-center"
-          onClick={() => {
-            clearDraft(draft);
-            onDelete();
-          }}
-        >
-          Delete night
-        </button>
+      {(edited || onDelete) && (
+        <div className="flex justify-center gap-2">
+          {edited && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm rounded-full font-semibold"
+              onClick={undoChanges}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-4"
+                aria-hidden="true"
+              >
+                <path d="M9 14 4 9l5-5" />
+                <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+              </svg>
+              Undo changes
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm rounded-full font-semibold text-error"
+              onClick={() => {
+                clearDraft(draft);
+                onDelete();
+              }}
+            >
+              Delete night
+            </button>
+          )}
+        </div>
       )}
     </form>
   );
