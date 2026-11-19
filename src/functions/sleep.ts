@@ -3,19 +3,20 @@
 
 const DAY = 24 * 60;
 
-// What each score means, so a 6 means the same thing every morning.
+// How rested I feel on waking, a subjective score. Each one describes the
+// feeling, not the night, so a 6 means the same thing every morning.
 export const QUALITY_WORDS = [
-  "No sleep at all",
-  "Barely slept, up almost all night",
-  "Awful: broken and restless",
-  "Poor: woke up a lot, still tired",
-  "Below par: groggy morning",
-  "Okay: got by, nothing more",
-  "Decent: a few wake-ups, mostly fine",
-  "Good: slept well, slow to get going",
-  "Great: deep sleep, woke up refreshed",
-  "Excellent: straight through, full of energy",
-  "Best sleep in ages, fully restored",
+  "Completely exhausted, can barely function",
+  "Drained, running on empty",
+  "Wiped out: heavy and foggy",
+  "Tired: dragging, could use a nap",
+  "Below par: sluggish and groggy",
+  "Okay: alert enough to get by",
+  "Decent: mostly rested, a bit flat",
+  "Good: rested, slow to get going",
+  "Great: refreshed and clear-headed",
+  "Excellent: energized and sharp",
+  "Fully restored, best I've felt in ages",
 ];
 
 // The theme's warning yellow is hard to read on light backgrounds, so middling

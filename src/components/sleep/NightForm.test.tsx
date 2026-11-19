@@ -69,7 +69,7 @@ describe("NightForm", () => {
         onSave={onSave}
       />,
     );
-    fireEvent.change(screen.getByLabelText("Sleep quality from 0 to 10"), {
+    fireEvent.change(screen.getByLabelText("How rested from 0 to 10"), {
       target: { value: "8" },
     });
     fireEvent.change(screen.getByLabelText("Tech free, in minutes"), {
