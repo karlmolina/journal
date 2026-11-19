@@ -7,7 +7,6 @@ import {
   formatSleep,
   formatTime,
   MAX_FALL_ASLEEP,
-  minutesBefore,
   parseMinutes,
   parseTime,
   qualityText,
@@ -83,15 +82,24 @@ function TimeField({
   );
 }
 
-// Minutes spent awake in bed, one minute per row on the wheel.
+// Minutes, one minute per row on the wheel: time awake in bed, or how long
+// before bedtime something happened.
 function MinutesField({
   label,
   value,
   onChange,
+  fallback = 0,
+  placeholder = "0",
+  detail,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  // Where a drag starts when the field is empty.
+  fallback?: number;
+  placeholder?: string;
+  // A small line under the minutes.
+  detail?: string;
 }) {
   const drag = useDragAdjust({
     value,
@@ -99,7 +107,7 @@ function MinutesField({
     label,
     min: 0,
     max: MAX_FALL_ASLEEP,
-    parse: (text) => parseMinutes(text) ?? 0,
+    parse: (text) => parseMinutes(text) ?? fallback,
     format: String,
   });
   const invalid = value.trim() !== "" && parseMinutes(value) === null;
@@ -114,7 +122,7 @@ function MinutesField({
               invalid ? "text-error" : ""
             }`}
             inputMode="numeric"
-            placeholder="0"
+            placeholder={placeholder}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             aria-label={`${label}, in minutes`}
@@ -123,6 +131,11 @@ function MinutesField({
             min
           </span>
         </span>
+        {detail !== undefined && (
+          <span className="min-h-5 text-center text-sm font-semibold text-base-content/60 dark:text-base-content/75">
+            {detail}
+          </span>
+        )}
       </label>
       {drag.picker}
     </>
@@ -144,8 +157,9 @@ export default function NightForm({
     bedtime: number;
     woke_at: number;
     fall_asleep_minutes: number;
-    get_ready_at: number | null;
-    tech_free_at: number | null;
+    get_ready_minutes: number | null;
+    tech_free_minutes: number | null;
+    out_of_bed_minutes: number;
   };
   onNightChange: (night: string) => void;
   onSave: (input: NightInput) => void;
@@ -173,15 +187,24 @@ export default function NightForm({
     "fallAsleep",
     String(existing?.fall_asleep_minutes ?? lastTimes.fall_asleep_minutes),
   );
-  // Optional: nights logged before this field have no get-ready time.
-  const [getReady, setGetReady] = useDraft(draft, "getReady", () => {
-    const t = existing ? existing.get_ready_at : lastTimes.get_ready_at;
-    return t === null ? "" : formatTime(t);
+  // Optional, in minutes before bedtime: nights logged before these fields
+  // have none. The draft keys changed when they stopped being clock times, so
+  // an old unsaved time isn't read as minutes.
+  const [getReady, setGetReady] = useDraft(draft, "getReadyMinutes", () => {
+    const m = existing
+      ? existing.get_ready_minutes
+      : lastTimes.get_ready_minutes;
+    return m === null ? "" : String(m);
   });
-  // Optional, like the get-ready time.
-  const [techFree, setTechFree] = useDraft(draft, "techFree", () => {
-    const t = existing ? existing.tech_free_at : lastTimes.tech_free_at;
-    return t === null ? "" : formatTime(t);
+  const [techFree, setTechFree] = useDraft(draft, "techFreeMinutes", () => {
+    const m = existing
+      ? existing.tech_free_minutes
+      : lastTimes.tech_free_minutes;
+    return m === null ? "" : String(m);
+  });
+  const [outOfBed, setOutOfBed] = useDraft(draft, "outOfBed", () => {
+    const m = existing ? existing.out_of_bed_minutes : 0;
+    return m > 0 ? String(m) : "";
   });
   const [awake, setAwake] = useDraft(
     draft,
@@ -210,21 +233,35 @@ export default function NightForm({
   // Left empty means it was straight away, or no time awake.
   const fell = fallAsleep.trim() === "" ? 0 : parseMinutes(fallAsleep);
   const up = awake.trim() === "" ? 0 : parseMinutes(awake);
-  const ready = getReady.trim() === "" ? null : parseTime(getReady);
+  const lazy = outOfBed.trim() === "" ? 0 : parseMinutes(outOfBed);
+  const ready = getReady.trim() === "" ? null : parseMinutes(getReady);
   const readyInvalid = getReady.trim() !== "" && ready === null;
-  const offline = techFree.trim() === "" ? null : parseTime(techFree);
+  const offline = techFree.trim() === "" ? null : parseMinutes(techFree);
   const offlineInvalid = techFree.trim() !== "" && offline === null;
+  const minutesValid =
+    fell !== null &&
+    up !== null &&
+    lazy !== null &&
+    !readyInvalid &&
+    !offlineInvalid;
   const duration =
     bed !== null && woke !== null && fell !== null && up !== null
       ? sleepMinutes(bed, woke, fell + up)
       : null;
-  const inBed = bed !== null && woke !== null ? bedMinutes(bed, woke) : null;
+  const inBed =
+    bed !== null && woke !== null ? bedMinutes(bed, woke, lazy ?? 0) : null;
+  // "At 10:30 PM", worked out from bedtime.
+  const clockBefore = (minutes: number | null, empty: string) =>
+    minutes !== null && bed !== null
+      ? `At ${formatTime(bed - minutes)}`
+      : empty;
   const canSave =
     q !== null &&
     bed !== null &&
     woke !== null &&
     fell !== null &&
     up !== null &&
+    lazy !== null &&
     !readyInvalid &&
     !offlineInvalid &&
     night !== "";
@@ -235,8 +272,9 @@ export default function NightForm({
     woke === existing.woke_at &&
     fell === existing.fall_asleep_minutes &&
     up === existing.awake_minutes &&
-    ready === existing.get_ready_at &&
-    offline === existing.tech_free_at &&
+    lazy === existing.out_of_bed_minutes &&
+    ready === existing.get_ready_minutes &&
+    offline === existing.tech_free_minutes &&
     notes.trim() === existing.notes;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -250,8 +288,9 @@ export default function NightForm({
       woke_at: woke,
       fall_asleep_minutes: fell,
       awake_minutes: up,
-      get_ready_at: ready,
-      tech_free_at: offline,
+      out_of_bed_minutes: lazy,
+      get_ready_minutes: ready,
+      tech_free_minutes: offline,
       notes: notes.trim(),
     });
   };
@@ -300,31 +339,26 @@ export default function NightForm({
 
       {dragQuality.picker}
 
-      <div className="flex">
-        <TimeField
-          label="Tech free"
-          value={techFree}
-          onChange={setTechFree}
-          // An empty field starts dragging an hour before bedtime.
-          fallback={(bed ?? lastTimes.bedtime) - 60}
-          placeholder="–"
-          detail={
-            offline !== null && bed !== null
-              ? `${formatSleep(minutesBefore(offline, bed))} before bed`
-              : "Screens away for the night"
-          }
-        />
-      </div>
+      <TimeField label="Bedtime" value={bedtime} onChange={setBedtime} />
       <div className="flex gap-2">
-        <TimeField
+        <MinutesField
           label="Get ready for bed"
           value={getReady}
           onChange={setGetReady}
-          // An empty field starts dragging half an hour before bedtime.
-          fallback={(bed ?? lastTimes.bedtime) - 30}
+          // An empty field starts dragging at half an hour before bed.
+          fallback={30}
           placeholder="–"
+          detail={clockBefore(ready, "Before bed")}
         />
-        <TimeField label="Bedtime" value={bedtime} onChange={setBedtime} />
+        <MinutesField
+          label="Tech free"
+          value={techFree}
+          onChange={setTechFree}
+          // An empty field starts dragging at an hour before bed.
+          fallback={60}
+          placeholder="–"
+          detail={clockBefore(offline, "Screens away")}
+        />
       </div>
       <div className="flex gap-2">
         <MinutesField
@@ -338,12 +372,19 @@ export default function NightForm({
           onChange={setAwake}
         />
       </div>
-      <TimeField label="Woke up" value={wokeAt} onChange={setWokeAt} />
+      <div className="flex gap-2">
+        <TimeField label="Woke up" value={wokeAt} onChange={setWokeAt} />
+        <MinutesField
+          label="Before getting up"
+          value={outOfBed}
+          onChange={setOutOfBed}
+        />
+      </div>
       <p className="text-center text-sm font-semibold text-base-content/60 dark:text-base-content/75">
-        {duration !== null && !readyInvalid && !offlineInvalid
+        {duration !== null && minutesValid
           ? `${formatSleep(duration)} of sleep · ${formatSleep(inBed ?? 0)} in bed`
-          : fell === null || up === null
-            ? `Minutes awake, from 0 to ${MAX_FALL_ASLEEP}`
+          : !minutesValid
+            ? `Minutes, from 0 to ${MAX_FALL_ASLEEP}`
             : "Use times like 11:30 PM or 23:30"}
       </p>
       <textarea
