@@ -51,7 +51,11 @@ import {
 import SetList from "./SetList";
 import Chip from "../Chip";
 import SetForm from "./SetForm";
-import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
+import SetTimer, {
+  type SlotContent,
+  type TimerControl,
+  type TimerPhase,
+} from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
 import { DragSortList, Grip } from "../DragSort";
@@ -255,6 +259,8 @@ export default function ActiveWorkout({
     setTimerPhase(phase);
   }, []);
   const setBusy = timerPhase === "running" || timerPhase === "logging";
+  // The timer, to stop the set going or carry it on as another exercise.
+  const timerControl = useRef<TimerControl>(null);
   // A rest shows in the next exercise's card, on its start button.
   const [slot, setSlot] = useState<SlotContent>("none");
   const [fixingLast, setFixingLast] = useState(false);
@@ -404,6 +410,7 @@ export default function ActiveWorkout({
       // A plan's exercise cards have Swap exercise instead.
       hideChange={inPlan}
       headerTitle={headerTitle}
+      controlRef={timerControl}
     />
   );
 
@@ -514,9 +521,20 @@ export default function ActiveWorkout({
         sets={logged}
         complete={complete}
         suggestions={suggestions}
-        // Not mid-set: the timer stays with the set it's timing.
-        onPick={!next && !complete && !setBusy ? () => setPicked(i) : undefined}
+        // Mid-set, the set going stops without being saved.
+        onPick={
+          !next && !complete
+            ? () => {
+                if (setBusy) timerControl.current?.stop();
+                setPicked(i);
+              }
+            : undefined
+        }
+        stopping={setBusy && !current ? shown?.name : undefined}
+        running={setBusy && current}
         onSwap={(name) => {
+          // The set going was this other exercise: it carries on as that.
+          if (current && setBusy) timerControl.current?.rename(name);
           onPlanChange(
             swapExercise(
               workout.plan_changes,
@@ -613,13 +631,12 @@ export default function ActiveWorkout({
           className={`${restCardClass} scroll-mt-4 flex flex-col gap-3`}
         >
           {label}
-          {/* The title opens the options; not mid-set. */}
+          {/* The title opens the options, mid-set too: swap it for
+              another exercise. */}
           {timer(
             true,
             loggedSets,
-            setBusy
-              ? undefined
-              : actions("text-4xl font-extrabold leading-tight tracking-tight"),
+            actions("text-4xl font-extrabold leading-tight tracking-tight"),
           )}
         </section>
       );
