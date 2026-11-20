@@ -174,4 +174,74 @@ describe("active workout", () => {
     }
     expect(Number((reps as HTMLInputElement).value)).toBeGreaterThan(8);
   });
+
+  it("stops a set going without saving it", async () => {
+    const user = userEvent.setup();
+    const w = renderWorkout([exercise("Squat", { sets: 2 })]);
+    render(<w.Harness />);
+
+    await user.click(button("Start"));
+    await user.click(button("Stop without saving"));
+
+    expect(w.onAddSet).not.toHaveBeenCalled();
+    expect(button("Start")).toBeInTheDocument();
+    noButton("Finish");
+  });
+
+  it("goes back to the rest when a set after it is stopped", async () => {
+    const user = userEvent.setup();
+    const w = renderWorkout([exercise("Squat", { sets: 3 })]);
+    render(<w.Harness />);
+
+    await doSet(user);
+    await user.click(button("Rest"));
+    await user.click(button("Start"));
+    await user.click(button("Stop without saving"));
+
+    expect(w.sets()).toHaveLength(1);
+    expect(screen.getAllByText("Resting").length).toBeGreaterThan(0);
+    expect(button("Start")).toBeInTheDocument();
+  });
+
+  it("switches to another exercise mid-set with Do this now", async () => {
+    const user = userEvent.setup();
+    const w = renderWorkout([exercise("Squat"), exercise("Bench press")]);
+    render(<w.Harness />);
+
+    await user.click(button("Start"));
+    await user.click(button("Bench press options"));
+    expect(
+      screen.getByText("Your Squat set stops without saving."),
+    ).toBeInTheDocument();
+    await user.click(button("Do this now"));
+
+    expect(w.onAddSet).not.toHaveBeenCalled();
+    await doSet(user);
+    expect(w.onAddSet.mock.calls[0][0]).toMatchObject({
+      exercise_name: "Bench press",
+    });
+  });
+
+  it("swaps the exercise mid-set and keeps the set going as the new one", async () => {
+    const user = userEvent.setup();
+    const w = renderWorkout([exercise("Squat"), exercise("Bench press")]);
+    render(<w.Harness />);
+
+    await user.click(button("Start"));
+    await user.click(button("Squat options"));
+    // Ending it waits until the set is done.
+    noButton("End early");
+    await user.click(button("Swap exercise"));
+    await user.type(
+      screen.getByPlaceholderText(/Exercise, like/),
+      "Goblet squat",
+    );
+    await user.click(button("Swap"));
+
+    expect(button("Finish")).toBeInTheDocument();
+    await user.click(button("Finish"));
+    expect(w.onAddSet.mock.calls[0][0]).toMatchObject({
+      exercise_name: "Goblet squat",
+    });
+  });
 });

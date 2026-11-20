@@ -1,5 +1,11 @@
 import type React from "react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
@@ -20,6 +26,7 @@ import {
   type Rest,
 } from "../../functions/setTimerState";
 import { boldFieldClass } from "../styles";
+import { sameName } from "../../functions/exerciseName";
 
 const text = (n: number | null | undefined) => (n == null ? "" : String(n));
 
@@ -94,6 +101,14 @@ interface SetTimerProps {
   hideChange?: boolean;
   // Level with the exercise's title, at the right.
   headerTitle?: React.ReactNode;
+  // For the page around it: stop the set going without saving it, or carry
+  // it on as another exercise.
+  controlRef?: React.Ref<TimerControl>;
+}
+
+export interface TimerControl {
+  stop: () => void;
+  rename: (exercise: string) => void;
 }
 
 export type TimerPhase = Phase["phase"];
@@ -128,6 +143,7 @@ export default function SetTimer({
   doneSlot,
   hideChange = false,
   headerTitle,
+  controlRef,
 }: SetTimerProps) {
   const [state, setStateNow] = useState<Phase>(() =>
     readSaved(storageKey, workoutId),
@@ -300,6 +316,34 @@ export default function SetTimer({
     });
   };
 
+  // Started by mistake, or the wrong one: the set goes without being saved,
+  // and the rest from before it (if any) carries on.
+  const cancelSet = () => {
+    if (state.phase !== "running" && state.phase !== "logging") return;
+    setState(
+      state.rest ? { phase: "resting", rest: state.rest } : { phase: "ready" },
+    );
+  };
+
+  // The set going is really another exercise: it keeps timing as that one.
+  const renameSet = (exercise: string) => {
+    const n = exercise.trim();
+    if (!n) return;
+    setName(n);
+    if (state.phase !== "running" || sameName(state.exercise, n)) return;
+    setState({
+      ...state,
+      exercise: n,
+      side: sideFor(n),
+      ...planned(n),
+    });
+  };
+
+  useImperativeHandle(controlRef, () => ({
+    stop: cancelSet,
+    rename: renameSet,
+  }));
+
   // Back to the set as it was, still timing from when it started.
   const unfinish = () => {
     if (state.phase !== "done" || state.undo?.phase !== "running") return;
@@ -449,6 +493,13 @@ export default function SetTimer({
             Finish
           </button>
         )}
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1 self-center"
+          onClick={cancelSet}
+        >
+          Stop without saving
+        </button>
       </div>
     );
   }
