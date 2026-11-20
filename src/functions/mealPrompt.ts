@@ -37,28 +37,62 @@ export interface RecipeRequest {
   source_url?: string | null;
 }
 
+const dietLine = (diets: string[], dietNotes: string) =>
+  `My diet: ${
+    [...diets, ...(dietNotes.trim() ? [dietNotes.trim()] : [])].join("; ") ||
+    "no restrictions"
+  }`;
+
 export function buildMealPrompt({
   meals,
   diets,
   dietNotes,
+  useUp = [],
 }: {
   meals: RecipeRequest[];
   diets: string[];
   dietNotes: string;
+  // Food at home that goes off soon, to use where it fits.
+  useUp?: string[];
 }) {
-  const diet = [...diets, ...(dietNotes.trim() ? [dietNotes.trim()] : [])].join(
-    "; ",
-  );
   return [
     CHEF,
     FORMAT,
-    `My diet: ${diet || "no restrictions"}`,
+    dietLine(diets, dietNotes),
+    ...(useUp.length
+      ? [
+          `I have these at home and they go off soon, so use them where they fit the meal: ${useUp.join(", ")}`,
+        ]
+      : []),
     `Meals:\n${meals
       .map(
         (m) =>
           `- ${m.name} (for ${m.servings})${m.source_url ? `, recipe at ${m.source_url}` : ""}`,
       )
       .join("\n")}`,
+  ].join("\n\n");
+}
+
+// Asks for new meals built around food that's about to go off.
+export function buildUseUpPrompt({
+  useUp,
+  alsoHave,
+  servings,
+  diets,
+  dietNotes,
+}: {
+  useUp: string[];
+  alsoHave: string[];
+  servings: number;
+  diets: string[];
+  dietNotes: string;
+}) {
+  return [
+    `You're a home cook who writes clear, reliable recipes. I want to cook with food at home before it goes off. Suggest 3 different meals for ${servings} that use up as much of it as possible, using common ingredients from a regular grocery store for the rest. I'll paste your reply into my meal planning app, which turns the ingredients into a grocery list.`,
+    FORMAT.replace("using my meal names exactly", "naming each meal"),
+    dietLine(diets, dietNotes),
+    `Use up soon: ${useUp.join(", ")}`,
+    ...(alsoHave.length ? [`Also at home: ${alsoHave.join(", ")}`] : []),
   ].join("\n\n");
 }
 
@@ -71,8 +105,7 @@ export interface Recipe {
 }
 
 export type RecipeImport =
-  | { ok: true; recipes: Recipe[] }
-  | { ok: false; errors: string[] };
+  { ok: true; recipes: Recipe[] } | { ok: false; errors: string[] };
 
 // The recipes inside the reply: the code block that has "##" meals, or the
 // whole reply when the bot left out the fences.
