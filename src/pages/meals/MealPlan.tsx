@@ -17,7 +17,15 @@ import {
   type PlannedMeal,
 } from "../../hooks/useMeals";
 import {
+  isSoon,
+  localDate,
+  mealsUsing,
+  dateLabel,
+  type KitchenItem,
+} from "../../functions/kitchen";
+import {
   buildMealPrompt,
+  buildUseUpPrompt,
   matchRecipes,
   parseMealReply,
   type Recipe,
@@ -116,7 +124,7 @@ function RecipePrompt({
 }: {
   waiting: { meal: Meal; servings: number }[];
 }) {
-  const { settings, saveSettings, importRecipes } = useMealsData();
+  const { settings, saveSettings, importRecipes, kitchen } = useMealsData();
   // Typed notes survive a refresh until they're saved.
   const [notes, setNotes] = useDraft("diet", "notes", settings.diet_notes);
   const [saving, setSaving] = useState(false);
@@ -194,6 +202,7 @@ function RecipePrompt({
             })),
             diets: settings.diets,
             dietNotes: notes,
+            useUp: kitchen.filter((k) => isSoon(k)).map((k) => k.name),
           });
         }}
       />
@@ -209,6 +218,130 @@ function RecipePrompt({
   );
 }
 
+// Food at home that goes off soon, the saved meals that use it, and a prompt
+// asking a chatbot for new meals built around it.
+function UseSoon({
+  soon,
+  servings,
+}: {
+  soon: KitchenItem[];
+  servings: number;
+}) {
+  const { meals, plan, kitchen, settings, addMeal, addToPlan } = useMealsData();
+  const [asking, setAsking] = useDraft("use-soon", "asking", false);
+  const [saving, setSaving] = useState(false);
+  const today = localDate();
+  const planned = new Set(plan.map((p) => p.meal_id));
+  const using = meals.filter((m) =>
+    soon.some((k) => mealsUsing(k.name, [m]).length > 0),
+  );
+
+  const handleImport = async (recipes: Recipe[]) => {
+    setSaving(true);
+    const results = await Promise.all(
+      recipes.map((r) =>
+        addMeal(
+          {
+            name: r.name,
+            servings: r.servings,
+            total_minutes: r.total_minutes,
+            ingredients: r.ingredients,
+            steps: r.steps,
+          },
+          servings,
+        ),
+      ),
+    );
+    setSaving(false);
+    const ok = results.every(Boolean);
+    if (ok) {
+      clearDraft("use-soon");
+      setAsking(false);
+    }
+    return ok;
+  };
+
+  return (
+    <div className={`${cardClass} flex flex-col gap-3`}>
+      <div>
+        <h2 className="font-bold">Use soon</h2>
+        <p className={mutedClass}>
+          {soon
+            .map(
+              (k) => `${k.name} (${dateLabel(k.use_by!, today).toLowerCase()})`,
+            )
+            .join(", ")}
+        </p>
+      </div>
+      {using.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {using.map((m) => (
+            <li key={m.id} className="flex items-center gap-2">
+              <Link
+                to={`/meals/library/${m.id}`}
+                className="min-w-0 flex-1 truncate font-bold"
+              >
+                {m.name}
+              </Link>
+              {planned.has(m.id) ? (
+                <span className="px-2 text-sm font-bold text-base-content/50 dark:text-base-content/70">
+                  Planned
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-sm rounded-full font-bold bg-base-content/8 border-0 shadow-none"
+                  onClick={() => addToPlan(m.id, servings)}
+                >
+                  + Plan
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {asking ? (
+        <>
+          <p className={labelClass}>
+            1. Copy the prompt into ChatGPT, Claude, Gemini or another chatbot
+          </p>
+          <CopyPrompt
+            getPrompt={() =>
+              buildUseUpPrompt({
+                useUp: soon.map((k) => k.name),
+                alsoHave: kitchen
+                  .filter((k) => k.place === "home" && !soon.includes(k))
+                  .map((k) => k.name),
+                servings,
+                diets: settings.diets,
+                dietNotes: settings.diet_notes,
+              })
+            }
+          />
+          <p className={labelClass}>2. Paste its reply</p>
+          <PasteReply
+            draft="use-soon-recipes"
+            saving={saving}
+            parse={parseRecipes}
+            importLabel="Add to plan"
+            onImport={handleImport}
+          />
+        </>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-sm self-start rounded-full font-bold bg-base-content/8 border-0 shadow-none"
+          onClick={() => setAsking(true)}
+        >
+          {using.length > 0
+            ? "Ask a chatbot for more ideas"
+            : "Ask a chatbot for meals that use them"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // The Meals tab's first page: the meals planned next, a way to add more, and
 // the chatbot prompt for any that still need a recipe.
 export default function MealPlan() {
@@ -220,7 +353,9 @@ export default function MealPlan() {
     addToPlan,
     setPlanServings,
     removeFromPlan,
+    kitchen,
   } = useMealsData();
+  const soon = kitchen.filter((k) => isSoon(k));
   const byId = new Map(meals.map((m) => [m.id, m]));
   const rows = plan
     .map((p) => ({ planned: p, meal: byId.get(p.meal_id) }))
@@ -299,6 +434,8 @@ export default function MealPlan() {
           Grocery list · {groceryCount} {groceryCount === 1 ? "item" : "items"}
         </Link>
       )}
+
+      {soon.length > 0 && <UseSoon soon={soon} servings={servings} />}
 
       {waiting.length > 0 && (
         // Remount once loaded, so the notes box starts from the saved notes.

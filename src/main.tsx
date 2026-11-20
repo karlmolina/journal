@@ -41,12 +41,14 @@ const mealPages = {
   shell: () => import("./pages/Meals"),
   plan: () => import("./pages/meals/MealPlan"),
   groceries: () => import("./pages/meals/Groceries"),
+  home: () => import("./pages/meals/AtHome"),
   library: () => import("./pages/meals/Library"),
   share: () => import("./pages/meals/Share"),
 };
 const Meals = React.lazy(mealPages.shell);
 const MealPlan = React.lazy(mealPages.plan);
 const Groceries = React.lazy(mealPages.groceries);
+const AtHome = React.lazy(mealPages.home);
 const MealLibrary = React.lazy(mealPages.library);
 const MealShare = React.lazy(mealPages.share);
 
@@ -127,6 +129,7 @@ ReactDOM.createRoot(document.getElementById("root")!, {
               >
                 <Route index element={<MealPlan />} />
                 <Route path="groceries" element={<Groceries />} />
+                <Route path="home" element={<AtHome />} />
                 <Route path="library" element={<MealLibrary />} />
                 <Route path="library/:mealId" element={<MealLibrary />} />
                 <Route path="share" element={<MealShare />} />

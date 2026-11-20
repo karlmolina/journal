@@ -5,6 +5,7 @@ import { readUserCache, writeUserCache } from "../functions/userCache";
 import { notDeleted, queueDelete } from "../functions/undoDelete";
 import { reportError } from "../functions/reportError";
 import type { Ingredient } from "../functions/meals";
+import { byUseBy, kitchenAisle, type KitchenItem } from "../functions/kitchen";
 import type { Recipe } from "../functions/mealPrompt";
 
 export interface Meal {
@@ -48,11 +49,28 @@ interface Cached {
   meals: Meal[];
   plan: PlannedMeal[];
   settings: MealSettings;
+  // Groceries you added yourself, and what's at home.
+  kitchen: KitchenItem[];
 }
+
+const KITCHEN_COLUMNS = "id, name, amount, aisle, place, use_by, created_at";
+
+// The fields of a kitchen item you can change.
+export type KitchenFields = Pick<
+  KitchenItem,
+  "name" | "amount" | "aisle" | "place" | "use_by"
+>;
 
 const CACHE_KEY = "meals";
 
-const EMPTY: Cached = { meals: [], plan: [], settings: DEFAULT_SETTINGS };
+const EMPTY: Cached = {
+  meals: [],
+  plan: [],
+  settings: DEFAULT_SETTINGS,
+  kitchen: [],
+};
+
+const sortKitchen = (items: KitchenItem[]) => [...items].sort(byUseBy);
 
 const byName = (meals: Meal[]) =>
   [...meals].sort((a, b) => a.name.localeCompare(b.name));
@@ -64,7 +82,10 @@ const byAdded = (plan: PlannedMeal[]) =>
 // loaded together since every page of the tab needs them.
 export default function useMeals(userId?: string) {
   const [data, setData] = useState<Cached>(() =>
-    userId ? readUserCache<Cached>(CACHE_KEY, userId, EMPTY) : EMPTY,
+    // Caches from before the kitchen list have no `kitchen`.
+    userId
+      ? { ...EMPTY, ...readUserCache<Cached>(CACHE_KEY, userId, EMPTY) }
+      : EMPTY,
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +106,7 @@ export default function useMeals(userId?: string) {
   const load = useCallback(async () => {
     if (!userId) return;
     const n = ++loads.current;
-    const [meals, plan, settings] = await Promise.all([
+    const [meals, plan, settings, kitchen] = await Promise.all([
       supabase.from("meals").select(MEAL_COLUMNS),
       supabase
         .from("meal_plan")
@@ -95,6 +116,7 @@ export default function useMeals(userId?: string) {
         .from("meal_settings")
         .select("diets, diet_notes, checked_groceries")
         .maybeSingle(),
+      supabase.from("kitchen_items").select(KITCHEN_COLUMNS),
     ]);
     if (n !== loads.current) return;
     setLoading(false);
@@ -102,13 +124,23 @@ export default function useMeals(userId?: string) {
     if (err) return fail("Couldn't load your meals.", err);
     const library = (meals.data as Meal[]).filter(notDeleted("meals"));
     const ids = new Set(library.map((m) => m.id));
-    setData({
+    // The kitchen list is extra: if it fails to load, the meals still show.
+    if (kitchen.error)
+      reportError(kitchen.error, "Couldn't load kitchen items.");
+    setData((d) => ({
       meals: byName(library),
       plan: (plan.data as PlannedMeal[])
         .filter(notDeleted("meal_plan"))
         .filter((p) => ids.has(p.meal_id)),
       settings: (settings.data as MealSettings | null) ?? DEFAULT_SETTINGS,
-    });
+      kitchen: kitchen.error
+        ? d.kitchen
+        : sortKitchen(
+            (kitchen.data as KitchenItem[])
+              .filter(notDeleted("kitchen_items"))
+              .map((i) => ({ ...i, aisle: kitchenAisle(i.aisle) })),
+          ),
+    }));
   }, [userId, fail]);
 
   // Loaded again whenever the app comes back into view, so changes made by
@@ -353,6 +385,106 @@ export default function useMeals(userId?: string) {
     [userId, fail],
   );
 
+  // New kitchen items, like a grocery you typed in or food put away.
+  const addKitchenItems = useCallback(
+    async (fields: KitchenFields[]) => {
+      if (fields.length === 0) return true;
+      const now = new Date().toISOString();
+      const items: KitchenItem[] = fields.map((f) => ({
+        ...f,
+        id: crypto.randomUUID(),
+        created_at: now,
+      }));
+      const ids = new Set(items.map((i) => i.id));
+      setData((d) => ({
+        ...d,
+        kitchen: sortKitchen([...d.kitchen, ...items]),
+      }));
+      setError(null);
+      const { error } = await supabase.from("kitchen_items").insert(items);
+      if (error) {
+        setData((d) => ({
+          ...d,
+          kitchen: d.kitchen.filter((i) => !ids.has(i.id)),
+        }));
+        fail("Couldn't save that.", error);
+        return false;
+      }
+      return true;
+    },
+    [fail],
+  );
+
+  // The same change to one or more kitchen items.
+  const updateKitchenItems = useCallback(
+    async (ids: string[], patch: Partial<KitchenFields>) => {
+      const set = new Set(ids);
+      const before = latest.current.kitchen.filter((i) => set.has(i.id));
+      if (before.length === 0) return false;
+      setData((d) => ({
+        ...d,
+        kitchen: sortKitchen(
+          d.kitchen.map((i) => (set.has(i.id) ? { ...i, ...patch } : i)),
+        ),
+      }));
+      setError(null);
+      const { error } = await supabase
+        .from("kitchen_items")
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .in("id", ids);
+      if (error) {
+        const old = new Map(before.map((i) => [i.id, i]));
+        setData((d) => ({
+          ...d,
+          kitchen: sortKitchen(d.kitchen.map((i) => old.get(i.id) ?? i)),
+        }));
+        fail("Couldn't save that.", error);
+        return false;
+      }
+      return true;
+    },
+    [fail],
+  );
+
+  // Used up, thrown out, or no longer needed. Undo puts them back.
+  const removeKitchenItems = useCallback(
+    (ids: string[], message: string) => {
+      const set = new Set(ids);
+      const removed = latest.current.kitchen.filter((i) => set.has(i.id));
+      if (removed.length === 0) return;
+      setData((d) => ({
+        ...d,
+        kitchen: d.kitchen.filter((i) => !set.has(i.id)),
+      }));
+      setError(null);
+      queueDelete({
+        message,
+        rows: removed.map((i) => `kitchen_items:${i.id}`),
+        commit: () =>
+          supabase
+            .from("kitchen_items")
+            .delete()
+            .in(
+              "id",
+              removed.map((i) => i.id),
+            ),
+        undo: () =>
+          setData((d) => {
+            const have = new Set(d.kitchen.map((i) => i.id));
+            return {
+              ...d,
+              kitchen: sortKitchen([
+                ...d.kitchen,
+                ...removed.filter((i) => !have.has(i.id)),
+              ]),
+            };
+          }),
+        onError: (err) => fail("Couldn't remove that.", err),
+      });
+    },
+    [fail],
+  );
+
   return {
     reload: load,
     ...data,
@@ -367,6 +499,9 @@ export default function useMeals(userId?: string) {
     removeFromPlan,
     importRecipes,
     saveSettings,
+    addKitchenItems,
+    updateKitchenItems,
+    removeKitchenItems,
   };
 }
 
