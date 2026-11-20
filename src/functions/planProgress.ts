@@ -273,6 +273,13 @@ export function supersetRuns(exercises: PlannedExercise[]) {
 // it moves past the whole neighboring exercise or superset, taking its own
 // superset with it. Gives where each exercise came from: `from[i]` is where
 // the exercise now at i used to be.
+// The list with the item at `from` taken out and put back at `to`.
+export function moveItem<T>(list: T[], from: number, to: number): T[] {
+  const next = [...list];
+  next.splice(to, 0, ...next.splice(from, 1));
+  return next;
+}
+
 export function moveInRuns(
   runs: number[][],
   index: number,

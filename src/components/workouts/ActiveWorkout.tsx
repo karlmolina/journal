@@ -28,6 +28,7 @@ import {
   endExercise,
   FIRST_SIDE,
   moveInRuns,
+  moveItem,
   nextSide,
   SECOND_SIDE,
   setsDone,
@@ -53,6 +54,8 @@ import SetForm from "./SetForm";
 import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
+import { DragSortList, Grip } from "../DragSort";
+import type { DragSort } from "../../hooks/useDragSort";
 import AddPlanExercise from "./AddPlanExercise";
 import StepActions, { type Step } from "./StepActions";
 import { primaryClass } from "./RestStartButton";
@@ -458,7 +461,7 @@ export default function ActiveWorkout({
   // Every exercise in the plan's order, each a card of its own: the ones
   // done sit above the current one with their sets, still editable, and
   // what's still to come sits below.
-  const card = (i: number) => {
+  const card = (i: number, grip?: ReactNode) => {
     const e = exercises[i];
     const doneSets = setsDone(e, sets);
     const complete = doneSets >= e.sets;
@@ -572,6 +575,7 @@ export default function ActiveWorkout({
         <section
           className={`${current ? restCardClass : cardClass} flex items-center gap-2`}
         >
+          {grip}
           <div className="flex-1 min-w-0">
             {label}
             <p
@@ -661,8 +665,7 @@ export default function ActiveWorkout({
   });
   const runIndices = runs.map((r) => r.indices);
   // Today's order changes; the plan and the exercise picked stay as they are.
-  const move = (i: number, direction: -1 | 1) => {
-    const from = moveInRuns(runIndices, i, direction);
+  const reorder = (from: number[] | null) => {
     if (!from) return;
     onPlanChange({
       ...workout.plan_changes,
@@ -670,6 +673,18 @@ export default function ActiveWorkout({
     });
     if (picked !== null) setPicked(from.indexOf(picked));
   };
+  const move = (i: number, direction: -1 | 1) =>
+    reorder(moveInRuns(runIndices, i, direction));
+  // Dragged to a new place: a whole run among the runs, or an exercise
+  // within its superset.
+  const dropRun = (from: number, to: number) =>
+    reorder(moveItem(runIndices, from, to).flat());
+  const dropInRun = (r: number) => (from: number, to: number) =>
+    reorder(
+      runIndices.flatMap((indices, k) =>
+        k === r ? moveItem(indices, from, to) : indices,
+      ),
+    );
 
   // Exercises done that aren't in the plan, each with a card where it was
   // done: before the first plan exercise started after it, and never below
@@ -731,7 +746,47 @@ export default function ActiveWorkout({
       }
     />
   );
-  const timeline = (
+  const grip = (sort: DragSort, k: number, name: string) => (
+    <Grip sort={sort} index={k} label={`Drag ${name} to move it`} />
+  );
+  const timeline = ordering ? (
+    // While moving them around: just the plan's exercises, each dragged by
+    // its handle, a superset by its outline's.
+    <DragSortList onDrop={dropRun}>
+      {(sort) => (
+        <ol className="flex flex-col gap-1" aria-label="Exercise order">
+          {runs.map(({ group, indices }, r) => (
+            <li
+              key={exercises[indices[0]].index}
+              className="flex flex-col gap-1"
+              {...sort.item(r)}
+            >
+              {group ? (
+                <SupersetGroup
+                  size={group.length}
+                  grip={grip(sort, r, group.join(" and "))}
+                >
+                  <DragSortList onDrop={dropInRun(r)}>
+                    {(inner) => (
+                      <div className="flex flex-col gap-1 pt-1">
+                        {indices.map((i, k) => (
+                          <div key={exercises[i].index} {...inner.item(k)}>
+                            {card(i, grip(inner, k, exercises[i].name))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </DragSortList>
+                </SupersetGroup>
+              ) : (
+                card(indices[0], grip(sort, r, exercises[indices[0]].name))
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </DragSortList>
+  ) : (
     <ol className="flex flex-col gap-1">
       {runs.map(({ group, indices }) => [
         ...offPlanBefore(indices[0]),
@@ -802,7 +857,15 @@ export default function ActiveWorkout({
             )}
           </div>
           {timeline}
-          {adding ? (
+          {ordering ? (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] self-center"
+              onClick={() => setOrdering(false)}
+            >
+              Done moving
+            </button>
+          ) : adding ? (
             <AddPlanExercise
               submitLabel={addToPlan ? `Add to ${planned.session.day}` : "Add"}
               draft={`${draft}:add`}

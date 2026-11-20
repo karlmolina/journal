@@ -36,6 +36,7 @@ const noNotes: ExerciseNotes = {
 export function renderWorkout(
   exercises: PlannedExercise[],
   sets: WorkoutSet[] = [],
+  supersets: string[][] | null = null,
 ) {
   const onAddSet = vi.fn();
   const onRemoveSets = vi.fn();
@@ -52,7 +53,7 @@ export function renderWorkout(
       notes: null,
       plan_id: "p1",
       plan_session: 0,
-      supersets: null,
+      supersets,
       plan_changes: null,
       workout_sets: sets,
     });
