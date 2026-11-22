@@ -7,6 +7,9 @@ import WorkoutHistoryCard from "../../components/workouts/WorkoutHistoryCard";
 import Chip from "../../components/Chip";
 import SupersetGroup from "../../components/workouts/SupersetGroup";
 import ErrorBanner from "../../components/ErrorBanner";
+import ActivityForm from "../../components/workouts/ActivityForm";
+import { activityChoices } from "../../functions/activities";
+import useDraft from "../../hooks/useDraft";
 import { useAuth } from "../../context/AuthContext";
 import useWorkouts, {
   type SetInput,
@@ -212,6 +215,8 @@ export default function Session() {
     resume,
     setElapsed,
     setPastElapsed,
+    logActivity,
+    updateActivity,
     finish,
     reopen,
     discard,
@@ -228,6 +233,14 @@ export default function Session() {
   const notes = useExerciseNotes(userId);
   const { injuries } = useInjuries(userId);
   const exerciseNotes = { notes, injuries };
+  // The form for a workout like yoga: "new", or the id of the one changed.
+  const [activityForm, setActivityForm] = useDraft<string | null>(
+    "activity",
+    "open",
+    null,
+  );
+  const choices = useMemo(() => activityChoices(history), [history]);
+  const editedActivity = history.find((w) => w.id === activityForm);
   const latestPlan = plans.find((p) => p.plan.sessions.length > 0);
   // Set by the library's "Log this exercise" button.
   const initialExercise: string | undefined = useLocation().state?.exercise;
@@ -485,33 +498,71 @@ export default function Session() {
             </section>
           )}
 
+          {activityForm === "new" ? (
+            <div className="mt-3">
+              <ActivityForm
+                choices={choices}
+                onCancel={() => setActivityForm(null)}
+                onSave={async (input) => {
+                  setActivityForm(null);
+                  return logActivity(input);
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-ghost rounded-full font-bold self-center mt-1"
+              onClick={() => setActivityForm("new")}
+            >
+              Log yoga or another workout
+            </button>
+          )}
+
           {history.length > 0 && (
             <h2 className="mt-8 mb-3 ml-1 text-sm font-bold tracking-wide text-base-content/60 dark:text-base-content/80">
               Past workouts
             </h2>
           )}
           <div className="flex flex-col gap-2">
-            {history.map((w, i) => (
-              <WorkoutHistoryCard
-                key={w.id}
-                workout={w}
-                supersets={supersetsOf(w)}
-                planDay={planDayOf(w)}
-                bodyPartsOf={bodyPartsOf}
-                suggestions={suggestions}
-                isUnilateral={isUnilateral}
-                onUpdateSet={handleUpdateSet}
-                onSplitSet={splitSet}
-                onRemoveSets={removeSets}
-                onContinue={
-                  i === 0 && startedToday(w) && !planFinished(w)
-                    ? () => reopen(w.id)
-                    : undefined
-                }
-                onElapsedChange={(seconds) => setPastElapsed(w.id, seconds)}
-                onDelete={() => removeWorkout(w.id)}
-              />
-            ))}
+            {history.map((w, i) =>
+              w.id === activityForm && editedActivity ? (
+                <ActivityForm
+                  key={w.id}
+                  workout={w}
+                  choices={choices}
+                  onCancel={() => setActivityForm(null)}
+                  onSave={async (input) => {
+                    setActivityForm(null);
+                    return updateActivity(w.id, input);
+                  }}
+                />
+              ) : (
+                <WorkoutHistoryCard
+                  key={w.id}
+                  workout={w}
+                  supersets={supersetsOf(w)}
+                  planDay={planDayOf(w)}
+                  bodyPartsOf={bodyPartsOf}
+                  suggestions={suggestions}
+                  isUnilateral={isUnilateral}
+                  onUpdateSet={handleUpdateSet}
+                  onSplitSet={splitSet}
+                  onRemoveSets={removeSets}
+                  onEdit={() => setActivityForm(w.id)}
+                  onContinue={
+                    i === 0 &&
+                    !w.activity &&
+                    startedToday(w) &&
+                    !planFinished(w)
+                      ? () => reopen(w.id)
+                      : undefined
+                  }
+                  onElapsedChange={(seconds) => setPastElapsed(w.id, seconds)}
+                  onDelete={() => removeWorkout(w.id)}
+                />
+              ),
+            )}
           </div>
 
           {loading ? (

@@ -92,6 +92,8 @@ interface WorkoutHistoryCardProps {
   onContinue?: () => void;
   // Sets how long the workout took, in seconds.
   onElapsedChange?: (seconds: number) => void;
+  // Opens the form for a logged activity like yoga.
+  onEdit?: () => void;
   onDelete: () => void;
 }
 
@@ -163,8 +165,11 @@ export default function WorkoutHistoryCard({
   onRemoveSets,
   onContinue,
   onElapsedChange,
+  onEdit,
   onDelete,
 }: WorkoutHistoryCardProps) {
+  // A workout without sets, like yoga: what it was stands in for the sets.
+  const activity = workout.activity;
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const groups = groupSets(workout.workout_sets);
@@ -189,8 +194,8 @@ export default function WorkoutHistoryCard({
             </time>
             <span className={`font-semibold tabular-nums ${muted}`}>
               {" "}
-              · {formatDuration(elapsedSeconds(workout))} · {setCount}{" "}
-              {setCount === 1 ? "set" : "sets"}
+              · {formatDuration(elapsedSeconds(workout))}
+              {!activity && ` · ${setCount} ${setCount === 1 ? "set" : "sets"}`}
             </span>
           </p>
           <svg
@@ -208,6 +213,11 @@ export default function WorkoutHistoryCard({
             <path d="m6 9 6 6 6-6" />
           </svg>
         </div>
+        {activity && (
+          <p className="mt-0.5 truncate text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
+            {activity}
+          </p>
+        )}
         {planDay && (
           <p className="mt-0.5 truncate text-sm font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
             {planDay}
@@ -264,14 +274,14 @@ export default function WorkoutHistoryCard({
               {workout.notes}
             </p>
           )}
-          {onElapsedChange && (
+          {onElapsedChange && !activity && (
             <WorkoutTimeField
               key={workout.ended_at}
               seconds={elapsedSeconds(workout)}
               onChange={onElapsedChange}
             />
           )}
-          {setCount > 0 ? (
+          {activity ? null : setCount > 0 ? (
             <SetList
               sets={workout.workout_sets}
               suggestions={suggestions}
@@ -297,6 +307,15 @@ export default function WorkoutHistoryCard({
                 {Math.round(volume).toLocaleString("en-US")} {WEIGHT_UNIT} total
                 volume
               </p>
+            )}
+            {activity && onEdit && !confirmDelete && (
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost rounded-full font-bold mr-auto"
+                onClick={onEdit}
+              >
+                Edit
+              </button>
             )}
             {confirmDelete ? (
               <>
