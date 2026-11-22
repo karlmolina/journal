@@ -22,6 +22,7 @@ import {
   movedTo,
   nextSessionIndex,
   followPlanEdit,
+  withSetCount,
 } from "../../functions/planProgress";
 import { exerciseSuggestions } from "../../functions/exerciseSuggestions";
 
@@ -190,6 +191,18 @@ export default function Plan() {
             }
             onMove={(session, index, direction) =>
               handleMove(selected, session, index, direction)
+            }
+            onSetRounds={(session, indexes, rounds) =>
+              saveSession(
+                selected,
+                session,
+                withSetCount(
+                  selected.plan.sessions[session].exercises,
+                  indexes,
+                  rounds,
+                ),
+                "Couldn't change the rounds.",
+              )
             }
             onStart={async (session) => {
               await start({ plan_id: selected.id, plan_session: session });

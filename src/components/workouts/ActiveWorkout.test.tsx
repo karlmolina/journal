@@ -143,6 +143,50 @@ describe("active workout", () => {
     expect(button("Rest")).toBeInTheDocument();
   });
 
+  it("adds and removes a circuit's rounds", async () => {
+    const user = userEvent.setup();
+    const w = renderWorkout([
+      exercise("Push-up", { sets: 2, superset: "A" }),
+      exercise("Row", { sets: 2, superset: "A" }),
+      exercise("Plank", { sets: 2, superset: "A" }),
+    ]);
+    render(<w.Harness />);
+    expect(screen.getByText(/Circuit · Round 1 of 2/)).toBeInTheDocument();
+
+    await user.click(button("One more round"));
+    expect(screen.getByText(/Circuit · Round 1 of 3/)).toBeInTheDocument();
+    await user.click(button("One round fewer"));
+    await user.click(button("One round fewer"));
+    expect(screen.getByText(/Circuit · Round 1 of 1/)).toBeInTheDocument();
+    // Never fewer than one round.
+    expect(button("One round fewer")).toBeDisabled();
+  });
+
+  it("won't take away rounds already done", async () => {
+    const user = userEvent.setup();
+    const w = renderWorkout(
+      [
+        exercise("Push-up", { sets: 3, superset: "A" }),
+        exercise("Row", { sets: 3, superset: "A" }),
+      ],
+      [
+        doneSet("Push-up"),
+        doneSet("Row"),
+        doneSet("Push-up"),
+        doneSet("Row"),
+      ],
+    );
+    render(<w.Harness />);
+    expect(screen.getByText(/Superset · Round 3 of 3/)).toBeInTheDocument();
+
+    await user.click(button("One round fewer"));
+    // Two rounds were done, so the superset is now done too.
+    expect(screen.getByText(/Superset · Done/)).toBeInTheDocument();
+    expect(button("One round fewer")).toBeDisabled();
+    await user.click(button("One more round"));
+    expect(screen.getByText(/Superset · Round 3 of 3/)).toBeInTheDocument();
+  });
+
   it("does the right side, then the left, before resting", async () => {
     const user = userEvent.setup();
     const w = renderWorkout([exercise("Lunge", { sets: 2, unilateral: true })]);

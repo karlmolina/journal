@@ -10,9 +10,12 @@ import {
   nextSide,
   plannedReps,
   plannedSeconds,
+  remapPlanChanges,
   setPrefill,
+  setSetCount,
   setSides,
   swapExercise,
+  withSetCount,
   workoutOrder,
 } from "./planProgress";
 
@@ -118,6 +121,22 @@ describe("plan changes for one workout", () => {
     const swapped = swapExercise(null, 0, "Goblet squat", "Squat");
     const back = swapExercise(swapped, 0, "squat", "Squat");
     expect(applyPlanChanges(day, back)[0].name).toBe("Squat");
+  });
+
+  it("changes how many sets (rounds) exercises have today", () => {
+    const changes = setSetCount(null, [0, 1], 4);
+    expect(applyPlanChanges(day, changes).map((e) => e.sets)).toEqual([
+      4, 4, 2,
+    ]);
+    // A swap keeps today's count, and a move takes it along.
+    const swapped = swapExercise(changes, 0, "Goblet squat", "Squat");
+    expect(applyPlanChanges(day, swapped)[0].sets).toBe(4);
+    const moved = remapPlanChanges(changes, (i) => (i + 1) % 3);
+    expect(moved.sets).toEqual({ "1": 4, "2": 4 });
+  });
+
+  it("changes the sets in a plan day", () => {
+    expect(withSetCount(day, [1, 2], 5).map((e) => e.sets)).toEqual([2, 5, 5]);
   });
 
   it("ends an exercise early, and picks it back up", () => {

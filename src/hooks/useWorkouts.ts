@@ -58,6 +58,9 @@ export interface PlanChanges {
   // The exercises' indexes in the order they're done today, when moved
   // around. Any missing go at the end in their own order.
   order?: number[];
+  // How many sets (a superset's rounds) an exercise has today instead of
+  // the plan's.
+  sets?: Record<string, number>;
 }
 
 // A workout without sets, like yoga, logged once it's over.
