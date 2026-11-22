@@ -97,7 +97,7 @@ interface SetTimerProps {
   // Just under the set just finished, for the button that goes on to the
   // rest or the next set; without one it shows in place.
   doneSlot?: HTMLElement | null;
-  // In a plan, Swap exercise on the card picks another exercise instead.
+  // In a plan, the card's Options drawer swaps in another exercise instead.
   hideChange?: boolean;
   // Level with the exercise's title, at the right.
   headerTitle?: React.ReactNode;
@@ -663,7 +663,7 @@ export default function SetTimer({
   // The exercise is a title until you choose to change it. With none yet,
   // it's a field, and stays one while you type.
   if (!state.editing && !name.trim()) setState({ ...state, editing: true });
-  // A plan's card names its exercise (Swap exercise changes it), so a
+  // A plan's card names its exercise (its Options drawer swaps it), so a
   // field left open from before it was in the plan doesn't stay open.
   const editing = (state.editing && !hideChange) || !name.trim();
   return (

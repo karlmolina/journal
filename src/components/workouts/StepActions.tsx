@@ -84,9 +84,9 @@ function RestField({
 
 // The title of each exercise's card is its Options button. It opens a
 // dialog to do the exercise now instead of the current one, swap it for
-// another for this workout, end it before all its sets are done, switch
-// it between one side at a time and both sides at once, or fix the rest
-// taken before each of its sets.
+// another for this workout (the swap field sits right in the dialog), end
+// it before all its sets are done, switch it between one side at a time
+// and both sides at once, or fix the rest taken before each of its sets.
 export default function StepActions({
   step,
   titleClassName,
@@ -120,12 +120,10 @@ export default function StepActions({
   onRest: (set: WorkoutSet, seconds: number | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [swapping, setSwapping] = useState(false);
   const [name, setName] = useState("");
 
   const close = () => {
     setOpen(false);
-    setSwapping(false);
     setName("");
   };
   // Each choice closes the dialog once it's made.
@@ -133,9 +131,9 @@ export default function StepActions({
     run();
     close();
   };
-  const swap = () => {
-    if (!name.trim()) return;
-    onSwap(name);
+  const swap = (to = name) => {
+    if (!to.trim()) return;
+    onSwap(to);
     close();
   };
   const labels = setLabels(sets, false);
@@ -167,103 +165,97 @@ export default function StepActions({
             <p className="text-center text-xl font-extrabold tracking-tight">
               {step.name}
             </p>
-            {swapping ? (
-              <div className="flex flex-col gap-2">
-                <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 px-1">
-                  Do something else instead of {step.name}, just this workout.
-                  {running && " The set going carries on as it."}
+            <div className="flex flex-col gap-2">
+              {onPick && stopping && (
+                <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 px-1 text-center">
+                  Your {stopping} set stops without saving.
                 </p>
-                <ExerciseInput
-                  className={boldFieldClass}
-                  value={name}
-                  onChange={setName}
-                  suggestions={suggestions.filter(
-                    (n) => n.toLowerCase() !== step.name.toLowerCase(),
-                  )}
-                />
-                <div className="flex gap-2">
+              )}
+              {onPick && (
+                <button
+                  type="button"
+                  className={optionClass}
+                  onClick={then(onPick)}
+                >
+                  Do this now
+                </button>
+              )}
+              {/* Swap right here: tap a suggestion, or type a name and Swap. */}
+              <form
+                className="flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  swap();
+                }}
+              >
+                <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 px-1">
+                  Swap for another exercise, just this workout
+                  {running && ". The set going carries on as it"}
+                </p>
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <ExerciseInput
+                      className={boldFieldClass}
+                      value={name}
+                      onChange={setName}
+                      placeholder="Swap for…"
+                      // Tapping a suggestion swaps to it straight away.
+                      onPick={swap}
+                      suggestions={suggestions.filter(
+                        (n) => n.toLowerCase() !== step.name.toLowerCase(),
+                      )}
+                    />
+                  </div>
                   <button
-                    type="button"
-                    className="btn btn-ghost rounded-full font-bold flex-1"
-                    onClick={() => setSwapping(false)}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary rounded-full font-bold flex-1"
-                    onClick={swap}
+                    type="submit"
+                    className="btn btn-primary rounded-full font-bold"
                     disabled={!name.trim()}
                   >
                     Swap
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {onPick && stopping && (
-                  <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 px-1 text-center">
-                    Your {stopping} set stops without saving.
-                  </p>
-                )}
-                {onPick && (
-                  <button
-                    type="button"
-                    className={optionClass}
-                    onClick={then(onPick)}
-                  >
-                    Do this now
-                  </button>
-                )}
+              </form>
+              {step.swapped_from && (
                 <button
                   type="button"
                   className={optionClass}
-                  onClick={() => setSwapping(true)}
+                  onClick={then(() => onSwap(step.swapped_from!))}
                 >
-                  Swap exercise
+                  Back to {step.swapped_from}
                 </button>
-                {step.swapped_from && (
+              )}
+              {!running && (step.unilateral || step.sides_changed) && (
+                <button
+                  type="button"
+                  className={optionClass}
+                  onClick={then(() => onSides(!step.unilateral))}
+                >
+                  {step.unilateral
+                    ? "Both sides at once"
+                    : "Back to one side at a time"}
+                </button>
+              )}
+              {running ? null : step.ended ? (
+                <button
+                  type="button"
+                  className={optionClass}
+                  onClick={then(() => onEnd(false))}
+                >
+                  Pick back up
+                </button>
+              ) : (
+                !complete && (
                   <button
                     type="button"
                     className={optionClass}
-                    onClick={then(() => onSwap(step.swapped_from!))}
+                    onClick={then(() => onEnd(true))}
                   >
-                    Back to {step.swapped_from}
+                    End early
                   </button>
-                )}
-                {!running && (step.unilateral || step.sides_changed) && (
-                  <button
-                    type="button"
-                    className={optionClass}
-                    onClick={then(() => onSides(!step.unilateral))}
-                  >
-                    {step.unilateral
-                      ? "Both sides at once"
-                      : "Back to one side at a time"}
-                  </button>
-                )}
-                {running ? null : step.ended ? (
-                  <button
-                    type="button"
-                    className={optionClass}
-                    onClick={then(() => onEnd(false))}
-                  >
-                    Pick back up
-                  </button>
-                ) : (
-                  !complete && (
-                    <button
-                      type="button"
-                      className={optionClass}
-                      onClick={then(() => onEnd(true))}
-                    >
-                      End early
-                    </button>
-                  )
-                )}
-              </div>
-            )}
-            {!swapping && sets.length > 0 && (
+                )
+              )}
+            </div>
+            {sets.length > 0 && (
               <div className="flex flex-col gap-2 border-t border-base-content/10 pt-3">
                 <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
                   Rest before each set
@@ -278,16 +270,14 @@ export default function StepActions({
                 ))}
               </div>
             )}
-            {!swapping && (
-              <button
-                type="button"
-                className="btn btn-ghost rounded-full font-bold"
-                onClick={close}
-                autoFocus
-              >
-                Done
-              </button>
-            )}
+            <button
+              type="button"
+              className="btn btn-ghost rounded-full font-bold"
+              onClick={close}
+              autoFocus
+            >
+              Done
+            </button>
           </section>
         </div>
       )}

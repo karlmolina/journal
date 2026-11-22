@@ -8,6 +8,9 @@ interface ExerciseInputProps {
   onChange: (value: string) => void;
   // Exercise names used before, most recent first.
   suggestions: string[];
+  placeholder?: string;
+  // Called when a suggestion is tapped, after onChange.
+  onPick?: (name: string) => void;
 }
 
 // An exercise name field with suggestions listed right under it. A native
@@ -18,6 +21,8 @@ export default function ExerciseInput({
   value,
   onChange,
   suggestions,
+  placeholder = "Exercise, like Goblet squat",
+  onPick,
 }: ExerciseInputProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,6 +60,7 @@ export default function ExerciseInput({
     setTyped(false);
     // Drop the keyboard so the rest of the form is visible again.
     inputRef.current?.blur();
+    onPick?.(name);
   };
 
   const clear = () => {
@@ -72,7 +78,7 @@ export default function ExerciseInput({
           className={className}
           // Room for the clear button.
           style={value ? { paddingRight: "2.75rem" } : undefined}
-          placeholder="Exercise, like Goblet squat"
+          placeholder={placeholder}
           value={value}
           onChange={(e) => {
             onChange(e.target.value);

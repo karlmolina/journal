@@ -409,7 +409,7 @@ export default function ActiveWorkout({
       onPhaseChange={onPhaseChange}
       restInCard={inPlan}
       doneSlot={doneSlot}
-      // A plan's exercise cards have Swap exercise instead.
+      // A plan's exercise cards swap from their Options drawer instead.
       hideChange={inPlan}
       headerTitle={headerTitle}
       controlRef={timerControl}
