@@ -76,7 +76,7 @@ export function renderWorkout(
             exercises: applyPlanChanges(exercises, workout.plan_changes),
           },
         }}
-        suggestions={[]}
+        suggestions={["Goblet squat"]}
         timerKey="set_timer_test"
         prefillFor={(name) => setPrefill(name, workout, [], exercises)}
         isUnilateral={unilateral}

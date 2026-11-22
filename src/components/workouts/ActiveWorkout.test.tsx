@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { doneSet, exercise, renderWorkout } from "../../test/workoutHarness";
 
@@ -222,6 +222,23 @@ describe("active workout", () => {
     });
   });
 
+  it("swaps from the drawer in one tap on a suggestion", async () => {
+    const user = userEvent.setup();
+    const w = renderWorkout([exercise("Squat"), exercise("Bench press")]);
+    render(<w.Harness />);
+
+    await user.click(button("Squat options"));
+    await user.click(screen.getByPlaceholderText("Swap for…"));
+    await user.click(
+      within(screen.getByRole("listbox")).getByRole("button", {
+        name: "Goblet squat",
+      }),
+    );
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("Instead of Squat")).toBeInTheDocument();
+  });
+
   it("swaps the exercise mid-set and keeps the set going as the new one", async () => {
     const user = userEvent.setup();
     const w = renderWorkout([exercise("Squat"), exercise("Bench press")]);
@@ -231,11 +248,8 @@ describe("active workout", () => {
     await user.click(button("Squat options"));
     // Ending it waits until the set is done.
     noButton("End early");
-    await user.click(button("Swap exercise"));
-    await user.type(
-      screen.getByPlaceholderText(/Exercise, like/),
-      "Goblet squat",
-    );
+    // The drawer has the swap field right in it.
+    await user.type(screen.getByPlaceholderText("Swap for…"), "Goblet squat");
     await user.click(button("Swap"));
 
     expect(button("Finish")).toBeInTheDocument();
