@@ -51,6 +51,7 @@ export function renderWorkout(
       paused_seconds: 0,
       ended_at: null,
       notes: null,
+      activity: null,
       plan_id: "p1",
       plan_session: 0,
       supersets,
