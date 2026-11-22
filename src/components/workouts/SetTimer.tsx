@@ -405,6 +405,8 @@ export default function SetTimer({
       goal={goal}
       lookup={lookup}
       exerciseNotes={exerciseNotes}
+      // A plan's exercises add notes from their Options drawer.
+      canAddNote={!hideChange}
       title={headerTitle}
     />
   );

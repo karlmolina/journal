@@ -20,15 +20,16 @@ export const exercise = (
   ...more,
 });
 
-const noNotes: ExerciseNotes = {
-  notesFor: () => [],
-  notesForInjury: () => [],
-  addNote: async () => true,
-  updateNote: async () => true,
-  removeNote: () => {},
-  error: null,
-  dismissError: () => {},
-} as unknown as ExerciseNotes;
+const noNotes = (addNote: ExerciseNotes["addNote"]): ExerciseNotes =>
+  ({
+    notesFor: () => [],
+    notesForInjury: () => [],
+    addNote,
+    updateNote: async () => true,
+    removeNote: () => {},
+    error: null,
+    dismissError: () => {},
+  }) as unknown as ExerciseNotes;
 
 // The workout page's active workout for a plan day, with the sets kept in
 // memory the way the Session page keeps them. `onAddSet` and `onRemoveSets`
@@ -40,6 +41,8 @@ export function renderWorkout(
 ) {
   const onAddSet = vi.fn();
   const onRemoveSets = vi.fn();
+  const onAddNote = vi.fn<ExerciseNotes["addNote"]>(async () => {});
+  const notes = noNotes(onAddNote);
   let latest: Workout;
   let n = sets.length;
 
@@ -81,7 +84,7 @@ export function renderWorkout(
         prefillFor={(name) => setPrefill(name, workout, [], exercises)}
         isUnilateral={unilateral}
         lookup={() => undefined}
-        exerciseNotes={{ notes: noNotes, injuries: [] }}
+        exerciseNotes={{ notes, injuries: [] }}
         onPause={() => {}}
         onResume={() => {}}
         onElapsedChange={() => {}}
@@ -131,6 +134,7 @@ export function renderWorkout(
     Harness,
     onAddSet,
     onRemoveSets,
+    onAddNote,
     sets: () => latest.workout_sets,
   };
 }
