@@ -5,6 +5,7 @@ import { formatClock, parseClock } from "../../functions/formatDuration";
 import { setLabels } from "../../functions/workoutSets";
 import useDragAdjust from "../../hooks/useDragAdjust";
 import ExerciseInput from "./ExerciseInput";
+import { AddNoteForm, type ExerciseNotesProps } from "./ExerciseNote";
 import { unitClass, unitFieldClass, unitInputClass } from "./SetForm";
 import { boldFieldClass } from "../styles";
 
@@ -84,7 +85,8 @@ function RestField({
 
 // The title of each exercise's card is its Options button. It opens a
 // dialog to do the exercise now instead of the current one, swap it for
-// another for this workout (the swap field sits right in the dialog), end
+// another for this workout (the swap field sits right in the dialog), add a
+// note on it, end
 // it before all its sets are done, switch it between one side at a time
 // and both sides at once, or fix the rest taken before each of its sets.
 export default function StepActions({
@@ -100,6 +102,8 @@ export default function StepActions({
   onEnd,
   onSides,
   onRest,
+  exerciseNotes,
+  regions = [],
 }: {
   step: Step;
   titleClassName: string;
@@ -118,13 +122,20 @@ export default function StepActions({
   // Does it one side at a time (true) or both sides at once, this workout.
   onSides: (unilateral: boolean) => void;
   onRest: (set: WorkoutSet, seconds: number | null) => void;
+  // To add a note on it, and its body regions to suggest an injury.
+  exerciseNotes?: ExerciseNotesProps;
+  regions?: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  // The note form is open in the dialog. Its text is a draft, kept if the
+  // dialog closes before Save.
+  const [noting, setNoting] = useState(false);
 
   const close = () => {
     setOpen(false);
     setName("");
+    setNoting(false);
   };
   // Each choice closes the dialog once it's made.
   const then = (run: () => void) => () => {
@@ -215,6 +226,28 @@ export default function StepActions({
                   </button>
                 </div>
               </form>
+              {exerciseNotes &&
+                (noting ? (
+                  <div className="flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3">
+                    <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 px-1">
+                      Note on {step.name}
+                    </p>
+                    <AddNoteForm
+                      exercise={step.name}
+                      regions={regions}
+                      {...exerciseNotes}
+                      onDone={(saved) => (saved ? close() : setNoting(false))}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={optionClass}
+                    onClick={() => setNoting(true)}
+                  >
+                    Add a note
+                  </button>
+                ))}
               {step.swapped_from && (
                 <button
                   type="button"

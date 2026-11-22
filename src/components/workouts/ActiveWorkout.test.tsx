@@ -258,4 +258,26 @@ describe("active workout", () => {
       exercise_name: "Goblet squat",
     });
   });
+
+  it("adds a note from the drawer, not from the exercise's header", async () => {
+    const user = userEvent.setup();
+    const w = renderWorkout([exercise("Squat"), exercise("Bench press")]);
+    render(<w.Harness />);
+
+    noButton("+ Add a note");
+    await user.click(button("Bench press options"));
+    await user.click(button("Add a note"));
+    await user.type(
+      screen.getByPlaceholderText(/A cue that helps/),
+      "Elbows tucked",
+    );
+    await user.click(button("Save note"));
+
+    expect(w.onAddNote).toHaveBeenCalledWith(
+      "Bench press",
+      "Elbows tucked",
+      null,
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 });

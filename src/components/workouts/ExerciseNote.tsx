@@ -18,6 +18,9 @@ interface ExerciseNoteProps extends ExerciseNotesProps {
   exercise: string;
   // The exercise's body regions, to suggest which injury a note is about.
   regions: string[];
+  // Shows "+ Add a note". In a plan's workout notes are added from the
+  // exercise's Options drawer instead.
+  canAdd?: boolean;
 }
 
 // Notes shown before "Show all".
@@ -141,12 +144,54 @@ function NoteForm({
   );
 }
 
+// The injuries still going, and the one in the exercise's areas, which is
+// probably what a note is about.
+const injuryChoices = (injuries: Injury[], regions: string[]) => {
+  const active = injuries.filter((i) => !i.healed_on);
+  const suggested =
+    active.find(
+      (i) =>
+        regions.includes(i.region) || regions.includes(libraryRegion(i.region)),
+    )?.id ?? null;
+  return { active, suggested };
+};
+
+// The form to add a note on an exercise. Its unsaved text is kept under
+// the same name wherever it's opened.
+export function AddNoteForm({
+  exercise,
+  regions,
+  notes,
+  injuries,
+  onDone,
+}: Omit<ExerciseNoteProps, "canAdd"> & {
+  // After Save (true) or Cancel (false).
+  onDone: (saved: boolean) => void;
+}) {
+  const { active, suggested } = injuryChoices(injuries, regions);
+  return (
+    <NoteForm
+      scope={`note:${exercise}:new`}
+      initial=""
+      injuries={active}
+      initialInjury={suggested}
+      saveLabel="Save note"
+      onSave={(note, injuryId) => {
+        notes.addNote(exercise, note, injuryId);
+        onDone(true);
+      }}
+      onCancel={() => onDone(false)}
+    />
+  );
+}
+
 // Your own dated notes on an exercise, newest first, with a form to add one.
 export default function ExerciseNote({
   exercise,
   regions,
   notes,
   injuries,
+  canAdd = true,
 }: ExerciseNoteProps) {
   // "new", a note's id, or null when not editing.
   const [editing, setEditing] = useDraft<string | null>(
@@ -158,32 +203,21 @@ export default function ExerciseNote({
   // Folded to just its heading until tapped open.
   const [open, setOpen] = useState(false);
   const entries = notes.notesFor(exercise);
-  const active = injuries.filter((i) => !i.healed_on);
+  const { active } = injuryChoices(injuries, regions);
   const byId = new Map(injuries.map((i) => [i.id, i]));
-  // An injury in one of the exercise's areas is probably what a note is about.
-  const suggested =
-    active.find(
-      (i) =>
-        regions.includes(i.region) || regions.includes(libraryRegion(i.region)),
-    )?.id ?? null;
 
-  if (editing === "new")
+  if (editing === "new" && canAdd)
     return (
-      <NoteForm
-        scope={`note:${exercise}:new`}
-        initial=""
-        injuries={active}
-        initialInjury={suggested}
-        saveLabel="Save note"
-        onSave={(note, injuryId) => {
-          notes.addNote(exercise, note, injuryId);
-          setEditing(null);
-        }}
-        onCancel={() => setEditing(null)}
+      <AddNoteForm
+        exercise={exercise}
+        regions={regions}
+        notes={notes}
+        injuries={injuries}
+        onDone={() => setEditing(null)}
       />
     );
 
-  const add = (
+  const add = canAdd && (
     <button
       type="button"
       className="self-start text-xs font-bold text-base-content/55 dark:text-base-content/75 cursor-pointer"
@@ -196,7 +230,7 @@ export default function ExerciseNote({
       + Add a note
     </button>
   );
-  if (entries.length === 0) return add;
+  if (entries.length === 0) return add || null;
 
   const shown = showAll ? entries : entries.slice(0, SHOWN);
   const renderEntry = (e: ExerciseNoteEntry) => {

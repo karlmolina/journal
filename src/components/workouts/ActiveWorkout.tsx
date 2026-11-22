@@ -521,6 +521,8 @@ export default function ActiveWorkout({
         key={e.name}
         step={e}
         sets={logged}
+        exerciseNotes={exerciseNotes}
+        regions={lookup(e.name)?.body_regions}
         complete={complete}
         suggestions={suggestions}
         // Mid-set, the set going stops without being saved.

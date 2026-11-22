@@ -35,6 +35,7 @@ export default function ExerciseHeader({
   goal,
   lookup,
   exerciseNotes,
+  canAddNote = true,
   title,
 }: {
   name: string;
@@ -43,6 +44,8 @@ export default function ExerciseHeader({
   goal?: string;
   lookup?: (exercise: string) => Exercise | undefined;
   exerciseNotes?: ExerciseNotesProps;
+  // A plan's exercises add notes from their Options drawer instead.
+  canAddNote?: boolean;
   // Stands in for the name, e.g. as a button.
   title?: ReactNode;
 }) {
@@ -65,6 +68,7 @@ export default function ExerciseHeader({
             exercise={name}
             regions={lookup?.(name)?.body_regions ?? []}
             {...exerciseNotes}
+            canAdd={canAddNote}
           />
         )}
       </div>
