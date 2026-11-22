@@ -170,6 +170,7 @@ export default function Injuries() {
       onHealed={() => updateInjury(i.id, { healed_on: today() })}
       onReopen={() => updateInjury(i.id, { healed_on: null })}
       onDelete={() => removeInjury(i.id)}
+      onStartedOn={(started_on) => updateInjury(i.id, { started_on })}
       onMove={() => {
         setMoving(i);
         setAdding(false);

@@ -1,6 +1,7 @@
 import type { WorkoutPlan, PlannedExercise } from "../hooks/useWorkoutPlans";
 import type {
   PlanChanges,
+  SetInput,
   Side,
   Workout,
   WorkoutSet,
@@ -272,6 +273,13 @@ export function supersetRuns(exercises: PlannedExercise[]) {
 // it moves past the whole neighboring exercise or superset, taking its own
 // superset with it. Gives where each exercise came from: `from[i]` is where
 // the exercise now at i used to be.
+// The list with the item at `from` taken out and put back at `to`.
+export function moveItem<T>(list: T[], from: number, to: number): T[] {
+  const next = [...list];
+  next.splice(to, 0, ...next.splice(from, 1));
+  return next;
+}
+
 export function moveInRuns(
   runs: number[][],
   index: number,
@@ -351,4 +359,25 @@ export function followPlanEdit(
     workout.plan_changes
     ? remapPlanChanges(workout.plan_changes, to)
     : null;
+}
+
+// The numbers a new set of `name` starts with. Reps and time come from the
+// plan, else the last time you did it. Weight is the last set of it you
+// finished in this workout, so a change you made carries on to the next set;
+// before the first one, the plan's weight, else the last time's.
+export function setPrefill(
+  name: string,
+  active: Workout | null | undefined,
+  history: Workout[],
+  exercises: PlannedExercise[] = [],
+): Partial<SetInput> {
+  const k = nameKey(name);
+  const target = exercises.find((e) => nameKey(e.name) === k);
+  const thisWorkout = active ? lastSetOf(name, [active]) : undefined;
+  const last = thisWorkout ?? lastSetOf(name, history);
+  return {
+    reps: (target && plannedReps(target.reps)) ?? last?.reps ?? null,
+    weight: thisWorkout?.weight ?? target?.weight ?? last?.weight ?? null,
+    duration_seconds: (target && plannedSeconds(target.reps)) ?? null,
+  };
 }

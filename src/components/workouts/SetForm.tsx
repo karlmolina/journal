@@ -17,7 +17,8 @@ export const unitInputClass =
   "w-full min-w-0 bg-transparent text-right font-semibold outline-none";
 export const unitClass =
   "shrink-0 text-sm font-medium text-base-content/45 dark:text-base-content/65";
-// Readable from across the room, for the set you're on.
+// Readable from across the room, for the set you're on. These drag right
+// away, without the tap other fields need first.
 const bigInputClass =
   "w-full min-w-0 bg-transparent text-right text-4xl font-extrabold tracking-tight tabular-nums outline-none";
 const bigUnitClass =

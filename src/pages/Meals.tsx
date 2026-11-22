@@ -9,6 +9,7 @@ import useMeals from "../hooks/useMeals";
 const TABS = [
   { to: "/meals", label: "Plan", end: true },
   { to: "/meals/groceries", label: "Groceries" },
+  { to: "/meals/home", label: "At home" },
   { to: "/meals/library", label: "Library" },
   { to: "/meals/share", label: "Share" },
 ];

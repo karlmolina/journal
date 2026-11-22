@@ -30,6 +30,9 @@ export interface Workout {
   paused_seconds: number;
   ended_at: string | null;
   notes: string | null;
+  // What a workout without sets was, like "Yoga"; null for workouts of
+  // sets. Its notes describe it.
+  activity: string | null;
   // The plan and session (an index into its sessions) this workout follows.
   plan_id: string | null;
   plan_session: number | null;
@@ -57,6 +60,14 @@ export interface PlanChanges {
   order?: number[];
 }
 
+// A workout without sets, like yoga, logged once it's over.
+export interface ActivityInput {
+  activity: string;
+  started_at: string;
+  ended_at: string;
+  notes: string | null;
+}
+
 export interface PlanSessionRef {
   plan_id: string;
   plan_session: number;
@@ -79,7 +90,7 @@ export type SetInput = Omit<NewSet, "exercise_id">;
 const CACHE_KEY = "workouts";
 const HISTORY_LIMIT = 20;
 const SELECT =
-  "id, started_at, paused_at, paused_seconds, ended_at, notes, plan_id, plan_session, supersets, plan_changes, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, side, rest_seconds, created_at)";
+  "id, started_at, paused_at, paused_seconds, ended_at, notes, activity, plan_id, plan_session, supersets, plan_changes, workout_sets (id, workout_id, exercise_name, exercise_id, reps, weight, duration_seconds, side, rest_seconds, created_at)";
 
 // Stopwatch time: wall time since the start, minus time spent paused.
 export function elapsedSeconds(w: Workout, now = Date.now()) {
@@ -100,6 +111,7 @@ const pauseLength = (w: Workout, now: number) =>
 // Sets waiting behind an Undo toast stay out, like the deleted set itself.
 const normalize = (w: Workout): Workout => ({
   ...w,
+  activity: w.activity ?? null,
   supersets: w.supersets ?? null,
   plan_changes: w.plan_changes ?? null,
   workout_sets: w.workout_sets
@@ -248,6 +260,7 @@ export default function useWorkouts(userId?: string) {
         paused_seconds: 0,
         ended_at: null,
         notes: null,
+        activity: null,
         plan_id: planned?.plan_id ?? null,
         plan_session: planned?.plan_session ?? null,
         supersets: null,
@@ -375,6 +388,63 @@ export default function useWorkouts(userId?: string) {
         setHistory(put(prev));
         fail("Couldn't change the workout time.", error);
       }
+    },
+    [fail],
+  );
+
+  // Logs a workout that's already over and has no sets, like yoga.
+  const logActivity = useCallback(
+    async (input: ActivityInput) => {
+      const workout: Workout = {
+        id: crypto.randomUUID(),
+        ...input,
+        paused_at: null,
+        paused_seconds: 0,
+        plan_id: null,
+        plan_session: null,
+        supersets: null,
+        plan_changes: null,
+        workout_sets: [],
+      };
+      setHistory((h) => restore(h, workout));
+      setError(null);
+      const { error } = await supabase.from("workouts").insert({
+        id: workout.id,
+        ...input,
+      });
+      if (error) {
+        setHistory((h) => h.filter((w) => w.id !== workout.id));
+        fail("Couldn't save that workout.", error);
+        return false;
+      }
+      return true;
+    },
+    [fail],
+  );
+
+  // Changes what a logged activity was, when, how long, or its description.
+  const updateActivity = useCallback(
+    async (id: string, input: ActivityInput) => {
+      const prev = state.current.history.find((w) => w.id === id);
+      if (!prev) return false;
+      const put = (w: Workout) => (h: Workout[]) =>
+        h
+          .filter((x) => x.id !== id)
+          .concat(w)
+          .sort(byStartedDesc);
+      // Undoes a pause the workout might have had, so the time is as typed.
+      setHistory(put({ ...prev, ...input, paused_seconds: 0 }));
+      setError(null);
+      const { error } = await supabase
+        .from("workouts")
+        .update({ ...input, paused_seconds: 0 })
+        .eq("id", id);
+      if (error) {
+        setHistory(put(prev));
+        fail("Couldn't change that workout.", error);
+        return false;
+      }
+      return true;
     },
     [fail],
   );
@@ -637,6 +707,8 @@ export default function useWorkouts(userId?: string) {
     resume,
     setElapsed,
     setPastElapsed,
+    logActivity,
+    updateActivity,
     finish,
     reopen,
     discard,

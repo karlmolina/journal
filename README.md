@@ -19,3 +19,10 @@ For CI deploys, set the `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` 
 ## AI workout planning
 
 The Plan tab doesn't call an AI itself. It builds a prompt from your goals, equipment, current injuries, recent workouts, exercise library (and the current plan, when changing one), plus the reply format the app expects, and copies it. Prompt and reply are short pipe-separated lines rather than JSON, because phone clipboards cut off long text (see `src/functions/planPrompt.ts`). Paste it into any chatbot, then paste the bot's reply into **Import plan**. The reply is checked in the browser (code fences and chatter around the plan are fine) and saved to `workout_plans`; the previous plan stays under **Earlier plans**. Goals, equipment, days and minutes are saved per person in `workout_plan_preferences` and fill the form next time.
+
+## Tests
+
+`bun run test` runs the Vitest suite (`*.test.ts(x)` next to the code, with
+shared helpers in `src/test/`). Component tests render with Testing Library in
+jsdom and hand the app its data, so they never reach Supabase. The Test
+workflow runs lint, the build and the tests on every pull request.

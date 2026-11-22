@@ -94,6 +94,8 @@ export default function StepActions({
   complete,
   suggestions,
   onPick,
+  stopping,
+  running = false,
   onSwap,
   onEnd,
   onSides,
@@ -106,6 +108,11 @@ export default function StepActions({
   complete: boolean;
   suggestions: string[];
   onPick?: () => void;
+  // The exercise whose set is going, which Do this now stops unsaved.
+  stopping?: string;
+  // Its own set is going: swapping carries the set on as the new exercise,
+  // and ending it or its sides wait until the set is done.
+  running?: boolean;
   onSwap: (name: string) => void;
   onEnd: (ended: boolean) => void;
   // Does it one side at a time (true) or both sides at once, this workout.
@@ -164,6 +171,7 @@ export default function StepActions({
               <div className="flex flex-col gap-2">
                 <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 px-1">
                   Do something else instead of {step.name}, just this workout.
+                  {running && " The set going carries on as it."}
                 </p>
                 <ExerciseInput
                   className={boldFieldClass}
@@ -193,6 +201,11 @@ export default function StepActions({
               </div>
             ) : (
               <div className="flex flex-col gap-2">
+                {onPick && stopping && (
+                  <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 px-1 text-center">
+                    Your {stopping} set stops without saving.
+                  </p>
+                )}
                 {onPick && (
                   <button
                     type="button"
@@ -218,7 +231,7 @@ export default function StepActions({
                     Back to {step.swapped_from}
                   </button>
                 )}
-                {(step.unilateral || step.sides_changed) && (
+                {!running && (step.unilateral || step.sides_changed) && (
                   <button
                     type="button"
                     className={optionClass}
@@ -229,7 +242,7 @@ export default function StepActions({
                       : "Back to one side at a time"}
                   </button>
                 )}
-                {step.ended ? (
+                {running ? null : step.ended ? (
                   <button
                     type="button"
                     className={optionClass}

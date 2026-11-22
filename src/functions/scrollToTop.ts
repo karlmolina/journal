@@ -15,7 +15,7 @@ export default function scrollToTop(target: () => HTMLElement | null) {
     ? "auto"
     : "smooth";
   let frame = 0;
-  let timer = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const stop = () => {
     stopScrolling = null;
     gliding = false;

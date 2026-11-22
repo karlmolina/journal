@@ -6,6 +6,7 @@ export default function SupersetGroup({
   size,
   progress,
   rest,
+  grip,
   children,
 }: {
   // How many exercises it has: two is a superset, more a circuit.
@@ -13,11 +14,14 @@ export default function SupersetGroup({
   // Like "Round 2 of 3" or "3 rounds".
   progress?: string;
   rest?: number;
+  // A handle to drag the whole group by, beside its note.
+  grip?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="rounded-2xl border border-base-content/15 dark:border-base-content/25 p-1">
-      <p className="px-2.5 pt-1 text-xs font-semibold text-base-content/50 dark:text-base-content/70 tabular-nums">
+      <p className="flex items-center gap-1 px-2.5 pt-1 text-xs font-semibold text-base-content/50 dark:text-base-content/70 tabular-nums">
+        {grip}
         {[
           size > 2 ? "Circuit" : "Superset",
           progress,

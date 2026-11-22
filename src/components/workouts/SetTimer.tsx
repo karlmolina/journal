@@ -1,5 +1,11 @@
 import type React from "react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import type { SetInput, Side } from "../../hooks/useWorkouts";
 import type { Exercise } from "../../hooks/useExercises";
@@ -20,6 +26,7 @@ import {
   type Rest,
 } from "../../functions/setTimerState";
 import { boldFieldClass } from "../styles";
+import { sameName } from "../../functions/exerciseName";
 
 const text = (n: number | null | undefined) => (n == null ? "" : String(n));
 
@@ -55,7 +62,12 @@ interface SetTimerProps {
   suggestions: string[];
   prefillFor: (exercise: string) => Partial<SetInput>;
   // Rest after a set, and the exercise to do next when it's in a superset.
-  afterSet: (set: SetInput) => { rest: number; next?: string };
+  // `planDone` when it was the plan's last set: nothing is left to rest for.
+  afterSet: (set: SetInput) => {
+    rest: number;
+    next?: string;
+    planDone?: boolean;
+  };
   // The side to do next for one-side-at-a-time exercises, otherwise null.
   sideFor: (exercise: string) => Side | null;
   // The other exercises in this one's superset, if it's in one.
@@ -67,6 +79,9 @@ interface SetTimerProps {
   // Your own notes on exercises.
   exerciseNotes?: ExerciseNotesProps;
   onSave: (set: SetInput) => void;
+  // Finish tapped by mistake: the set just saved is taken back out, and its
+  // clock carries on.
+  onUnfinish?: () => void;
   // Whether the set just stopped can still be fixed: until the next starts.
   onLoggedChange?: (logged: boolean) => void;
   // Goes between the exercise's title and its clock or start button: its
@@ -86,6 +101,14 @@ interface SetTimerProps {
   hideChange?: boolean;
   // Level with the exercise's title, at the right.
   headerTitle?: React.ReactNode;
+  // For the page around it: stop the set going without saving it, or carry
+  // it on as another exercise.
+  controlRef?: React.Ref<TimerControl>;
+}
+
+export interface TimerControl {
+  stop: () => void;
+  rename: (exercise: string) => void;
 }
 
 export type TimerPhase = Phase["phase"];
@@ -111,6 +134,7 @@ export default function SetTimer({
   lookup,
   exerciseNotes,
   onSave,
+  onUnfinish,
   onLoggedChange,
   aboveClock,
   onSlotChange,
@@ -119,6 +143,7 @@ export default function SetTimer({
   doneSlot,
   hideChange = false,
   headerTitle,
+  controlRef,
 }: SetTimerProps) {
   const [state, setStateNow] = useState<Phase>(() =>
     readSaved(storageKey, workoutId),
@@ -248,7 +273,8 @@ export default function SetTimer({
   ): Phase => {
     if (set.side === FIRST_SIDE)
       return { phase: "ready", switchTo: SECOND_SIDE, logged };
-    const { rest: target, next } = afterSet(set);
+    const { rest: target, next, planDone } = afterSet(set);
+    if (planDone) return { phase: "ready", logged, planDone };
     if (next) setName(next);
     if (target > 0)
       return {
@@ -286,7 +312,44 @@ export default function SetTimer({
       exercise: state.exercise,
       side: state.side,
       then: afterSaving(set, at, true),
+      undo: { ...state, reps, weight },
     });
+  };
+
+  // Started by mistake, or the wrong one: the set goes without being saved,
+  // and the rest from before it (if any) carries on.
+  const cancelSet = () => {
+    if (state.phase !== "running" && state.phase !== "logging") return;
+    setState(
+      state.rest ? { phase: "resting", rest: state.rest } : { phase: "ready" },
+    );
+  };
+
+  // The set going is really another exercise: it keeps timing as that one.
+  const renameSet = (exercise: string) => {
+    const n = exercise.trim();
+    if (!n) return;
+    setName(n);
+    if (state.phase !== "running" || sameName(state.exercise, n)) return;
+    setState({
+      ...state,
+      exercise: n,
+      side: sideFor(n),
+      ...planned(n),
+    });
+  };
+
+  useImperativeHandle(controlRef, () => ({
+    stop: cancelSet,
+    rename: renameSet,
+  }));
+
+  // Back to the set as it was, still timing from when it started.
+  const unfinish = () => {
+    if (state.phase !== "done" || state.undo?.phase !== "running") return;
+    onUnfinish?.();
+    setName(state.undo.exercise);
+    setState(state.undo);
   };
 
   // From the set just finished on to the rest (which began when the set
@@ -294,7 +357,12 @@ export default function SetTimer({
   const carryOn = () => {
     if (state.phase !== "done") return;
     const n = name.trim();
-    if (state.then.phase === "resting" || !n) return setState(state.then);
+    if (
+      state.then.phase === "resting" ||
+      (state.then.phase === "ready" && state.then.planDone) ||
+      !n
+    )
+      return setState(state.then);
     setState({
       phase: "running",
       exercise: n,
@@ -425,6 +493,13 @@ export default function SetTimer({
             Finish
           </button>
         )}
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1 self-center"
+          onClick={cancelSet}
+        >
+          Stop without saving
+        </button>
       </div>
     );
   }
@@ -456,17 +531,42 @@ export default function SetTimer({
   if (state.phase === "done") {
     // Named for what's next.
     const label =
-      state.then.phase === "resting"
-        ? "Rest"
-        : name.trim().toLowerCase() !== state.exercise.toLowerCase()
-          ? "Next exercise"
-          : side
-            ? `Start ${side} side`
-            : "Next set";
+      state.then.phase === "ready" && state.then.planDone
+        ? "Done"
+        : state.then.phase === "resting"
+          ? "Rest"
+          : name.trim().toLowerCase() !== state.exercise.toLowerCase()
+            ? "Next exercise"
+            : side
+              ? `Start ${side} side`
+              : "Next set";
     const button = (
-      <button type="button" className={primaryClass} onClick={carryOn}>
-        {label}
-      </button>
+      <div className="flex flex-col items-center">
+        <button type="button" className={primaryClass} onClick={carryOn}>
+          {label}
+        </button>
+        {state.undo && onUnfinish && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm rounded-full font-semibold text-base-content/55 dark:text-base-content/75 mt-1 gap-1"
+            onClick={unfinish}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M17 10a.75.75 0 0 1-.75.75H5.61l4.17 3.97a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.1l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.6 9.25h10.65A.75.75 0 0 1 17 10Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Back to the set
+          </button>
+        )}
+      </div>
     );
     // No start button here: the one button is under the set just finished.
     // Moving on to another exercise, this card stays the one just done

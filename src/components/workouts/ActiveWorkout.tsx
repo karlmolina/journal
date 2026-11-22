@@ -28,6 +28,7 @@ import {
   endExercise,
   FIRST_SIDE,
   moveInRuns,
+  moveItem,
   nextSide,
   SECOND_SIDE,
   setsDone,
@@ -50,9 +51,15 @@ import {
 import SetList from "./SetList";
 import Chip from "../Chip";
 import SetForm from "./SetForm";
-import SetTimer, { type SlotContent, type TimerPhase } from "./SetTimer";
+import SetTimer, {
+  type SlotContent,
+  type TimerControl,
+  type TimerPhase,
+} from "./SetTimer";
 import ExerciseHowTo from "./ExerciseHowTo";
 import SupersetGroup from "./SupersetGroup";
+import { DragSortList, Grip } from "../DragSort";
+import type { DragSort } from "../../hooks/useDragSort";
 import AddPlanExercise from "./AddPlanExercise";
 import StepActions, { type Step } from "./StepActions";
 import { primaryClass } from "./RestStartButton";
@@ -204,9 +211,16 @@ export default function ActiveWorkout({
   // In a superset the next exercise follows with no rest, and the rest comes
   // after the round (the longest any of its exercises asks for).
   const afterSet = (set: SetInput) => {
+    const all = [...sets, set as WorkoutSet];
+    // The plan's last set: nothing left to rest for.
+    if (
+      exercises.length > 0 &&
+      currentExerciseIndex(exercises, sets) !== null &&
+      currentExerciseIndex(exercises, all) === null
+    )
+      return { rest: 0, planDone: true };
     const group = supersetOf(set.exercise_name, supersets);
     if (!group) return { rest: restFor(set.exercise_name) };
-    const all = [...sets, set as WorkoutSet];
     const { next, rest } = nextInSuperset(
       set.exercise_name,
       group,
@@ -222,7 +236,10 @@ export default function ActiveWorkout({
   const supersetWith = (name: string) =>
     supersetOf(name, supersets)?.filter((n) => !sameName(n, name));
 
+  // The exercise picked before the last set, to go back to with it.
+  const pickedBefore = useRef<number | null>(null);
   const handleSave = (set: SetInput) => {
+    pickedBefore.current = picked;
     onAddSet(set);
     // Once the picked exercise has all its sets, or it's in a superset, go
     // back to following the plan, which moves through the superset.
@@ -244,6 +261,8 @@ export default function ActiveWorkout({
     setTimerPhase(phase);
   }, []);
   const setBusy = timerPhase === "running" || timerPhase === "logging";
+  // The timer, to stop the set going or carry it on as another exercise.
+  const timerControl = useRef<TimerControl>(null);
   // A rest shows in the next exercise's card, on its start button.
   const [slot, setSlot] = useState<SlotContent>("none");
   const [fixingLast, setFixingLast] = useState(false);
@@ -379,6 +398,11 @@ export default function ActiveWorkout({
       lookup={lookup}
       exerciseNotes={exerciseNotes}
       onSave={handleSave}
+      onUnfinish={() => {
+        // Finish was a mistake: the set comes back out and keeps going.
+        if (fixing) onRemoveSets([fixing]);
+        setPicked(pickedBefore.current);
+      }}
       onLoggedChange={setFixingLast}
       aboveClock={aboveClock}
       onSlotChange={setSlot}
@@ -388,6 +412,7 @@ export default function ActiveWorkout({
       // A plan's exercise cards have Swap exercise instead.
       hideChange={inPlan}
       headerTitle={headerTitle}
+      controlRef={timerControl}
     />
   );
 
@@ -445,7 +470,7 @@ export default function ActiveWorkout({
   // Every exercise in the plan's order, each a card of its own: the ones
   // done sit above the current one with their sets, still editable, and
   // what's still to come sits below.
-  const card = (i: number) => {
+  const card = (i: number, grip?: ReactNode) => {
     const e = exercises[i];
     const doneSets = setsDone(e, sets);
     const complete = doneSets >= e.sets;
@@ -498,9 +523,20 @@ export default function ActiveWorkout({
         sets={logged}
         complete={complete}
         suggestions={suggestions}
-        // Not mid-set: the timer stays with the set it's timing.
-        onPick={!next && !complete && !setBusy ? () => setPicked(i) : undefined}
+        // Mid-set, the set going stops without being saved.
+        onPick={
+          !next && !complete
+            ? () => {
+                if (setBusy) timerControl.current?.stop();
+                setPicked(i);
+              }
+            : undefined
+        }
+        stopping={setBusy && !current ? shown?.name : undefined}
+        running={setBusy && current}
         onSwap={(name) => {
+          // The set going was this other exercise: it carries on as that.
+          if (current && setBusy) timerControl.current?.rename(name);
           onPlanChange(
             swapExercise(
               workout.plan_changes,
@@ -559,6 +595,7 @@ export default function ActiveWorkout({
         <section
           className={`${current ? restCardClass : cardClass} flex items-center gap-2`}
         >
+          {grip}
           <div className="flex-1 min-w-0">
             {label}
             <p
@@ -596,13 +633,12 @@ export default function ActiveWorkout({
           className={`${restCardClass} scroll-mt-4 flex flex-col gap-3`}
         >
           {label}
-          {/* The title opens the options; not mid-set. */}
+          {/* The title opens the options, mid-set too: swap it for
+              another exercise. */}
           {timer(
             true,
             loggedSets,
-            setBusy
-              ? undefined
-              : actions("text-4xl font-extrabold leading-tight tracking-tight"),
+            actions("text-4xl font-extrabold leading-tight tracking-tight"),
           )}
         </section>
       );
@@ -648,8 +684,7 @@ export default function ActiveWorkout({
   });
   const runIndices = runs.map((r) => r.indices);
   // Today's order changes; the plan and the exercise picked stay as they are.
-  const move = (i: number, direction: -1 | 1) => {
-    const from = moveInRuns(runIndices, i, direction);
+  const reorder = (from: number[] | null) => {
     if (!from) return;
     onPlanChange({
       ...workout.plan_changes,
@@ -657,6 +692,18 @@ export default function ActiveWorkout({
     });
     if (picked !== null) setPicked(from.indexOf(picked));
   };
+  const move = (i: number, direction: -1 | 1) =>
+    reorder(moveInRuns(runIndices, i, direction));
+  // Dragged to a new place: a whole run among the runs, or an exercise
+  // within its superset.
+  const dropRun = (from: number, to: number) =>
+    reorder(moveItem(runIndices, from, to).flat());
+  const dropInRun = (r: number) => (from: number, to: number) =>
+    reorder(
+      runIndices.flatMap((indices, k) =>
+        k === r ? moveItem(indices, from, to) : indices,
+      ),
+    );
 
   // Exercises done that aren't in the plan, each with a card where it was
   // done: before the first plan exercise started after it, and never below
@@ -718,7 +765,47 @@ export default function ActiveWorkout({
       }
     />
   );
-  const timeline = (
+  const grip = (sort: DragSort, k: number, name: string) => (
+    <Grip sort={sort} index={k} label={`Drag ${name} to move it`} />
+  );
+  const timeline = ordering ? (
+    // While moving them around: just the plan's exercises, each dragged by
+    // its handle, a superset by its outline's.
+    <DragSortList onDrop={dropRun}>
+      {(sort) => (
+        <ol className="flex flex-col gap-1" aria-label="Exercise order">
+          {runs.map(({ group, indices }, r) => (
+            <li
+              key={exercises[indices[0]].index}
+              className="flex flex-col gap-1"
+              {...sort.item(r)}
+            >
+              {group ? (
+                <SupersetGroup
+                  size={group.length}
+                  grip={grip(sort, r, group.join(" and "))}
+                >
+                  <DragSortList onDrop={dropInRun(r)}>
+                    {(inner) => (
+                      <div className="flex flex-col gap-1 pt-1">
+                        {indices.map((i, k) => (
+                          <div key={exercises[i].index} {...inner.item(k)}>
+                            {card(i, grip(inner, k, exercises[i].name))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </DragSortList>
+                </SupersetGroup>
+              ) : (
+                card(indices[0], grip(sort, r, exercises[indices[0]].name))
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </DragSortList>
+  ) : (
     <ol className="flex flex-col gap-1">
       {runs.map(({ group, indices }) => [
         ...offPlanBefore(indices[0]),
@@ -827,11 +914,19 @@ export default function ActiveWorkout({
             )}
           </div>
           {timeline}
-          {adding
-            ? addForm
-            : shownIndex === null && exercises.length > 0
-              ? null
-              : addButton}
+          {ordering ? (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm rounded-full font-bold text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)] self-center"
+              onClick={() => setOrdering(false)}
+            >
+              Done moving
+            </button>
+          ) : adding ? (
+            addForm
+          ) : shownIndex === null && exercises.length > 0 ? null : (
+            addButton
+          )}
           {shownIndex === null && (
             <>
               {exercises.length > 0 && (

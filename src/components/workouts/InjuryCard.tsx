@@ -79,6 +79,7 @@ interface InjuryCardProps {
   onDelete: () => void;
   // Starts picking a new spot on the body map for this injury.
   onMove: () => void;
+  onStartedOn: (date: string) => void;
 }
 
 export default function InjuryCard({
@@ -89,6 +90,7 @@ export default function InjuryCard({
   onReopen,
   onDelete,
   onMove,
+  onStartedOn,
 }: InjuryCardProps) {
   const checkins = injury.injury_checkins;
   const last = checkins.at(-1);
@@ -104,6 +106,22 @@ export default function InjuryCard({
     !todays || pain !== startPain || notes !== startNotes,
   );
   const [showMore, setShowMore] = useState(false);
+  // Changing when it started; kept until saved or cancelled.
+  const startDraft = `injury-start:${injury.id}`;
+  const [editingStart, setEditingStart] = useDraft(startDraft, "open", false);
+  const [startedOn, setStartedOn] = useDraft(
+    startDraft,
+    "date",
+    injury.started_on,
+  );
+  const closeStart = () => {
+    clearDraft(startDraft);
+    setEditingStart(false);
+  };
+  const openStart = () => {
+    setStartedOn(injury.started_on);
+    setEditingStart(true);
+  };
   const [confirmDelete, setConfirmDelete] = useState(false);
   const healed = injury.healed_on !== null;
   const first = checkins[0];
@@ -137,11 +155,16 @@ export default function InjuryCard({
     <div className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-3 sm:px-5 sm:py-4 flex flex-col gap-3 animate-entry-in">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+          <button
+            type="button"
+            className="text-left text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 underline decoration-dotted decoration-base-content/30 underline-offset-4"
+            aria-label="Change when it started"
+            onClick={() => (editingStart ? closeStart() : openStart())}
+          >
             {healed
               ? `${formatDay(injury.started_on)} – ${formatDay(injury.healed_on!)} · ${day} days`
               : `Since ${formatDay(injury.started_on)} · day ${day}`}
-          </p>
+          </button>
           <p className="text-lg font-bold leading-snug">
             {injury.name ? `${title}: ${injury.name}` : title}
           </p>
@@ -164,6 +187,46 @@ export default function InjuryCard({
           </div>
         )}
       </div>
+
+      {editingStart && (
+        <form
+          className="flex flex-wrap items-center gap-2 rounded-xl bg-base-content/5 px-3 py-2 animate-expand-in"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (startedOn && startedOn !== injury.started_on)
+              onStartedOn(startedOn);
+            closeStart();
+          }}
+        >
+          <label className="flex flex-1 items-center gap-2 min-w-0">
+            <span className="text-sm font-semibold">Started</span>
+            <input
+              type="date"
+              className="min-w-0 rounded-lg bg-base-content/8 px-2 py-1.5 font-medium outline-none focus:bg-base-content/12"
+              value={startedOn}
+              max={injury.healed_on ?? today()}
+              onChange={(e) => setStartedOn(e.target.value)}
+              autoFocus
+            />
+          </label>
+          <div className="flex gap-1 ml-auto">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm rounded-full font-bold"
+              onClick={closeStart}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm rounded-full font-bold"
+              disabled={!startedOn}
+            >
+              Save
+            </button>
+          </div>
+        </form>
+      )}
 
       <PainTrend checkins={checkins} />
 

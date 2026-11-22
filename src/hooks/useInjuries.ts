@@ -178,12 +178,20 @@ export default function useInjuries(userId?: string) {
     async (
       injuryId: string,
       changes: Partial<
-        Pick<Injury, "healed_on" | "name" | "notes" | "region" | "side">
+        Pick<
+          Injury,
+          "healed_on" | "name" | "notes" | "region" | "side" | "started_on"
+        >
       >,
     ) => {
       const injury = latest.current.find((i) => i.id === injuryId);
       if (!injury) return;
-      replace(injuryId, (i) => ({ ...i, ...changes }));
+      // Newest start first, as loaded.
+      setInjuries((prev) =>
+        prev
+          .map((i) => (i.id === injuryId ? { ...i, ...changes } : i))
+          .sort((a, b) => b.started_on.localeCompare(a.started_on)),
+      );
       setError(null);
       const { error } = await supabase
         .from("injuries")

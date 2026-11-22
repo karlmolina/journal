@@ -1,6 +1,7 @@
 import type { SleepNight } from "../../hooks/useSleep";
 import {
   QUALITY_WORDS,
+  bedMinutes,
   formatNight,
   formatSleep,
   formatTime,
@@ -48,15 +49,19 @@ export function NightRow({
             </span>
           </span>
           <span className="block text-sm tabular-nums text-base-content/60 dark:text-base-content/75">
-            {night.tech_free_at !== null &&
-              `Tech free ${formatTime(night.tech_free_at)} · `}
-            {night.get_ready_at !== null &&
-              `Ready ${formatTime(night.get_ready_at)} · `}
-            {formatTime(night.bedtime)} – {formatTime(night.woke_at)}
+            {night.tech_free_minutes !== null &&
+              `Tech free ${formatSleep(night.tech_free_minutes)} before · `}
+            {night.get_ready_minutes !== null &&
+              `Ready ${formatSleep(night.get_ready_minutes)} before · `}
+            {formatTime(night.bedtime)} –{" "}
+            {formatTime(night.woke_at + night.out_of_bed_minutes)}
+            {` · ${formatSleep(bedMinutes(night.bedtime, night.woke_at, night.out_of_bed_minutes))} in bed`}
             {night.fall_asleep_minutes > 0 &&
               ` · ${formatSleep(night.fall_asleep_minutes)} to fall asleep`}
             {night.awake_minutes > 0 &&
               ` · ${formatSleep(night.awake_minutes)} awake`}
+            {night.out_of_bed_minutes > 0 &&
+              ` · woke ${formatTime(night.woke_at)}, ${formatSleep(night.out_of_bed_minutes)} before getting up`}
           </span>
           <span className="block text-sm font-medium">
             {QUALITY_WORDS[night.quality]}
@@ -82,14 +87,18 @@ export function WeekSummary({ nights }: { nights: SleepNight[] }) {
   const minutes = avg((n) =>
     sleepMinutes(n.bedtime, n.woke_at, n.fall_asleep_minutes + n.awake_minutes),
   );
+  const inBed = avg((n) =>
+    bedMinutes(n.bedtime, n.woke_at, n.out_of_bed_minutes),
+  );
 
   return (
     <p className="px-1 text-sm font-semibold text-base-content/60 dark:text-base-content/75">
       Last {week.length} nights:{" "}
       <span className={qualityText(Math.round(quality))}>
-        {quality.toFixed(1)}/10
+        {quality.toFixed(1)}/10 rested
       </span>{" "}
-      · {formatSleep(Math.round(minutes))} a night
+      · {formatSleep(Math.round(minutes))} a night ·{" "}
+      {formatSleep(Math.round(inBed))} in bed
     </p>
   );
 }

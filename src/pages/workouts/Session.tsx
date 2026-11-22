@@ -5,7 +5,11 @@ import ActiveWorkout, {
 } from "../../components/workouts/ActiveWorkout";
 import WorkoutHistoryCard from "../../components/workouts/WorkoutHistoryCard";
 import Chip from "../../components/Chip";
+import SupersetGroup from "../../components/workouts/SupersetGroup";
 import ErrorBanner from "../../components/ErrorBanner";
+import ActivityForm from "../../components/workouts/ActivityForm";
+import { activityChoices } from "../../functions/activities";
+import useDraft from "../../hooks/useDraft";
 import { useAuth } from "../../context/AuthContext";
 import useWorkouts, {
   type SetInput,
@@ -27,11 +31,12 @@ import {
   applyPlanChanges,
   followPlanEdit,
   grewFrom,
-  lastSetOf,
+  setPrefill,
   dayLabel,
+  describeTarget,
   nextSessionIndex,
-  plannedReps,
-  plannedSeconds,
+  supersetLetter,
+  supersetRuns,
   setsDone,
 } from "../../functions/planProgress";
 import { nameKey } from "../../functions/exerciseName";
@@ -41,7 +46,22 @@ import { exerciseSuggestions } from "../../functions/exerciseSuggestions";
 const startedToday = (w: Workout) =>
   new Date(w.started_at).toDateString() === new Date().toDateString();
 
-function UpNext({
+// One planned exercise in the Up next card's list: its name and target.
+function PlanDayExercise({ exercise: e }: { exercise: PlannedExercise }) {
+  return (
+    <div className="py-1">
+      <p className="font-bold leading-snug">{e.name}</p>
+      <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 tabular-nums">
+        {describeTarget(e)}
+        {!supersetLetter(e) &&
+          e.rest_seconds > 0 &&
+          ` · rest ${e.rest_seconds}s`}
+      </p>
+    </div>
+  );
+}
+
+export function UpNext({
   plan,
   next,
   lookup,
@@ -54,6 +74,8 @@ function UpNext({
 }) {
   const sessions = plan.plan.sessions;
   const [chosen, setChosen] = useState<number | null>(null);
+  // Tapping the day shows its exercises.
+  const [open, setOpen] = useState(false);
   const index = chosen !== null && chosen < sessions.length ? chosen : next;
   const session = sessions[index];
   const equipment = useMemo(
@@ -62,17 +84,75 @@ function UpNext({
   );
   return (
     <section className="rounded-2xl bg-base-content/5 dark:bg-base-content/9 px-4 py-5 sm:px-5 flex flex-col gap-1">
-      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
-        {index === next ? "Up next" : "From your plan"} · {plan.plan.title}
-      </p>
-      <p className="text-lg font-bold leading-snug">
-        {dayLabel(index)}: {session.focus}
-      </p>
-      <p className="text-sm font-medium text-base-content/60 dark:text-base-content/80">
-        {session.exercises.length}{" "}
-        {session.exercises.length === 1 ? "exercise" : "exercises"} · about{" "}
-        {session.duration_minutes} min
-      </p>
+      <button
+        type="button"
+        className="-mx-2 -my-1 px-2 py-1 rounded-xl text-left flex flex-col gap-1 cursor-pointer"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls="up-next-exercises"
+      >
+        <span className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
+          {index === next ? "Up next" : "From your plan"} · {plan.plan.title}
+        </span>
+        <span className="text-lg font-bold leading-snug">
+          {dayLabel(index)}: {session.focus}
+        </span>
+        <span className="flex items-center gap-1.5 text-sm font-medium text-base-content/60 dark:text-base-content/80">
+          {session.exercises.length}{" "}
+          {session.exercises.length === 1 ? "exercise" : "exercises"} · about{" "}
+          {session.duration_minutes} min
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
+      </button>
+      {open && (
+        <ol
+          id="up-next-exercises"
+          className="mt-2 flex flex-col gap-2 animate-expand-in"
+          aria-label={`${dayLabel(index)} exercises`}
+        >
+          {supersetRuns(session.exercises).map(({ letter, indices }) => (
+            <li key={indices[0]}>
+              {letter ? (
+                <SupersetGroup
+                  size={indices.length}
+                  progress={`${Math.max(
+                    ...indices.map((j) => session.exercises[j].sets),
+                  )} rounds`}
+                  rest={Math.max(
+                    0,
+                    ...indices.map((j) => session.exercises[j].rest_seconds),
+                  )}
+                >
+                  <div className="flex flex-col px-2.5 pb-1">
+                    {indices.map((j) => (
+                      <PlanDayExercise
+                        key={j}
+                        exercise={session.exercises[j]}
+                      />
+                    ))}
+                  </div>
+                </SupersetGroup>
+              ) : (
+                <PlanDayExercise exercise={session.exercises[indices[0]]} />
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
       <div className="mt-3 flex flex-col gap-1.5">
         <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
           Equipment
@@ -135,6 +215,8 @@ export default function Session() {
     resume,
     setElapsed,
     setPastElapsed,
+    logActivity,
+    updateActivity,
     finish,
     reopen,
     discard,
@@ -151,6 +233,14 @@ export default function Session() {
   const notes = useExerciseNotes(userId);
   const { injuries } = useInjuries(userId);
   const exerciseNotes = { notes, injuries };
+  // The form for a workout like yoga: "new", or the id of the one changed.
+  const [activityForm, setActivityForm] = useDraft<string | null>(
+    "activity",
+    "open",
+    null,
+  );
+  const choices = useMemo(() => activityChoices(history), [history]);
+  const editedActivity = history.find((w) => w.id === activityForm);
   const latestPlan = plans.find((p) => p.plan.sessions.length > 0);
   // Set by the library's "Log this exercise" button.
   const initialExercise: string | undefined = useLocation().state?.exercise;
@@ -270,20 +360,10 @@ export default function Session() {
     [byLowerName],
   );
 
-  // This set's target from the plan: its reps, weight and time. Without
-  // one, the last time you did it.
+  // The numbers a new set starts with: see setPrefill.
   const prefillFor = useCallback(
-    (name: string): Partial<SetInput> => {
-      const last = lastSetOf(name, active ? [active, ...history] : history);
-      const target = planned?.session.exercises.find(
-        (e) => e.name.toLowerCase() === name.toLowerCase(),
-      );
-      return {
-        reps: (target && plannedReps(target.reps)) ?? last?.reps ?? null,
-        weight: target?.weight ?? last?.weight ?? null,
-        duration_seconds: (target && plannedSeconds(target.reps)) ?? null,
-      };
-    },
+    (name: string): Partial<SetInput> =>
+      setPrefill(name, active, history, planned?.session.exercises),
     [active, history, planned],
   );
 
@@ -429,33 +509,71 @@ export default function Session() {
             </section>
           )}
 
+          {activityForm === "new" ? (
+            <div className="mt-3">
+              <ActivityForm
+                choices={choices}
+                onCancel={() => setActivityForm(null)}
+                onSave={async (input) => {
+                  setActivityForm(null);
+                  return logActivity(input);
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-ghost rounded-full font-bold self-center mt-1"
+              onClick={() => setActivityForm("new")}
+            >
+              Log yoga or another workout
+            </button>
+          )}
+
           {history.length > 0 && (
             <h2 className="mt-8 mb-3 ml-1 text-sm font-bold tracking-wide text-base-content/60 dark:text-base-content/80">
               Past workouts
             </h2>
           )}
           <div className="flex flex-col gap-2">
-            {history.map((w, i) => (
-              <WorkoutHistoryCard
-                key={w.id}
-                workout={w}
-                supersets={supersetsOf(w)}
-                planDay={planDayOf(w)}
-                bodyPartsOf={bodyPartsOf}
-                suggestions={suggestions}
-                isUnilateral={isUnilateral}
-                onUpdateSet={handleUpdateSet}
-                onSplitSet={splitSet}
-                onRemoveSets={removeSets}
-                onContinue={
-                  i === 0 && startedToday(w) && !planFinished(w)
-                    ? () => reopen(w.id)
-                    : undefined
-                }
-                onElapsedChange={(seconds) => setPastElapsed(w.id, seconds)}
-                onDelete={() => removeWorkout(w.id)}
-              />
-            ))}
+            {history.map((w, i) =>
+              w.id === activityForm && editedActivity ? (
+                <ActivityForm
+                  key={w.id}
+                  workout={w}
+                  choices={choices}
+                  onCancel={() => setActivityForm(null)}
+                  onSave={async (input) => {
+                    setActivityForm(null);
+                    return updateActivity(w.id, input);
+                  }}
+                />
+              ) : (
+                <WorkoutHistoryCard
+                  key={w.id}
+                  workout={w}
+                  supersets={supersetsOf(w)}
+                  planDay={planDayOf(w)}
+                  bodyPartsOf={bodyPartsOf}
+                  suggestions={suggestions}
+                  isUnilateral={isUnilateral}
+                  onUpdateSet={handleUpdateSet}
+                  onSplitSet={splitSet}
+                  onRemoveSets={removeSets}
+                  onEdit={() => setActivityForm(w.id)}
+                  onContinue={
+                    i === 0 &&
+                    !w.activity &&
+                    startedToday(w) &&
+                    !planFinished(w)
+                      ? () => reopen(w.id)
+                      : undefined
+                  }
+                  onElapsedChange={(seconds) => setPastElapsed(w.id, seconds)}
+                  onDelete={() => removeWorkout(w.id)}
+                />
+              ),
+            )}
           </div>
 
           {loading ? (

@@ -3,19 +3,20 @@
 
 const DAY = 24 * 60;
 
-// What each score means, so a 6 means the same thing every morning.
+// How rested I feel on waking, a subjective score. Each one describes the
+// feeling, not the night, so a 6 means the same thing every morning.
 export const QUALITY_WORDS = [
-  "No sleep at all",
-  "Barely slept, up almost all night",
-  "Awful: broken and restless",
-  "Poor: woke up a lot, still tired",
-  "Below par: groggy morning",
-  "Okay: got by, nothing more",
-  "Decent: a few wake-ups, mostly fine",
-  "Good: slept well, slow to get going",
-  "Great: deep sleep, woke up refreshed",
-  "Excellent: straight through, full of energy",
-  "Best sleep in ages, fully restored",
+  "Completely exhausted, can barely function",
+  "Drained, running on empty",
+  "Wiped out: heavy and foggy",
+  "Tired: dragging, could use a nap",
+  "Below par: sluggish and groggy",
+  "Okay: alert enough to get by",
+  "Decent: mostly rested, a bit flat",
+  "Good: rested, slow to get going",
+  "Great: refreshed and clear-headed",
+  "Excellent: energized and sharp",
+  "Fully restored, best I've felt in ages",
 ];
 
 // The theme's warning yellow is hard to read on light backgrounds, so middling
@@ -33,6 +34,7 @@ export const qualityBg = (q: number) =>
 // Wraps past midnight either way, so dragging bedtime down from 12:00 AM
 // lands on 11:45 PM.
 const wrap = (minutes: number) => ((minutes % DAY) + DAY) % DAY;
+export const wrapTime = wrap;
 
 const pad = (n: number) => n.toString().padStart(2, "0");
 
@@ -75,6 +77,10 @@ export const toDbTime = (minutes: number) => {
 // (falling asleep, awake in the night) doesn't count as sleep.
 export const sleepMinutes = (bedtime: number, wokeAt: number, awake = 0) =>
   Math.max(0, wrap(wokeAt - bedtime) - awake);
+
+// Bedtime to getting out of bed, awake or not.
+export const bedMinutes = (bedtime: number, wokeAt: number, outOfBed = 0) =>
+  sleepMinutes(bedtime, wokeAt) + outOfBed;
 
 // How long before bedtime something happened, e.g. putting screens away.
 export const minutesBefore = (time: number, bedtime: number) =>

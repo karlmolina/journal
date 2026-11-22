@@ -235,23 +235,55 @@ export default function Journal() {
   // Whether the list is scrolled to the newest entry, so it can stay there
   // when the list gets shorter (keyboard opening, entry box expanding).
   const atBottom = useRef(true);
+  // While the keyboard opens the list shrinks over several frames, and the
+  // scroll events from our own re-pinning can land after a further shrink and
+  // read as "not at the bottom". Focusing the entry box from the bottom holds
+  // the newest entry in view until things settle, unless the user scrolls.
+  const pinUntil = useRef(0);
+
+  const pinToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (el && (atBottom.current || performance.now() < pinUntil.current))
+      el.scrollTop = el.scrollHeight;
+  }, []);
 
   const handleListScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-    atBottom.current = distance < 2;
+    atBottom.current = distance < 8 || performance.now() < pinUntil.current;
     setShowJumpDown(distance > 200);
+  };
+
+  // A drag or wheel on the list means the user wants to move, so let go.
+  const releasePin = () => {
+    pinUntil.current = 0;
+  };
+
+  const holdBottomOnFocus = () => {
+    const el = scrollRef.current;
+    if (!el || results) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (!atBottom.current && distance >= 8) return;
+    atBottom.current = true;
+    pinUntil.current = performance.now() + 1000;
+    el.scrollTop = el.scrollHeight;
   };
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
-      if (atBottom.current) el.scrollTop = el.scrollHeight;
-    });
+    const ro = new ResizeObserver(pinToBottom);
     ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+    // iOS moves and resizes the visual viewport as the keyboard animates in.
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", pinToBottom);
+    vv?.addEventListener("scroll", pinToBottom);
+    return () => {
+      ro.disconnect();
+      vv?.removeEventListener("resize", pinToBottom);
+      vv?.removeEventListener("scroll", pinToBottom);
+    };
+  }, [pinToBottom]);
 
   const jumpToBottom = () => {
     scrollRef.current?.scrollTo({
@@ -320,6 +352,8 @@ export default function Journal() {
         <div
           ref={scrollRef}
           onScroll={handleListScroll}
+          onTouchMove={releasePin}
+          onWheel={releasePin}
           className="h-full overflow-y-auto overscroll-contain scrollbar-none"
         >
           {(loading === "older" || (loading && entries.length === 0)) &&
@@ -422,7 +456,11 @@ export default function Journal() {
             className={`bg-base-content/8 rounded-3xl shadow-sm flex flex-wrap items-center transition-[padding] duration-150 focus-within:bg-base-content/10 ${
               expanded ? "px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4" : "p-2"
             }`}
-            onFocus={() => setFocused(true)}
+            onPointerDown={holdBottomOnFocus}
+            onFocus={() => {
+              holdBottomOnFocus();
+              setFocused(true);
+            }}
             onBlur={(e) => {
               if (e.currentTarget.contains(e.relatedTarget)) return;
               setFocused(false);
