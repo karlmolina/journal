@@ -7,6 +7,7 @@ import type { Workout } from "../../hooks/useWorkouts";
 import {
   bestWeight,
   dayLabel,
+  MAX_ROUNDS,
   describeTarget,
   moveExercise,
   supersetLetter,
@@ -84,6 +85,7 @@ export default function PlanView({
   onStart,
   onAddExercise,
   onMove,
+  onSetRounds,
 }: {
   plan: WorkoutPlan;
   // Newest first, for progress toward each exercise's goal.
@@ -100,6 +102,8 @@ export default function PlanView({
     exercise: PlannedExercise,
   ) => Promise<boolean>;
   onMove: (session: number, index: number, direction: -1 | 1) => void;
+  // Gives a superset's exercises this many sets each, in the plan.
+  onSetRounds: (session: number, indexes: number[], rounds: number) => void;
 }) {
   const { title, summary, sessions, safety_notes } = plan.plan;
   // The day whose add-exercise form is open.
@@ -188,6 +192,8 @@ export default function PlanView({
             </div>
           );
         };
+        const rounds = (indices: number[]) =>
+          Math.max(...indices.map((j) => s.exercises[j].sets));
         return (
           <section key={i} className={cardClass}>
             <div className="flex items-start gap-2">
@@ -222,13 +228,23 @@ export default function PlanView({
                   {letter ? (
                     <SupersetGroup
                       size={indices.length}
-                      progress={`${Math.max(
-                        ...indices.map((j) => s.exercises[j].sets),
-                      )} rounds`}
+                      progress={`${rounds(indices)} rounds`}
                       rest={Math.max(
                         0,
                         ...indices.map((j) => s.exercises[j].rest_seconds),
                       )}
+                      rounds={{
+                        fewer:
+                          rounds(indices) > 1
+                            ? () =>
+                                onSetRounds(i, indices, rounds(indices) - 1)
+                            : undefined,
+                        more:
+                          rounds(indices) < MAX_ROUNDS
+                            ? () =>
+                                onSetRounds(i, indices, rounds(indices) + 1)
+                            : undefined,
+                      }}
                     >
                       <div className="flex flex-col divide-y divide-base-content/8 px-2">
                         {indices.map((j) => exerciseRow(j))}

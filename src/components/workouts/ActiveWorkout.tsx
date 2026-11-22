@@ -35,6 +35,8 @@ import {
   setSides,
   swapExercise,
   type SessionExercise,
+  setSetCount,
+  MAX_ROUNDS,
 } from "../../functions/planProgress";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
 import {
@@ -466,6 +468,25 @@ export default function ActiveWorkout({
     const round = Math.min(...open.map((e) => setsDone(e, sets))) + 1;
     return `Round ${Math.min(round, rounds)} of ${rounds}`;
   };
+  // One round fewer or more, just this workout: never fewer than you've
+  // already done, or none.
+  const roundButtons = (group: string[]) => {
+    const all = members(group);
+    const rounds = Math.max(...all.map((e) => e.planned_sets));
+    const least = Math.max(1, ...all.map((e) => setsDone(e, sets)));
+    const to = (n: number) => () =>
+      onPlanChange(
+        setSetCount(
+          workout.plan_changes,
+          all.map((e) => e.index),
+          n,
+        ),
+      );
+    return {
+      fewer: rounds > least ? to(rounds - 1) : undefined,
+      more: rounds < MAX_ROUNDS ? to(rounds + 1) : undefined,
+    };
+  };
 
   // Every exercise in the plan's order, each a card of its own: the ones
   // done sit above the current one with their sets, still editable, and
@@ -818,6 +839,7 @@ export default function ActiveWorkout({
               size={group.length}
               progress={roundOf(group)}
               rest={roundRest(group)}
+              rounds={roundButtons(group)}
             >
               <div className="flex flex-col gap-1 pt-1">
                 {indices.map((i, k) => (

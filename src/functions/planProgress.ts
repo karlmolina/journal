@@ -182,11 +182,14 @@ export function applyPlanChanges(
           index: i,
         }
       : { ...e, index: i };
+    const count = changes?.sets?.[i];
+    const counted: SessionExercise =
+      count && count > 0 ? { ...swapped, sets: count } : swapped;
     const unilateral = changes?.sides?.[i];
     const sided: SessionExercise =
       unilateral === undefined
-        ? swapped
-        : { ...swapped, unilateral, sides_changed: true };
+        ? counted
+        : { ...counted, unilateral, sides_changed: true };
     return ended ? { ...sided, ended } : sided;
   });
   return workoutOrder(changes, all.length).map((i) => changed[i]);
@@ -241,6 +244,30 @@ export function setSides(
   else sides[index] = unilateral;
   return { ...changes, sides };
 }
+
+// The most sets, or a superset's rounds, the + button goes to.
+export const MAX_ROUNDS = 20;
+
+// Gives the exercises at `indexes` (a superset's, say) `count` sets each,
+// just this workout.
+export const setSetCount = (
+  changes: PlanChanges | null,
+  indexes: number[],
+  count: number,
+): PlanChanges => ({
+  ...changes,
+  sets: {
+    ...changes?.sets,
+    ...Object.fromEntries(indexes.map((i) => [String(i), count])),
+  },
+});
+
+// A plan day's exercises with the ones at `indexes` given `count` sets each.
+export const withSetCount = (
+  exercises: PlannedExercise[],
+  indexes: number[],
+  count: number,
+) => exercises.map((e, i) => (indexes.includes(i) ? { ...e, sets: count } : e));
 
 // Adds an exercise to this workout only, after everything else.
 export const addToWorkout = (
@@ -333,6 +360,11 @@ export const remapPlanChanges = (
     ]),
   ),
   ...(changes.order && { order: changes.order.map(to) }),
+  ...(changes.sets && {
+    sets: Object.fromEntries(
+      Object.entries(changes.sets).map(([i, n]) => [String(to(Number(i))), n]),
+    ),
+  }),
 });
 
 // After a reorder, where each exercise went. Added ones keep their indexes.
