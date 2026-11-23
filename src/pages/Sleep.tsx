@@ -7,6 +7,8 @@ import { useAuth } from "../context/AuthContext";
 import signOut from "../functions/signOut";
 import useSleep from "../hooks/useSleep";
 import { defaultNight } from "../functions/sleep";
+import { sleepExport } from "../functions/sleepExport";
+import { CopyPrompt } from "../components/ChatbotPrompt";
 
 const DEFAULT_BEDTIME = 23 * 60;
 const DEFAULT_WOKE_AT = 7 * 60;
@@ -71,6 +73,13 @@ export default function Sleep() {
       </div>
 
       <WeekSummary nights={nights} />
+      {nights.length > 0 && (
+        <CopyPrompt
+          getPrompt={() => sleepExport(nights)}
+          label="Copy sleep data for AI"
+          quiet
+        />
+      )}
       {nights.length > 0 ? (
         <ul className="flex flex-col gap-1.5">
           {nights.map((n) => (

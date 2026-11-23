@@ -7,9 +7,14 @@ import useDraft from "../hooks/useDraft";
 export function CopyPrompt({
   getPrompt,
   disabled,
+  label = "Copy prompt",
+  quiet,
 }: {
   getPrompt: () => string;
   disabled?: boolean;
+  label?: string;
+  // A softer button, for pages where copying isn't the main thing to do.
+  quiet?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const [manual, setManual] = useState<string | null>(null);
@@ -30,11 +35,13 @@ export function CopyPrompt({
     <div className="flex flex-col gap-2">
       <button
         type="button"
-        className="btn btn-primary rounded-full font-bold"
+        className={`btn rounded-full font-bold ${
+          quiet ? "bg-base-content/8 border-0 shadow-none" : "btn-primary"
+        }`}
         onClick={copy}
         disabled={disabled}
       >
-        {copied ? "Copied. Paste it into a chatbot" : "Copy prompt"}
+        {copied ? "Copied. Paste it into a chatbot" : label}
       </button>
       {manual !== null && (
         <textarea
@@ -43,7 +50,7 @@ export function CopyPrompt({
           readOnly
           value={manual}
           onFocus={(e) => e.target.select()}
-          aria-label="Prompt to copy"
+          aria-label="Text to copy"
         />
       )}
     </div>
