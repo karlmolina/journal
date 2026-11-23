@@ -19,6 +19,7 @@ import ExerciseNote, { type ExerciseNotesProps } from "./ExerciseNote";
 import ExerciseHeader, { PlanLines } from "./ExerciseHeader";
 import RestStartButton, { primaryClass } from "./RestStartButton";
 import SupersetControl from "./SupersetControl";
+import ProgressionNudge, { type ProgressionChoice } from "./ProgressionNudge";
 import {
   readSaved,
   writeSaved,
@@ -61,6 +62,8 @@ interface SetTimerProps {
   goal?: string;
   suggestions: string[];
   prefillFor: (exercise: string) => Partial<SetInput>;
+  // A nudge up from last time for an exercise's first set, if there is one.
+  progression?: (exercise: string) => ProgressionChoice | undefined;
   // Rest after a set, and the exercise to do next when it's in a superset.
   // `planDone` when it was the plan's last set: nothing is left to rest for.
   afterSet: (set: SetInput) => {
@@ -111,6 +114,7 @@ export interface TimerControl {
   rename: (exercise: string) => void;
 }
 
+export type { ProgressionChoice };
 export type TimerPhase = Phase["phase"];
 export type SlotContent = "none" | "rest";
 
@@ -126,6 +130,7 @@ export default function SetTimer({
   goal,
   suggestions,
   prefillFor,
+  progression,
   afterSet,
   sideFor,
   supersetWith,
@@ -394,6 +399,10 @@ export default function SetTimer({
   // Once a set is going its reps and weight are in the fields below, so the
   // title only says which set it is.
   const going = state.phase === "running" || state.phase === "done";
+  const nudge = (exerciseName: string) => {
+    const choice = exerciseName ? progression?.(exerciseName) : undefined;
+    return choice && <ProgressionNudge {...choice} />;
+  };
   const header = (exerciseName: string) => (
     <ExerciseHeader
       // Keyed, with the sets below: the same ones carry over as the timer
@@ -408,6 +417,8 @@ export default function SetTimer({
       // A plan's exercises add notes from their Options drawer.
       canAddNote={!hideChange}
       title={headerTitle}
+      // Before the set starts, so the weight can go on first.
+      below={going ? undefined : nudge(exerciseName)}
     />
   );
 

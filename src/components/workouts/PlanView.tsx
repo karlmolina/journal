@@ -236,13 +236,11 @@ export default function PlanView({
                       rounds={{
                         fewer:
                           rounds(indices) > 1
-                            ? () =>
-                                onSetRounds(i, indices, rounds(indices) - 1)
+                            ? () => onSetRounds(i, indices, rounds(indices) - 1)
                             : undefined,
                         more:
                           rounds(indices) < MAX_ROUNDS
-                            ? () =>
-                                onSetRounds(i, indices, rounds(indices) + 1)
+                            ? () => onSetRounds(i, indices, rounds(indices) + 1)
                             : undefined,
                       }}
                     >

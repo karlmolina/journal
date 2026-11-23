@@ -118,11 +118,7 @@ function Landmarks({ view }: { view: "front" | "back" }) {
       />
       <path d="M100 72 L100 162" className={line} strokeDasharray="3 3" />
       <path d="M87 76 Q84 86 91 96" className={line} strokeLinecap="round" />
-      <path
-        d="M113 76 Q116 86 109 96"
-        className={line}
-        strokeLinecap="round"
-      />
+      <path d="M113 76 Q116 86 109 96" className={line} strokeLinecap="round" />
     </g>
   );
 }

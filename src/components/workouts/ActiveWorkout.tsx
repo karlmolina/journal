@@ -54,6 +54,7 @@ import SetList from "./SetList";
 import Chip from "../Chip";
 import SetForm from "./SetForm";
 import SetTimer, {
+  type ProgressionChoice,
   type SlotContent,
   type TimerControl,
   type TimerPhase,
@@ -94,6 +95,8 @@ interface ActiveWorkoutProps {
   suggestions: string[];
   timerKey: string;
   prefillFor: (exercise: string) => Partial<SetInput>;
+  // A nudge up from last time for an exercise's first set, if there is one.
+  progression?: (exercise: string) => ProgressionChoice | undefined;
   // Whether an exercise is done one side at a time.
   isUnilateral: (exercise: string) => boolean;
   // The library entry for an exercise, for its description.
@@ -130,6 +133,7 @@ export default function ActiveWorkout({
   suggestions,
   timerKey,
   prefillFor,
+  progression,
   isUnilateral,
   lookup,
   exerciseNotes,
@@ -388,6 +392,7 @@ export default function ActiveWorkout({
       goal={shown?.goal || undefined}
       suggestions={suggestions}
       prefillFor={prefillFor}
+      progression={progression}
       afterSet={afterSet}
       sideFor={sideFor}
       supersetWith={supersetWith}

@@ -4,7 +4,8 @@ import ActiveWorkout from "../components/workouts/ActiveWorkout";
 import type { PlannedExercise } from "../hooks/useWorkoutPlans";
 import type { SetInput, Workout, WorkoutSet } from "../hooks/useWorkouts";
 import type { ExerciseNotes } from "../hooks/useExerciseNotes";
-import { applyPlanChanges, setPrefill } from "../functions/planProgress";
+import { applyPlanChanges } from "../functions/planProgress";
+import useProgression from "../hooks/useProgression";
 import { nameKey } from "../functions/exerciseName";
 
 // A planned exercise with the usual fields filled in.
@@ -38,6 +39,8 @@ export function renderWorkout(
   exercises: PlannedExercise[],
   sets: WorkoutSet[] = [],
   supersets: string[][] | null = null,
+  // Finished workouts, newest first, for what you did last time.
+  history: Workout[] = [],
 ) {
   const onAddSet = vi.fn();
   const onRemoveSets = vi.fn();
@@ -62,6 +65,11 @@ export function renderWorkout(
       workout_sets: sets,
     });
     latest = workout;
+    const { prefillFor, progression } = useProgression(
+      workout,
+      history,
+      exercises,
+    );
     const unilateral = (name: string) =>
       exercises.find((e) => nameKey(e.name) === nameKey(name))?.unilateral ??
       false;
@@ -81,7 +89,8 @@ export function renderWorkout(
         }}
         suggestions={["Goblet squat"]}
         timerKey="set_timer_test"
-        prefillFor={(name) => setPrefill(name, workout, [], exercises)}
+        prefillFor={prefillFor}
+        progression={progression}
         isUnilateral={unilateral}
         lookup={() => undefined}
         exerciseNotes={{ notes, injuries: [] }}

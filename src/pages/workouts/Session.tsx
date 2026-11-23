@@ -31,7 +31,6 @@ import {
   applyPlanChanges,
   followPlanEdit,
   grewFrom,
-  setPrefill,
   dayLabel,
   describeTarget,
   nextSessionIndex,
@@ -40,6 +39,7 @@ import {
   setsDone,
 } from "../../functions/planProgress";
 import { nameKey } from "../../functions/exerciseName";
+import useProgression from "../../hooks/useProgression";
 import { exerciseSuggestions } from "../../functions/exerciseSuggestions";
 
 // Only today's workout can be picked back up; an older one is history.
@@ -290,9 +290,7 @@ export default function Session() {
       applyPlanChanges(exercises, active?.plan_changes ?? null).map((e) => ({
         ...e,
         unilateral:
-          e.unilateral ??
-          byLowerName.get(nameKey(e.name))?.unilateral ??
-          false,
+          e.unilateral ?? byLowerName.get(nameKey(e.name))?.unilateral ?? false,
       }));
     if (plan && session)
       return {
@@ -360,11 +358,12 @@ export default function Session() {
     [byLowerName],
   );
 
-  // The numbers a new set starts with: see setPrefill.
-  const prefillFor = useCallback(
-    (name: string): Partial<SetInput> =>
-      setPrefill(name, active, history, planned?.session.exercises),
-    [active, history, planned],
+  // The numbers a new set starts with (see setPrefill), and a nudge up from
+  // last time before an exercise's first set (see useProgression).
+  const { prefillFor, progression } = useProgression(
+    active,
+    history,
+    planned?.session.exercises,
   );
 
   // A past workout's supersets: its own, or else its plan session's.
@@ -450,6 +449,7 @@ export default function Session() {
           planned={planned}
           timerKey={`set_timer_${userId}`}
           prefillFor={prefillFor}
+          progression={progression}
           isUnilateral={isUnilateral}
           lookup={lookup}
           exerciseNotes={exerciseNotes}
