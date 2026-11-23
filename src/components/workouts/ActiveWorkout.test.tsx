@@ -169,7 +169,12 @@ describe("active workout", () => {
         exercise("Push-up", { sets: 3, superset: "A" }),
         exercise("Row", { sets: 3, superset: "A" }),
       ],
-      [doneSet("Push-up"), doneSet("Row"), doneSet("Push-up"), doneSet("Row")],
+      [
+        doneSet("Push-up"),
+        doneSet("Row"),
+        doneSet("Push-up"),
+        doneSet("Row"),
+      ],
     );
     render(<w.Harness />);
     expect(screen.getByText(/Superset · Round 3 of 3/)).toBeInTheDocument();

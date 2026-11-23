@@ -290,7 +290,9 @@ export default function Session() {
       applyPlanChanges(exercises, active?.plan_changes ?? null).map((e) => ({
         ...e,
         unilateral:
-          e.unilateral ?? byLowerName.get(nameKey(e.name))?.unilateral ?? false,
+          e.unilateral ??
+          byLowerName.get(nameKey(e.name))?.unilateral ??
+          false,
       }));
     if (plan && session)
       return {
