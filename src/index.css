@@ -224,3 +224,17 @@ body {
     --series-other: #6b6a65;
   }
 }
+
+/* An exercise held to move it: every workout card shrinks to its name, so
+   it needn't be dragged far. Hidden, not unmounted, so the finger's element
+   stays put and the drag goes on. */
+[data-collapsed] > li:not(:has([data-name])),
+[data-collapsed]
+  > li
+  *:not(:has([data-name])):not([data-name]):not([data-name] *) {
+  display: none;
+}
+[data-collapsed] [data-name] {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}

@@ -351,6 +351,8 @@ export default function ActiveWorkout({
 
   // Moving exercises around, just for today.
   const [ordering, setOrdering] = useState(false);
+  // An exercise held to move it: every card is just its name meanwhile.
+  const [lifted, setLifted] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   // The add-exercise form, and whether it adds to the plan day too.
@@ -855,6 +857,8 @@ export default function ActiveWorkout({
       }}
     />
   );
+  // Not mid-set, like Reorder: the timer stays with the set it's timing.
+  const holdable = !ordering && !setBusy && exercises.length > 1;
   const timeline = ordering ? (
     // While moving them around: just the plan's exercises, each dragged by
     // its handle, a superset by its outline's.
@@ -893,41 +897,66 @@ export default function ActiveWorkout({
       )}
     </DragSortList>
   ) : (
-    <ol className="flex flex-col gap-1">
-      {runs.map(({ group, indices }, r) => [
-        ...offPlanBefore(indices[0]),
-        <li key={indices[0]} className="flex flex-col gap-1">
-          {indices[0] > 0 && link(indices[0], false)}
-          {group ? (
-            <SupersetGroup
-              size={group.length}
-              progress={roundOf(group)}
-              rest={roundRest(group)}
-              rounds={roundButtons(group)}
+    // Held for a moment, an exercise (or a whole superset, by its outline)
+    // lifts, and every card shrinks to its name so it needn't go far.
+    <DragSortList onDrop={dropRun} onLift={holdable ? setLifted : undefined}>
+      {(sort) => (
+        <ol
+          className={`flex flex-col gap-1 ${holdable ? "[-webkit-touch-callout:none] select-none [&_input]:select-text [&_textarea]:select-text" : ""}`}
+          data-collapsed={lifted || undefined}
+          aria-label={lifted ? "Exercise order" : undefined}
+        >
+          {runs.map(({ group, indices }, r) => [
+            ...offPlanBefore(indices[0]),
+            <li
+              key={exercises[indices[0]].index}
+              className="flex flex-col gap-1"
+              {...sort.item(r)}
             >
-              <div className="flex flex-col gap-1 pt-1">
-                {indices.map((i, k) => (
-                  <div key={i} className="flex flex-col gap-1">
-                    {k > 0 && link(i, true)}
-                    {card(i)}
-                  </div>
-                ))}
-              </div>
-            </SupersetGroup>
-          ) : (
-            card(indices[0])
-          )}
-        </li>,
-        ...(r === addRun
-          ? [
-              <li key="add" className="pt-2 pb-1">
-                {addForm}
-              </li>,
-            ]
-          : []),
-      ])}
-      {offPlanBefore(exercises.length)}
-    </ol>
+              {indices[0] > 0 && link(indices[0], false)}
+              {group ? (
+                <SupersetGroup
+                  size={group.length}
+                  progress={roundOf(group)}
+                  rest={roundRest(group)}
+                  rounds={roundButtons(group)}
+                >
+                  <DragSortList
+                    onDrop={dropInRun(r)}
+                    onLift={holdable ? setLifted : undefined}
+                  >
+                    {(inner) => (
+                      <div className="flex flex-col gap-1 pt-1">
+                        {indices.map((i, k) => (
+                          <div
+                            key={exercises[i].index}
+                            className="flex flex-col gap-1"
+                            {...inner.item(k)}
+                          >
+                            {k > 0 && link(i, true)}
+                            {card(i)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </DragSortList>
+                </SupersetGroup>
+              ) : (
+                card(indices[0])
+              )}
+            </li>,
+            ...(r === addRun
+              ? [
+                  <li key="add" className="pt-2 pb-1">
+                    {addForm}
+                  </li>,
+                ]
+              : []),
+          ])}
+          {offPlanBefore(exercises.length)}
+        </ol>
+      )}
+    </DragSortList>
   );
 
   const addButton = (

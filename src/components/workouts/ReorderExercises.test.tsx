@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { exercise, renderWorkout } from "../../test/workoutHarness";
-import { dropIndex } from "../../hooks/useDragSort";
+import { HOLD_MS, dropIndex } from "../../hooks/useDragSort";
 
 // jsdom has no pointer events; a mouse event with a pointer id will do.
 class FakePointerEvent extends MouseEvent {
@@ -88,6 +88,83 @@ describe("reordering a workout's exercises", () => {
 
     drag("Press and Curl", -1.2 * ROW);
     expect(order()).toEqual(["Press and Curl", "Press", "Curl", "Squat"]);
+  });
+});
+
+// The exercises in the order the workout shows them.
+const shown = () =>
+  screen
+    .getAllByRole("button", { name: / options$/ })
+    .map((b) => b.getAttribute("aria-label")!.slice(0, -8));
+
+// Holds an exercise's card still, then drags it to `to` and lets go.
+function hold(name: string, at: number) {
+  const title = screen.getByRole("button", { name: `${name} options` });
+  fireEvent.pointerDown(title, { pointerId: 2, clientX: 20, clientY: at });
+  act(() => vi.advanceTimersByTime(HOLD_MS));
+}
+function dragTo(to: number) {
+  fireEvent.pointerMove(window, { pointerId: 2, clientX: 20, clientY: to });
+  fireEvent.pointerUp(window, { pointerId: 2, clientX: 20, clientY: to });
+}
+
+describe("holding an exercise to move it", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("shrinks every card to its name and drops the held one where it's let go", () => {
+    const w = renderWorkout([
+      exercise("Squat"),
+      exercise("Bench"),
+      exercise("Lunge"),
+    ]);
+    render(<w.Harness />);
+    expect(screen.queryByRole("list", { name: "Exercise order" })).toBeNull();
+
+    // Each card's center is 45px down it.
+    hold("Lunge", 2 * ROW + 45);
+    const list = screen.getByRole("list", { name: "Exercise order" });
+    expect(list).toHaveAttribute("data-collapsed");
+
+    dragTo(20);
+    expect(shown()).toEqual(["Lunge", "Squat", "Bench"]);
+    expect(screen.queryByRole("list", { name: "Exercise order" })).toBeNull();
+  });
+
+  it("doesn't open the exercise's options when it's let go", () => {
+    const w = renderWorkout([exercise("Squat"), exercise("Bench")]);
+    render(<w.Harness />);
+
+    hold("Squat", 45);
+    dragTo(ROW + 60);
+    fireEvent.click(screen.getByRole("button", { name: "Squat options" }));
+    expect(shown()).toEqual(["Bench", "Squat"]);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("scrolls instead when the finger moves before the hold is up", () => {
+    const w = renderWorkout([exercise("Squat"), exercise("Bench")]);
+    render(<w.Harness />);
+    const title = screen.getByRole("button", { name: "Squat options" });
+    fireEvent.pointerDown(title, { pointerId: 2, clientX: 20, clientY: 45 });
+    fireEvent.pointerMove(window, { pointerId: 2, clientX: 20, clientY: 90 });
+    act(() => vi.advanceTimersByTime(HOLD_MS));
+    expect(screen.queryByRole("list", { name: "Exercise order" })).toBeNull();
+    dragTo(ROW + 60);
+    expect(shown()).toEqual(["Squat", "Bench"]);
+  });
+
+  it("moves an exercise within its superset", () => {
+    const w = renderWorkout(
+      [exercise("Squat"), exercise("Curl"), exercise("Press")],
+      [],
+      [["Curl", "Press"]],
+    );
+    render(<w.Harness />);
+
+    hold("Press", ROW + 45);
+    dragTo(0);
+    expect(shown()).toEqual(["Squat", "Press", "Curl"]);
   });
 });
 
