@@ -5,6 +5,8 @@ import { formatClock, parseClock } from "../../functions/formatDuration";
 import { setLabels } from "../../functions/workoutSets";
 import useDragAdjust from "../../hooks/useDragAdjust";
 import ExerciseInput from "./ExerciseInput";
+import AddPlanExercise from "./AddPlanExercise";
+import type { PlannedExercise } from "../../hooks/useWorkoutPlans";
 import { AddNoteForm, type ExerciseNotesProps } from "./ExerciseNote";
 import { unitClass, unitFieldClass, unitInputClass } from "./SetForm";
 import { boldFieldClass } from "../styles";
@@ -84,7 +86,8 @@ function RestField({
 }
 
 // The title of each exercise's card is its Options button. It opens a
-// dialog to do the exercise now instead of the current one, swap it for
+// dialog to do the exercise now instead of the current one, do a set fewer
+// or more, edit it (name, sets, reps, rest, weight, notes) or swap it for
 // another for this workout (the swap field sits right in the dialog), add a
 // note on it, end
 // it before all its sets are done, switch it between one side at a time
@@ -104,6 +107,9 @@ export default function StepActions({
   onSides,
   onRest,
   onAddAfter,
+  count,
+  onEdit,
+  editDraft,
   exerciseNotes,
   regions = [],
 }: {
@@ -126,6 +132,18 @@ export default function StepActions({
   onRest: (set: WorkoutSet, seconds: number | null) => void;
   // Opens the form for one more exercise, right after this one.
   onAddAfter?: () => void;
+  // Its sets (a superset's rounds) today, with buttons for one fewer or
+  // more; a missing one is disabled.
+  count?: {
+    label: "Sets" | "Rounds";
+    value: number;
+    fewer?: () => void;
+    more?: () => void;
+  };
+  // Saves it changed, just this workout; true once saved.
+  onEdit?: (exercise: PlannedExercise) => Promise<boolean>;
+  // Where the edit form keeps unsaved input.
+  editDraft?: string;
   // To add a note on it, and its body regions to suggest an injury.
   exerciseNotes?: ExerciseNotesProps;
   regions?: string[];
@@ -135,11 +153,14 @@ export default function StepActions({
   // The note form is open in the dialog. Its text is a draft, kept if the
   // dialog closes before Save.
   const [noting, setNoting] = useState(false);
+  // The edit form is open in the dialog, in place of everything else.
+  const [editing, setEditing] = useState(false);
 
   const close = () => {
     setOpen(false);
     setName("");
     setNoting(false);
+    setEditing(false);
   };
   // Each choice closes the dialog once it's made.
   const then = (run: () => void) => () => {
@@ -182,128 +203,199 @@ export default function StepActions({
             <p className="text-center text-xl font-extrabold tracking-tight">
               {step.name}
             </p>
-            <div className="flex flex-col gap-2">
-              {onPick && stopping && (
-                <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 px-1 text-center">
-                  Your {stopping} set stops without saving.
-                </p>
-              )}
-              {onPick && (
-                <button
-                  type="button"
-                  className={optionClass}
-                  onClick={then(onPick)}
-                >
-                  Do this now
-                </button>
-              )}
-              {/* Swap right here: tap a suggestion, or type a name and Swap. */}
-              <form
-                className="flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  swap();
+            {count && !editing && (
+              <div className="flex items-center justify-between gap-3 rounded-2xl bg-base-content/5 px-3 py-2">
+                <span className="text-sm font-bold">
+                  {count.label}{" "}
+                  <span className="tabular-nums" aria-live="polite">
+                    {count.value}
+                  </span>
+                  <span className="font-semibold text-base-content/55 dark:text-base-content/75">
+                    {" "}
+                    · just today
+                  </span>
+                </span>
+                <span className="flex shrink-0 gap-2">
+                  {(
+                    [
+                      [
+                        "−",
+                        `One ${count.label === "Sets" ? "set" : "round"} fewer`,
+                        count.fewer,
+                      ],
+                      [
+                        "+",
+                        `One more ${count.label === "Sets" ? "set" : "round"}`,
+                        count.more,
+                      ],
+                    ] as const
+                  ).map(([sign, label, onClick]) => (
+                    <button
+                      key={sign}
+                      type="button"
+                      className="btn btn-sm btn-circle bg-base-content/8 border-0 shadow-none text-lg font-bold"
+                      onClick={onClick}
+                      disabled={!onClick}
+                      aria-label={label}
+                    >
+                      {sign}
+                    </button>
+                  ))}
+                </span>
+              </div>
+            )}
+            {editing && onEdit && editDraft ? (
+              <AddPlanExercise
+                submitLabel="Save"
+                draft={editDraft}
+                initial={{ ...step, sets: step.planned_sets }}
+                above={
+                  <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 px-1">
+                    Edit {step.name}, just this workout
+                    {running && ". The set going carries on with it"}
+                  </p>
+                }
+                suggestions={suggestions}
+                onAdd={async (exercise) => {
+                  const ok = await onEdit(exercise);
+                  if (ok) close();
+                  return ok;
                 }}
-              >
-                <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 px-1">
-                  Swap for another exercise, just this workout
-                  {running && ". The set going carries on as it"}
-                </p>
-                <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <ExerciseInput
-                      className={boldFieldClass}
-                      value={name}
-                      onChange={setName}
-                      placeholder="Swap for…"
-                      // Tapping a suggestion swaps to it straight away.
-                      onPick={swap}
-                      suggestions={suggestions.filter(
-                        (n) => n.toLowerCase() !== step.name.toLowerCase(),
-                      )}
-                    />
-                  </div>
+                onCancel={() => setEditing(false)}
+              />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {onPick && stopping && (
+                  <p className="text-sm font-semibold text-base-content/60 dark:text-base-content/80 px-1 text-center">
+                    Your {stopping} set stops without saving.
+                  </p>
+                )}
+                {onPick && (
                   <button
-                    type="submit"
-                    className="btn btn-primary rounded-full font-bold"
-                    disabled={!name.trim()}
+                    type="button"
+                    className={optionClass}
+                    onClick={then(onPick)}
                   >
-                    Swap
+                    Do this now
                   </button>
-                </div>
-              </form>
-              {exerciseNotes &&
-                (noting ? (
-                  <div className="flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3">
-                    <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 px-1">
-                      Note on {step.name}
-                    </p>
-                    <AddNoteForm
-                      exercise={step.name}
-                      regions={regions}
-                      {...exerciseNotes}
-                      onDone={(saved) => (saved ? close() : setNoting(false))}
-                    />
+                )}
+                {onEdit && editDraft && (
+                  <button
+                    type="button"
+                    className={optionClass}
+                    onClick={() => setEditing(true)}
+                  >
+                    Edit exercise
+                  </button>
+                )}
+                {/* Swap right here: tap a suggestion, or type a name and Swap. */}
+                <form
+                  className="flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    swap();
+                  }}
+                >
+                  <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 px-1">
+                    Swap for another exercise, just this workout
+                    {running && ". The set going carries on as it"}
+                  </p>
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <ExerciseInput
+                        className={boldFieldClass}
+                        value={name}
+                        onChange={setName}
+                        placeholder="Swap for…"
+                        // Tapping a suggestion swaps to it straight away.
+                        onPick={swap}
+                        suggestions={suggestions.filter(
+                          (n) => n.toLowerCase() !== step.name.toLowerCase(),
+                        )}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="btn btn-primary rounded-full font-bold"
+                      disabled={!name.trim()}
+                    >
+                      Swap
+                    </button>
                   </div>
+                </form>
+                {exerciseNotes &&
+                  (noting ? (
+                    <div className="flex flex-col gap-2 rounded-2xl bg-base-content/5 p-3">
+                      <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75 px-1">
+                        Note on {step.name}
+                      </p>
+                      <AddNoteForm
+                        exercise={step.name}
+                        regions={regions}
+                        {...exerciseNotes}
+                        onDone={(saved) => (saved ? close() : setNoting(false))}
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className={optionClass}
+                      onClick={() => setNoting(true)}
+                    >
+                      Add a note
+                    </button>
+                  ))}
+                {onAddAfter && (
+                  <button
+                    type="button"
+                    className={optionClass}
+                    onClick={then(onAddAfter)}
+                  >
+                    Add an exercise after this
+                  </button>
+                )}
+                {step.swapped_from && (
+                  <button
+                    type="button"
+                    className={optionClass}
+                    onClick={then(() => onSwap(step.swapped_from!))}
+                  >
+                    Back to {step.swapped_from}
+                  </button>
+                )}
+                {!running && (step.unilateral || step.sides_changed) && (
+                  <button
+                    type="button"
+                    className={optionClass}
+                    onClick={then(() => onSides(!step.unilateral))}
+                  >
+                    {step.unilateral
+                      ? "Both sides at once"
+                      : "Back to one side at a time"}
+                  </button>
+                )}
+                {running ? null : step.ended ? (
+                  <button
+                    type="button"
+                    className={optionClass}
+                    onClick={then(() => onEnd(false))}
+                  >
+                    Pick back up
+                  </button>
                 ) : (
-                  <button
-                    type="button"
-                    className={optionClass}
-                    onClick={() => setNoting(true)}
-                  >
-                    Add a note
-                  </button>
-                ))}
-              {onAddAfter && (
-                <button
-                  type="button"
-                  className={optionClass}
-                  onClick={then(onAddAfter)}
-                >
-                  Add an exercise after this
-                </button>
-              )}
-              {step.swapped_from && (
-                <button
-                  type="button"
-                  className={optionClass}
-                  onClick={then(() => onSwap(step.swapped_from!))}
-                >
-                  Back to {step.swapped_from}
-                </button>
-              )}
-              {!running && (step.unilateral || step.sides_changed) && (
-                <button
-                  type="button"
-                  className={optionClass}
-                  onClick={then(() => onSides(!step.unilateral))}
-                >
-                  {step.unilateral
-                    ? "Both sides at once"
-                    : "Back to one side at a time"}
-                </button>
-              )}
-              {running ? null : step.ended ? (
-                <button
-                  type="button"
-                  className={optionClass}
-                  onClick={then(() => onEnd(false))}
-                >
-                  Pick back up
-                </button>
-              ) : (
-                !complete && (
-                  <button
-                    type="button"
-                    className={optionClass}
-                    onClick={then(() => onEnd(true))}
-                  >
-                    End early
-                  </button>
-                )
-              )}
-            </div>
-            {sets.length > 0 && (
+                  !complete && (
+                    <button
+                      type="button"
+                      className={optionClass}
+                      onClick={then(() => onEnd(true))}
+                    >
+                      End early
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+            {sets.length > 0 && !editing && (
               <div className="flex flex-col gap-2 border-t border-base-content/10 pt-3">
                 <p className="text-xs font-semibold tracking-wide text-base-content/55 dark:text-base-content/75">
                   Rest before each set

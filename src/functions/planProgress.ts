@@ -1,5 +1,6 @@
 import type { WorkoutPlan, PlannedExercise } from "../hooks/useWorkoutPlans";
 import type {
+  ExerciseEdit,
   PlanChanges,
   SetInput,
   Side,
@@ -142,6 +143,10 @@ export interface SessionExercise extends PlannedExercise {
   added?: boolean;
   // Switched to or from one side at a time, just this workout.
   sides_changed?: boolean;
+  // Its reps, weight, rest or notes changed just this workout.
+  edited?: boolean;
+  // When its weight was last changed this workout (see ExerciseEdit).
+  weight_changed_at?: string;
 }
 
 // The exercises' indexes in today's order: the order moved to, then any it
@@ -182,9 +187,13 @@ export function applyPlanChanges(
           index: i,
         }
       : { ...e, index: i };
+    const edit = changes?.edits?.[i];
+    const edited: SessionExercise = edit
+      ? { ...swapped, ...edit, edited: true }
+      : swapped;
     const count = changes?.sets?.[i];
     const counted: SessionExercise =
-      count && count > 0 ? { ...swapped, sets: count } : swapped;
+      count && count > 0 ? { ...edited, sets: count } : edited;
     const unilateral = changes?.sides?.[i];
     const sided: SessionExercise =
       unilateral === undefined
@@ -196,7 +205,7 @@ export function applyPlanChanges(
 }
 
 // Swaps the exercise at `index`; swapping back to the plan's undoes it. Either
-// way it's no longer ended.
+// way it's no longer ended, and today's edits of the old one are dropped.
 export function swapExercise(
   changes: PlanChanges | null,
   index: number,
@@ -209,10 +218,13 @@ export function swapExercise(
   // Another exercise goes by its own sides.
   const sides = { ...changes?.sides };
   delete sides[index];
+  const edits = { ...changes?.edits };
+  delete edits[index];
   return {
     ...changes,
     swaps,
     sides,
+    edits,
     ended: (changes?.ended ?? []).filter((i) => i !== index),
   };
 }
@@ -244,6 +256,17 @@ export function setSides(
   else sides[index] = unilateral;
   return { ...changes, sides };
 }
+
+// Changes the exercise at `index`'s reps, weight, rest or notes, just this
+// workout.
+export const editExercise = (
+  changes: PlanChanges | null,
+  index: number,
+  edit: ExerciseEdit,
+): PlanChanges => ({
+  ...changes,
+  edits: { ...changes?.edits, [index]: edit },
+});
 
 // The most sets, or a superset's rounds, the + button goes to.
 export const MAX_ROUNDS = 20;
@@ -395,6 +418,11 @@ export const remapPlanChanges = (
       Object.entries(changes.sets).map(([i, n]) => [String(to(Number(i))), n]),
     ),
   }),
+  ...(changes.edits && {
+    edits: Object.fromEntries(
+      Object.entries(changes.edits).map(([i, e]) => [String(to(Number(i))), e]),
+    ),
+  }),
 });
 
 // After a reorder, where each exercise went. Added ones keep their indexes.
@@ -426,16 +454,20 @@ export function followPlanEdit(
 // The numbers a new set of `name` starts with. Reps and time come from the
 // plan, else the last time you did it. Weight is the last set of it you
 // finished in this workout, so a change you made carries on to the next set;
-// before the first one, the plan's weight, else the last time's.
+// before the first one, or when the exercise's weight was changed after it,
+// the plan's weight, else the last time's.
 export function setPrefill(
   name: string,
   active: Workout | null | undefined,
   history: Workout[],
-  exercises: PlannedExercise[] = [],
+  exercises: (PlannedExercise & { weight_changed_at?: string })[] = [],
 ): Partial<SetInput> {
   const k = nameKey(name);
   const target = exercises.find((e) => nameKey(e.name) === k);
-  const thisWorkout = active ? lastSetOf(name, [active]) : undefined;
+  const latest = active ? lastSetOf(name, [active]) : undefined;
+  const changed = target?.weight_changed_at;
+  const thisWorkout =
+    latest && changed && latest.created_at < changed ? undefined : latest;
   const last = thisWorkout ?? lastSetOf(name, history);
   return {
     reps: (target && plannedReps(target.reps)) ?? last?.reps ?? null,

@@ -12,6 +12,7 @@ import {
   plannedReps,
   plannedSeconds,
   remapPlanChanges,
+  editExercise,
   setPrefill,
   setSetCount,
   setSides,
@@ -245,5 +246,52 @@ describe("setPrefill", () => {
     expect(
       setPrefill("Squat", workout(), [workout(squat(90, 6))]),
     ).toMatchObject({ weight: 90, reps: 6 });
+  });
+});
+
+describe("editing an exercise for one workout", () => {
+  const plan = [ex("Squat", { weight: 100 }), ex("Row")];
+
+  it("changes its numbers and notes on top of the plan", () => {
+    const changes = editExercise(null, 0, { reps: "5", weight: 120 });
+    expect(applyPlanChanges(plan, changes)[0]).toMatchObject({
+      name: "Squat",
+      reps: "5",
+      weight: 120,
+      edited: true,
+    });
+  });
+
+  it("drops the edits when it's swapped for another", () => {
+    const edited = editExercise(null, 0, { weight: 120 });
+    const swapped = swapExercise(edited, 0, "Front squat", "Squat");
+    expect(applyPlanChanges(plan, swapped)[0].weight).toBeUndefined();
+  });
+
+  it("follows the exercise when the plan day is reordered", () => {
+    const changes = editExercise(null, 0, { reps: "5" });
+    const moved = remapPlanChanges(changes, (i) => 1 - i);
+    expect(moved.edits).toEqual({ 1: { reps: "5" } });
+  });
+
+  it("starts the next set at a weight changed after the last one", () => {
+    const active = {
+      workout_sets: [
+        {
+          exercise_name: "Squat",
+          weight: 100,
+          reps: 8,
+          created_at: "2026-11-24T10:00:00Z",
+        },
+      ],
+    } as Workout;
+    const later = [
+      { ...plan[0], weight: 120, weight_changed_at: "2026-11-24T10:01:00Z" },
+    ];
+    const earlier = [
+      { ...plan[0], weight: 120, weight_changed_at: "2026-11-24T09:59:00Z" },
+    ];
+    expect(setPrefill("Squat", active, [], later).weight).toBe(120);
+    expect(setPrefill("Squat", active, [], earlier).weight).toBe(100);
   });
 });

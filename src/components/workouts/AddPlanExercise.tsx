@@ -20,11 +20,12 @@ const weightLabel = WEIGHT_UNIT === "lb" ? "lbs" : WEIGHT_UNIT;
 
 // A form for one more exercise at the end of a plan day or a workout: pick
 // one from the library or type a new name, with its sets, reps or time, rest
-// and weight.
+// and weight. Given an exercise, it edits that one instead.
 export default function AddPlanExercise({
   submitLabel,
   draft,
   above,
+  initial,
   suggestions,
   onAdd,
   onCancel,
@@ -35,17 +36,27 @@ export default function AddPlanExercise({
   draft: string;
   // Shown over the fields, like a choice of where it goes.
   above?: React.ReactNode;
+  // The exercise being edited, to start from.
+  initial?: PlannedExercise;
   // Exercise names, most recent first.
   suggestions: string[];
   onAdd: (exercise: PlannedExercise) => Promise<boolean>;
   onCancel: () => void;
 }) {
-  const [name, setName] = useDraft(draft, "name", "");
-  const [sets, setSets] = useDraft(draft, "sets", "3");
-  const [reps, setReps] = useDraft(draft, "reps", "10");
-  const [rest, setRest] = useDraft(draft, "rest", "60");
-  const [weight, setWeight] = useDraft(draft, "weight", "");
-  const [notes, setNotes] = useDraft(draft, "notes", "");
+  const [name, setName] = useDraft(draft, "name", initial?.name ?? "");
+  const [sets, setSets] = useDraft(draft, "sets", String(initial?.sets ?? 3));
+  const [reps, setReps] = useDraft(draft, "reps", initial?.reps ?? "10");
+  const [rest, setRest] = useDraft(
+    draft,
+    "rest",
+    String(initial?.rest_seconds ?? 60),
+  );
+  const [weight, setWeight] = useDraft(
+    draft,
+    "weight",
+    initial?.weight != null ? String(initial.weight) : "",
+  );
+  const [notes, setNotes] = useDraft(draft, "notes", initial?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const dragSets = useDragAdjust({
     value: sets,

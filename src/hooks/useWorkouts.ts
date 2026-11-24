@@ -61,6 +61,18 @@ export interface PlanChanges {
   // How many sets (a superset's rounds) an exercise has today instead of
   // the plan's.
   sets?: Record<string, number>;
+  // An exercise's reps, weight, rest and notes changed just this workout.
+  edits?: Record<string, ExerciseEdit>;
+}
+
+// What's changed about one exercise today. `weight_changed_at` is when its
+// weight last changed, so sets after it start from the new weight.
+export interface ExerciseEdit {
+  reps?: string;
+  weight?: number | null;
+  rest_seconds?: number;
+  notes?: string;
+  weight_changed_at?: string;
 }
 
 // A workout without sets, like yoga, logged once it's over.

@@ -36,6 +36,7 @@ import {
   swapExercise,
   type SessionExercise,
   setSetCount,
+  editExercise,
   MAX_ROUNDS,
 } from "../../functions/planProgress";
 import { WEIGHT_UNIT } from "../../functions/workoutSets";
@@ -484,12 +485,14 @@ export default function ActiveWorkout({
     const round = Math.min(...open.map((e) => setsDone(e, sets))) + 1;
     return `Round ${Math.min(round, rounds)} of ${rounds}`;
   };
-  // One round fewer or more, just this workout: never fewer than you've
-  // already done, or none.
-  const roundButtons = (group: string[]) => {
-    const all = members(group);
-    const rounds = Math.max(...all.map((e) => e.planned_sets));
-    const least = Math.max(1, ...all.map((e) => setsDone(e, sets)));
+  // The fewest sets (a superset's rounds) these exercises can go down to:
+  // never fewer than you've already done, or none.
+  const leastSets = (all: Step[]) =>
+    Math.max(1, ...all.map((e) => setsDone(e, sets)));
+  // One set (or round) fewer or more, just this workout.
+  const countButtons = (all: Step[]) => {
+    const count = Math.max(...all.map((e) => e.planned_sets));
+    const least = leastSets(all);
     const to = (n: number) => () =>
       onPlanChange(
         setSetCount(
@@ -499,10 +502,11 @@ export default function ActiveWorkout({
         ),
       );
     return {
-      fewer: rounds > least ? to(rounds - 1) : undefined,
-      more: rounds < MAX_ROUNDS ? to(rounds + 1) : undefined,
+      fewer: count > least ? to(count - 1) : undefined,
+      more: count < MAX_ROUNDS ? to(count + 1) : undefined,
     };
   };
+  const roundButtons = (group: string[]) => countButtons(members(group));
 
   // Every exercise in the plan's order, each a card of its own: the ones
   // done sit above the current one with their sets, still editable, and
@@ -551,6 +555,44 @@ export default function ActiveWorkout({
         {fixing && earlier.length < logged.length && fixingEditor(fixing)}
       </div>
     );
+    const group = groupOf(i);
+    // Swaps it for another exercise (or, given the same name, keeps it),
+    // with any other changes to make along with it.
+    const swap = (
+      name: string,
+      more: (changes: PlanChanges) => PlanChanges = (c) => c,
+    ) => {
+      if (sameName(name, e.name)) {
+        onPlanChange(more(workout.plan_changes ?? {}));
+        return;
+      }
+      // The set going was this other exercise: it carries on as that.
+      if (current && setBusy) timerControl.current?.rename(name);
+      onPlanChange(
+        more(
+          swapExercise(
+            workout.plan_changes,
+            e.index,
+            name,
+            e.swapped_from ?? e.name,
+          ),
+        ),
+        workout.supersets
+          ? renameInSupersets(workout.supersets, e.name, name.trim())
+          : undefined,
+      );
+      // Swapping one that's done means it was the other exercise all
+      // along, so its sets go with it.
+      if (complete)
+        for (const s of logged)
+          onUpdateSet(s, {
+            exercise_name: name.trim(),
+            reps: s.reps,
+            weight: s.weight,
+            duration_seconds: s.duration_seconds,
+            side: s.side,
+          });
+    };
     const actions = (titleClassName: string) => (
       <StepActions
         titleClassName={titleClassName}
@@ -573,31 +615,46 @@ export default function ActiveWorkout({
         }
         stopping={setBusy && !current ? shown?.name : undefined}
         running={setBusy && current}
-        onSwap={(name) => {
-          // The set going was this other exercise: it carries on as that.
-          if (current && setBusy) timerControl.current?.rename(name);
-          onPlanChange(
-            swapExercise(
-              workout.plan_changes,
-              e.index,
-              name,
-              e.swapped_from ?? e.name,
-            ),
-            workout.supersets
-              ? renameInSupersets(workout.supersets, e.name, name.trim())
-              : undefined,
+        onSwap={(name) => swap(name)}
+        count={{
+          label: group ? "Rounds" : "Sets",
+          value: e.planned_sets,
+          ...countButtons(group ? members(group) : [e]),
+        }}
+        editDraft={`${draft}:edit:${e.index}`}
+        onEdit={async (edited) => {
+          const renamed = !sameName(edited.name, e.name);
+          // A new weight counts from the next set on.
+          const weightChanged = renamed
+            ? edited.weight != null
+            : (edited.weight ?? null) !== (e.weight ?? null);
+          const edit = {
+            reps: edited.reps,
+            weight: edited.weight ?? null,
+            rest_seconds: edited.rest_seconds,
+            notes: edited.notes,
+            weight_changed_at: weightChanged
+              ? new Date().toISOString()
+              : renamed
+                ? undefined
+                : e.weight_changed_at,
+          };
+          const all = group ? members(group) : [e];
+          const count = Math.min(
+            MAX_ROUNDS,
+            Math.max(edited.sets, leastSets(all)),
           );
-          // Swapping one that's done means it was the other exercise all
-          // along, so its sets go with it.
-          if (complete)
-            for (const s of logged)
-              onUpdateSet(s, {
-                exercise_name: name.trim(),
-                reps: s.reps,
-                weight: s.weight,
-                duration_seconds: s.duration_seconds,
-                side: s.side,
-              });
+          swap(edited.name, (changes) => {
+            const next = editExercise(changes, e.index, edit);
+            return count === e.planned_sets
+              ? next
+              : setSetCount(
+                  next,
+                  all.map((m) => m.index),
+                  count,
+                );
+          });
+          return true;
         }}
         onAddAfter={() => {
           setAdding(true);
@@ -687,7 +744,6 @@ export default function ActiveWorkout({
         </section>
       );
 
-    const group = groupOf(i);
     return (
       <section className={`${cardClass} flex flex-col gap-2`}>
         {label}
