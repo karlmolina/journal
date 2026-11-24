@@ -27,10 +27,11 @@ import { equipmentFor } from "../../functions/equipment";
 import { guessBodyParts } from "../../functions/bodyPartScores";
 import { planSupersets, type Supersets } from "../../functions/supersets";
 import {
-  addToWorkout,
+  addToWorkoutAfter,
   applyPlanChanges,
   followPlanEdit,
   grewFrom,
+  placeAfter,
   dayLabel,
   describeTarget,
   nextSessionIndex,
@@ -290,9 +291,7 @@ export default function Session() {
       applyPlanChanges(exercises, active?.plan_changes ?? null).map((e) => ({
         ...e,
         unilateral:
-          e.unilateral ??
-          byLowerName.get(nameKey(e.name))?.unilateral ??
-          false,
+          e.unilateral ?? byLowerName.get(nameKey(e.name))?.unilateral ?? false,
       }));
     if (plan && session)
       return {
@@ -319,10 +318,12 @@ export default function Session() {
   }, [active, plans, byLowerName]);
 
   // An exercise added during the workout: to this workout only, or to its
-  // plan day too, so later workouts of that day have it.
+  // plan day too, so later workouts of that day have it. Today it goes
+  // right after the exercise at index `after`, or else at the end.
   const handleAddExercise = async (
     exercise: PlannedExercise,
     toPlan: boolean,
+    after?: number,
   ) => {
     if (!active) return false;
     const found = byLowerName.get(exercise.name.toLowerCase());
@@ -330,17 +331,31 @@ export default function Session() {
     const named = { ...exercise, name: found?.name ?? exercise.name };
     const plan = plans.find((p) => p.id === active.plan_id);
     const session = active.plan_session;
+    const planLength =
+      plan && session != null
+        ? (plan.plan.sessions[session]?.exercises.length ?? 0)
+        : 0;
+    const addedBefore = active.plan_changes?.added?.length ?? 0;
     if (toPlan && plan && session != null) {
-      const changes = followPlanEdit(
-        active,
-        plan,
-        session,
-        grewFrom(plan.plan.sessions[session].exercises.length),
-      );
-      if (changes) setPlanChanges(changes);
+      const grew = grewFrom(planLength);
+      const changes =
+        followPlanEdit(active, plan, session, grew) ?? active.plan_changes;
+      // It joins the plan day at its end, right before the ones added today.
+      if (after !== undefined)
+        setPlanChanges(
+          placeAfter(
+            changes,
+            planLength + 1 + addedBefore,
+            planLength,
+            grew(after),
+          ),
+        );
+      else if (changes) setPlanChanges(changes);
       return addExercise(plan, session, named);
     }
-    setPlanChanges(addToWorkout(active.plan_changes, named));
+    setPlanChanges(
+      addToWorkoutAfter(active.plan_changes, planLength, named, after),
+    );
     return true;
   };
 

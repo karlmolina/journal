@@ -4,7 +4,7 @@ import ActiveWorkout from "../components/workouts/ActiveWorkout";
 import type { PlannedExercise } from "../hooks/useWorkoutPlans";
 import type { SetInput, Workout, WorkoutSet } from "../hooks/useWorkouts";
 import type { ExerciseNotes } from "../hooks/useExerciseNotes";
-import { applyPlanChanges } from "../functions/planProgress";
+import { addToWorkoutAfter, applyPlanChanges } from "../functions/planProgress";
 import useProgression from "../hooks/useProgression";
 import { nameKey } from "../functions/exerciseName";
 
@@ -34,7 +34,8 @@ const noNotes = (addNote: ExerciseNotes["addNote"]): ExerciseNotes =>
 
 // The workout page's active workout for a plan day, with the sets kept in
 // memory the way the Session page keeps them. `onAddSet` and `onRemoveSets`
-// are spies, to check what would be saved.
+// are spies, to check what would be saved. Added exercises go to this
+// workout only, the way Session adds them.
 export function renderWorkout(
   exercises: PlannedExercise[],
   sets: WorkoutSet[] = [],
@@ -44,6 +45,7 @@ export function renderWorkout(
 ) {
   const onAddSet = vi.fn();
   const onRemoveSets = vi.fn();
+  const onAddExercise = vi.fn();
   const onAddNote = vi.fn<ExerciseNotes["addNote"]>(async () => {});
   const notes = noNotes(onAddNote);
   let latest: Workout;
@@ -109,7 +111,19 @@ export function renderWorkout(
             ...(supersets && { supersets }),
           }))
         }
-        onAddExercise={async () => true}
+        onAddExercise={async (exercise, toPlan, after) => {
+          onAddExercise(exercise, toPlan, after);
+          setWorkout((w) => ({
+            ...w,
+            plan_changes: addToWorkoutAfter(
+              w.plan_changes,
+              exercises.length,
+              exercise,
+              after,
+            ),
+          }));
+          return true;
+        }}
         onAddSet={(set: SetInput) => {
           onAddSet(set);
           n += 1;
@@ -144,7 +158,9 @@ export function renderWorkout(
     onAddSet,
     onRemoveSets,
     onAddNote,
+    onAddExercise,
     sets: () => latest.workout_sets,
+    workout: () => latest,
   };
 }
 
