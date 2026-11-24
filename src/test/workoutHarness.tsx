@@ -67,11 +67,9 @@ export function renderWorkout(
       workout_sets: sets,
     });
     latest = workout;
-    const { prefillFor, progression } = useProgression(
-      workout,
-      history,
-      exercises,
-    );
+    // Today's exercises, with this workout's changes, as Session has them.
+    const today = applyPlanChanges(exercises, workout.plan_changes);
+    const { prefillFor, progression } = useProgression(workout, history, today);
     const unilateral = (name: string) =>
       exercises.find((e) => nameKey(e.name) === nameKey(name))?.unilateral ??
       false;
@@ -86,7 +84,7 @@ export function renderWorkout(
             day: "Day 1",
             focus: "Everything",
             duration_minutes: 30,
-            exercises: applyPlanChanges(exercises, workout.plan_changes),
+            exercises: today,
           },
         }}
         suggestions={["Goblet squat"]}
