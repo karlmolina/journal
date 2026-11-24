@@ -4,12 +4,15 @@ import useDragSort, { type DragSort } from "../hooks/useDragSort";
 // useDragSort for a list drawn inside a loop, where a hook can't go.
 export function DragSortList({
   onDrop,
+  onLift,
   children,
 }: {
   onDrop: (from: number, to: number) => void;
+  // Given, its items lift when held, and this says when.
+  onLift?: (lifted: boolean) => void;
   children: (sort: DragSort) => React.ReactNode;
 }) {
-  return children(useDragSort(onDrop));
+  return children(useDragSort(onDrop, onLift));
 }
 
 // The six-dot handle to drag an item by.

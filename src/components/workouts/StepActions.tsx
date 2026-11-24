@@ -161,6 +161,8 @@ export default function StepActions({
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-label={`${step.name} options`}
+        // What's left of the card while exercises are being moved.
+        data-name
       >
         {step.name}
       </button>
