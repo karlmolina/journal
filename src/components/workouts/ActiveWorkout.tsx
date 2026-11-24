@@ -113,10 +113,12 @@ interface ActiveWorkoutProps {
   // A swap passes the supersets with the exercise renamed, when the workout
   // has its own.
   onPlanChange: (changes: PlanChanges, supersets?: Supersets) => void;
-  // Adds an exercise to this workout, or to its plan day too.
+  // Adds an exercise to this workout, or to its plan day too. Today it goes
+  // right after the exercise at index `after`, or else at the end.
   onAddExercise: (
     exercise: PlannedExercise,
     toPlan: boolean,
+    after?: number,
   ) => Promise<boolean>;
   initialExercise?: string;
   onAddSet: (set: SetInput) => void;
@@ -356,6 +358,13 @@ export default function ActiveWorkout({
   const draft = `workout:${workout.id}`;
   const [adding, setAdding] = useDraft(draft, "adding", false);
   const [addToPlan, setAddToPlan] = useDraft(draft, "addToPlan", false);
+  // The exercise (its index) the form adds after, opened from its Options;
+  // null adds at the end.
+  const [addAfter, setAddAfter] = useDraft<number | null>(
+    draft,
+    "addAfter",
+    null,
+  );
   const [notes, setNotes] = useDraft(draft, "notes", "");
   const elapsed = formatClock(elapsedSeconds(workout, now));
 
@@ -588,6 +597,11 @@ export default function ActiveWorkout({
                 side: s.side,
               });
         }}
+        onAddAfter={() => {
+          setAdding(true);
+          setAddToPlan(false);
+          setAddAfter(e.index);
+        }}
         onRest={(s, rest_seconds) =>
           onUpdateSet(s, {
             exercise_name: s.exercise_name,
@@ -751,6 +765,14 @@ export default function ActiveWorkout({
       at: selectedIndex === null ? at : Math.min(at, selectedIndex),
     });
   }
+  // The form opened from an exercise's Options sits right under it, or
+  // under its whole superset; otherwise at the bottom.
+  const addRun =
+    adding && addAfter !== null
+      ? runs.findIndex((r) =>
+          r.indices.some((i) => exercises[i].index === addAfter),
+        )
+      : -1;
   // Placed between runs, so a superset's outline stays whole.
   const runStart = (i: number) =>
     runs.find((r) => r.indices.includes(i))?.indices[0] ?? exercises.length;
@@ -796,6 +818,43 @@ export default function ActiveWorkout({
   const grip = (sort: DragSort, k: number, name: string) => (
     <Grip sort={sort} index={k} label={`Drag ${name} to move it`} />
   );
+  // One more exercise for this workout, or (in a plan) its plan day too.
+  const planDay = planned && !planned.free ? planned.session.day : undefined;
+  const addForm = (
+    <AddPlanExercise
+      submitLabel={addToPlan && planDay ? `Add to ${planDay}` : "Add"}
+      draft={`${draft}:add`}
+      above={
+        planDay && (
+          <div className="flex flex-wrap gap-1.5" role="group">
+            <Chip selected={!addToPlan} onClick={() => setAddToPlan(false)}>
+              Just today
+            </Chip>
+            <Chip selected={addToPlan} onClick={() => setAddToPlan(true)}>
+              Every {planDay}
+            </Chip>
+          </div>
+        )
+      }
+      suggestions={suggestions}
+      onAdd={async (exercise) => {
+        const last = addRun === -1 ? undefined : runs[addRun].indices.at(-1)!;
+        const ok = await onAddExercise(
+          exercise,
+          !!planDay && addToPlan,
+          last === undefined ? undefined : exercises[last].index,
+        );
+        // Added above the exercise you're on: you stay on it.
+        if (ok && last !== undefined && selectedIndex !== null)
+          if (selectedIndex > last) setPicked(selectedIndex + 1);
+        return ok;
+      }}
+      onCancel={() => {
+        setAdding(false);
+        setAddAfter(null);
+      }}
+    />
+  );
   const timeline = ordering ? (
     // While moving them around: just the plan's exercises, each dragged by
     // its handle, a superset by its outline's.
@@ -835,7 +894,7 @@ export default function ActiveWorkout({
     </DragSortList>
   ) : (
     <ol className="flex flex-col gap-1">
-      {runs.map(({ group, indices }) => [
+      {runs.map(({ group, indices }, r) => [
         ...offPlanBefore(indices[0]),
         <li key={indices[0]} className="flex flex-col gap-1">
           {indices[0] > 0 && link(indices[0], false)}
@@ -859,34 +918,18 @@ export default function ActiveWorkout({
             card(indices[0])
           )}
         </li>,
+        ...(r === addRun
+          ? [
+              <li key="add" className="pt-2 pb-1">
+                {addForm}
+              </li>,
+            ]
+          : []),
       ])}
       {offPlanBefore(exercises.length)}
     </ol>
   );
 
-  // One more exercise for this workout, or (in a plan) its plan day too.
-  const planDay = planned && !planned.free ? planned.session.day : undefined;
-  const addForm = (
-    <AddPlanExercise
-      submitLabel={addToPlan && planDay ? `Add to ${planDay}` : "Add"}
-      draft={`${draft}:add`}
-      above={
-        planDay && (
-          <div className="flex flex-wrap gap-1.5" role="group">
-            <Chip selected={!addToPlan} onClick={() => setAddToPlan(false)}>
-              Just today
-            </Chip>
-            <Chip selected={addToPlan} onClick={() => setAddToPlan(true)}>
-              Every {planDay}
-            </Chip>
-          </div>
-        )
-      }
-      suggestions={suggestions}
-      onAdd={(exercise) => onAddExercise(exercise, !!planDay && addToPlan)}
-      onCancel={() => setAdding(false)}
-    />
-  );
   const addButton = (
     <button
       type="button"
@@ -894,6 +937,7 @@ export default function ActiveWorkout({
       onClick={() => {
         setAdding(true);
         setAddToPlan(false);
+        setAddAfter(null);
       }}
     >
       + Add exercise
@@ -952,7 +996,7 @@ export default function ActiveWorkout({
               Done moving
             </button>
           ) : adding ? (
-            addForm
+            addRun === -1 && addForm
           ) : shownIndex === null && exercises.length > 0 ? null : (
             addButton
           )}

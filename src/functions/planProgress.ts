@@ -269,7 +269,8 @@ export const withSetCount = (
   count: number,
 ) => exercises.map((e, i) => (indexes.includes(i) ? { ...e, sets: count } : e));
 
-// Adds an exercise to this workout only, after everything else.
+// Adds an exercise to this workout only, after everything else (see
+// placeAfter to put it somewhere else).
 export const addToWorkout = (
   changes: PlanChanges | null,
   exercise: PlannedExercise,
@@ -277,6 +278,35 @@ export const addToWorkout = (
   ...changes,
   added: [...(changes?.added ?? []), exercise],
 });
+
+// Today's order with the exercise at `index` (of `count`) moved to right
+// after the one at `after`; at the end when that one isn't there.
+export function placeAfter(
+  changes: PlanChanges | null,
+  count: number,
+  index: number,
+  after: number,
+): PlanChanges {
+  const order = workoutOrder(changes, count).filter((i) => i !== index);
+  const at = order.indexOf(after);
+  order.splice(at === -1 ? order.length : at + 1, 0, index);
+  return { ...changes, order };
+}
+
+// Adds an exercise to this workout only, after a plan day of `length`
+// exercises: right after the exercise at index `after`, or else at the end.
+export function addToWorkoutAfter(
+  changes: PlanChanges | null,
+  length: number,
+  exercise: PlannedExercise,
+  after?: number,
+): PlanChanges {
+  const added = addToWorkout(changes, exercise);
+  const index = length + (changes?.added?.length ?? 0);
+  return after === undefined
+    ? added
+    : placeAfter(added, index + 1, index, after);
+}
 
 // A plan exercise's superset letter, if it's in one.
 export const supersetLetter = (e: PlannedExercise) =>

@@ -88,7 +88,8 @@ function RestField({
 // another for this workout (the swap field sits right in the dialog), add a
 // note on it, end
 // it before all its sets are done, switch it between one side at a time
-// and both sides at once, or fix the rest taken before each of its sets.
+// and both sides at once, add another exercise right after it, or fix the
+// rest taken before each of its sets.
 export default function StepActions({
   step,
   titleClassName,
@@ -102,6 +103,7 @@ export default function StepActions({
   onEnd,
   onSides,
   onRest,
+  onAddAfter,
   exerciseNotes,
   regions = [],
 }: {
@@ -122,6 +124,8 @@ export default function StepActions({
   // Does it one side at a time (true) or both sides at once, this workout.
   onSides: (unilateral: boolean) => void;
   onRest: (set: WorkoutSet, seconds: number | null) => void;
+  // Opens the form for one more exercise, right after this one.
+  onAddAfter?: () => void;
   // To add a note on it, and its body regions to suggest an injury.
   exerciseNotes?: ExerciseNotesProps;
   regions?: string[];
@@ -248,6 +252,15 @@ export default function StepActions({
                     Add a note
                   </button>
                 ))}
+              {onAddAfter && (
+                <button
+                  type="button"
+                  className={optionClass}
+                  onClick={then(onAddAfter)}
+                >
+                  Add an exercise after this
+                </button>
+              )}
               {step.swapped_from && (
                 <button
                   type="button"

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PlannedExercise } from "../hooks/useWorkoutPlans";
 import type { Workout, WorkoutSet } from "../hooks/useWorkouts";
 import {
+  addToWorkoutAfter,
   applyPlanChanges,
   currentExerciseIndex,
   endExercise,
@@ -154,6 +155,25 @@ describe("plan changes for one workout", () => {
       sides_changed: true,
     });
     expect(setSides(one, 2, false, false).sides).toEqual({});
+  });
+
+  it("adds an exercise right after another, or at the end", () => {
+    const names = (changes: Parameters<typeof applyPlanChanges>[1]) =>
+      applyPlanChanges(day, changes).map((e) => e.name);
+    const first = addToWorkoutAfter(null, 3, ex("Curl"), 0);
+    expect(names(first)).toEqual(["Squat", "Curl", "Row", "Plank"]);
+    // The next one after the one just added, in today's order.
+    const second = addToWorkoutAfter(first, 3, ex("Dip"), 3);
+    expect(names(second)).toEqual(["Squat", "Curl", "Dip", "Row", "Plank"]);
+    // With no place given it goes last, keeping the order so far.
+    expect(names(addToWorkoutAfter(second, 3, ex("Run")))).toEqual([
+      "Squat",
+      "Curl",
+      "Dip",
+      "Row",
+      "Plank",
+      "Run",
+    ]);
   });
 
   it("puts today's order first, then anything left out", () => {
