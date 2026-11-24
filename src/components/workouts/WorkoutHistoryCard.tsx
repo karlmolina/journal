@@ -17,6 +17,7 @@ import {
 import {
   WEIGHT_UNIT,
   groupSets,
+  restVsActive,
   setCount as countSets,
   totalVolume,
 } from "../../functions/workoutSets";
@@ -45,6 +46,40 @@ function supersetLetters(groups: Supersets) {
     g.forEach((name) => tags.set(nameKey(name), String.fromCharCode(65 + i))),
   );
   return tags;
+}
+
+// How much of the workout was doing sets and how much was rest, as one bar
+// split in two with the times under it.
+function RestActiveBar({ active, rest }: { active: number; rest: number }) {
+  const total = active + rest;
+  const pct = (n: number) => Math.round((n / total) * 100);
+  return (
+    <div
+      className="mt-2"
+      aria-label={`Active ${formatDuration(active)}, rest ${formatDuration(rest)}`}
+    >
+      <div
+        className="flex h-1.5 rounded-full overflow-hidden bg-base-content/12 dark:bg-base-content/20"
+        aria-hidden="true"
+      >
+        <div
+          className="bg-primary dark:bg-[color-mix(in_oklab,var(--color-primary),white_35%)]"
+          style={{ width: `${(active / total) * 100}%` }}
+        />
+      </div>
+      <p
+        className="mt-1 flex justify-between gap-3 text-xs font-semibold tabular-nums"
+        aria-hidden="true"
+      >
+        <span className="text-primary dark:text-[color-mix(in_oklab,var(--color-primary),white_65%)]">
+          Active {formatDuration(active)} · {pct(active)}%
+        </span>
+        <span className="text-base-content/55 dark:text-base-content/75">
+          Rest {formatDuration(rest)} · {100 - pct(active)}%
+        </span>
+      </p>
+    </div>
+  );
 }
 
 // Five bars filled by how hard a body part was hit, then the score itself
@@ -177,6 +212,9 @@ export default function WorkoutHistoryCard({
   const volume = totalVolume(workout.workout_sets);
   const tags = supersetLetters(supersets);
   const parts = bodyPartScores(workout.workout_sets, bodyPartsOf);
+  const split = activity
+    ? null
+    : restVsActive(elapsedSeconds(workout), workout.workout_sets);
   const muted = "text-base-content/55 dark:text-base-content/75";
 
   return (
@@ -223,6 +261,7 @@ export default function WorkoutHistoryCard({
             {planDay}
           </p>
         )}
+        {split && <RestActiveBar {...split} />}
         {!open && parts.length > 0 && (
           <ul
             className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm"

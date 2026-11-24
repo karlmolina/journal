@@ -51,6 +51,9 @@ interface SetTimerProps {
   // clocks change seconds together.
   now: number;
   clockOrigin: number;
+  // When the workout's last set was saved (epoch ms), so the gap before the
+  // next set counts as rest even when no rest timer was running.
+  lastSetEnd?: number;
   // The exercise to do next, from the plan or the library.
   exercise: string;
   // A line about the target, like "Set 2 of 3 · 8-10 reps", and just the
@@ -123,6 +126,7 @@ export default function SetTimer({
   storageKey,
   now,
   clockOrigin,
+  lastSetEnd,
   exercise,
   target,
   setLabel,
@@ -209,8 +213,16 @@ export default function SetTimer({
 
   const side = sideFor(name);
 
-  // How long the rest has run, to save with the set that ends it.
-  const restUntil = (at: number) => (rest ? since(rest.since, at) : null);
+  // How long the rest has run, to save with the set that ends it. Without a
+  // rest timer (the second side, straight on in a superset, a rest that was
+  // skipped) it's the time since the last set was saved: every gap between
+  // sets is rest.
+  const restUntil = (at: number) =>
+    rest
+      ? since(rest.since, at)
+      : lastSetEnd != null
+        ? since(lastSetEnd, at)
+        : null;
 
   // Seconds left before a set straight after another starts timing.
   const countdown =
@@ -230,8 +242,15 @@ export default function SetTimer({
     counted.current = countdown > 0;
   }, [countdown]);
   const startNow = () => {
-    if (state.phase === "running")
-      setState({ ...state, startedAt: Date.now(), countdown: false });
+    if (state.phase !== "running") return;
+    const at = Date.now();
+    setState({
+      ...state,
+      startedAt: at,
+      countdown: false,
+      // The countdown's rest was counted to when it would have run out.
+      ...(state.countdown && { restSeconds: restUntil(at) }),
+    });
   };
 
   const busy = state.phase === "running" || state.phase === "logging";
@@ -368,13 +387,14 @@ export default function SetTimer({
       !n
     )
       return setState(state.then);
+    const at = Date.now() + COUNTDOWN * 1000;
     setState({
       phase: "running",
       exercise: n,
-      startedAt: Date.now() + COUNTDOWN * 1000,
+      startedAt: at,
       countdown: true,
       side: sideFor(n),
-      restSeconds: null,
+      restSeconds: restUntil(at),
       ...planned(n),
     });
   };

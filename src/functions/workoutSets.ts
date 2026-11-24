@@ -100,3 +100,14 @@ export function summarizeSets(sets: WorkoutSet[]) {
 export function totalVolume(sets: WorkoutSet[]) {
   return sets.reduce((sum, s) => sum + (s.reps ?? 0) * (s.weight ?? 0), 0);
 }
+
+// How a workout's time split between doing sets and everything else: the set
+// clocks add up to the active time, and the rest of the workout's time (gaps
+// between sets, before the first and after the last) is rest. Null when no
+// set was timed, so there's nothing to split.
+export function restVsActive(totalSeconds: number, sets: WorkoutSet[]) {
+  const timed = sets.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0);
+  if (timed === 0 || totalSeconds <= 0) return null;
+  const active = Math.min(timed, totalSeconds);
+  return { active, rest: totalSeconds - active };
+}
