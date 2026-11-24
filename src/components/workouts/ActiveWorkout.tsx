@@ -160,6 +160,10 @@ export default function ActiveWorkout({
   // Keep the screen on for the whole workout, except while it's paused.
   useWakeLock(!paused);
   const sets = workout.workout_sets;
+  // When the last set was saved: the time since then is rest.
+  const lastSetEnd = sets.length
+    ? Math.max(...sets.map((s) => Date.parse(s.created_at)))
+    : undefined;
   // An exercise finished early counts as done with the sets it has.
   const exercises: Step[] = (planned?.session.exercises ?? []).map((e) => ({
     ...e,
@@ -396,6 +400,7 @@ export default function ActiveWorkout({
       storageKey={timerKey}
       now={now}
       clockOrigin={clockOrigin}
+      lastSetEnd={lastSetEnd}
       exercise={selected?.name ?? initialExercise ?? ""}
       target={target || undefined}
       setLabel={setLabel || undefined}

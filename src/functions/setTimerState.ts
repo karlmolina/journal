@@ -6,7 +6,8 @@ import type { Side } from "../hooks/useWorkouts";
 // the exercise that follows straight on in a superset.
 // Rest counts up from when a set is stopped (`Rest.since`) until the next
 // one starts, and that time is saved with the next set. `target` is the
-// planned rest; the phone buzzes when it's reached.
+// planned rest; the phone buzzes when it's reached. With no rest timer going,
+// the gap since the last set was saved is the rest instead.
 export interface Rest {
   since: number;
   target: number;

@@ -143,6 +143,25 @@ describe("active workout", () => {
     expect(button("Rest")).toBeInTheDocument();
   });
 
+  it("counts the gap between sets as rest, even with no rest timer", async () => {
+    const user = userEvent.setup();
+    const w = renderWorkout([
+      exercise("Push-up", { sets: 2, superset: "A" }),
+      exercise("Row", { sets: 2, superset: "A" }),
+    ]);
+    render(<w.Harness />);
+
+    await doSet(user);
+    await user.click(button("Next exercise"));
+    await user.click(button("Start now"));
+    await user.click(button("Finish"));
+    const [first, second] = w.onAddSet.mock.calls.map((c) => c[0]);
+    // Nothing came before the first set; the superset's second set rested
+    // the moment between them.
+    expect(first.rest_seconds).toBeNull();
+    expect(second.rest_seconds).toEqual(expect.any(Number));
+  });
+
   it("adds and removes a circuit's rounds", async () => {
     const user = userEvent.setup();
     const w = renderWorkout([
