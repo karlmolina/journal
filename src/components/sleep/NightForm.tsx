@@ -144,14 +144,7 @@ function MinutesField({
   );
 }
 
-export default function NightForm({
-  night,
-  existing,
-  lastTimes,
-  onNightChange,
-  onSave,
-  onDelete,
-}: {
+type NightFormProps = {
   night: string;
   existing?: SleepNight;
   // Times from the most recent night, as a starting point for a new one.
@@ -166,7 +159,28 @@ export default function NightForm({
   onNightChange: (night: string) => void;
   onSave: (input: NightInput) => void;
   onDelete?: () => void;
-}) {
+};
+
+// A fresh form whenever the saved night changes (saved from here, or newer
+// data loaded), so Undo changes goes back to what's saved now. Unsaved
+// changes carry over through the draft.
+export default function NightForm(props: NightFormProps) {
+  return (
+    <NightFields
+      key={props.existing ? JSON.stringify(props.existing) : "new"}
+      {...props}
+    />
+  );
+}
+
+function NightFields({
+  night,
+  existing,
+  lastTimes,
+  onNightChange,
+  onSave,
+  onDelete,
+}: NightFormProps) {
   // Unsaved changes survive a refresh, per night.
   const draft = `sleep:${night}`;
   // What each field shows before any unsaved change: the saved night, or a

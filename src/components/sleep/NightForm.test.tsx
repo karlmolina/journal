@@ -163,6 +163,58 @@ describe("NightForm", () => {
     ).toBe(false);
   });
 
+  it("undoes back to the night as last saved, after saving from the form", () => {
+    localStorage.clear();
+    setCacheOwner("u1");
+    const props = {
+      night: existing.night,
+      lastTimes,
+      onNightChange: () => {},
+    };
+    let saved = existing;
+    const { rerender } = render(
+      <NightForm
+        {...props}
+        existing={saved}
+        onSave={(input) => {
+          saved = { ...input, id: existing.id };
+        }}
+      />,
+    );
+    const rested = () => screen.getByLabelText("How rested from 0 to 10");
+    fireEvent.change(rested(), { target: { value: "4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Update night" }));
+    // The page passes the saved night back in.
+    rerender(<NightForm {...props} existing={saved} onSave={() => {}} />);
+    expect(rested()).toHaveValue("4");
+    expect(screen.getByRole("button", { name: "Saved" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Undo changes" })).toBeNull();
+
+    fireEvent.change(rested(), { target: { value: "9" } });
+    fireEvent.click(screen.getByRole("button", { name: "Undo changes" }));
+    expect(rested()).toHaveValue("4");
+  });
+
+  it("keeps unsaved changes when newer saved data arrives", () => {
+    localStorage.clear();
+    setCacheOwner("u1");
+    const props = {
+      night: existing.night,
+      lastTimes,
+      onNightChange: () => {},
+      onSave: () => {},
+    };
+    const { rerender } = render(<NightForm {...props} existing={existing} />);
+    fireEvent.change(screen.getByLabelText("Notes"), {
+      target: { value: "late tea" },
+    });
+    rerender(<NightForm {...props} existing={{ ...existing, quality: 6 }} />);
+    expect(screen.getByLabelText("Notes")).toHaveValue("late tea");
+    fireEvent.click(screen.getByRole("button", { name: "Undo changes" }));
+    expect(screen.getByLabelText("Notes")).toHaveValue("");
+    expect(screen.getByLabelText("How rested from 0 to 10")).toHaveValue("6");
+  });
+
   it("undoes a new night back to its starting values", () => {
     localStorage.clear();
     setCacheOwner("u1");
