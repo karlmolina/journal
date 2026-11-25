@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import ClaudeNotes from "./ClaudeNotes";
 import RedeemInvite from "../pages/RedeemInvite";
 import { clearPendingInvite } from "../functions/pendingInvite";
 
@@ -39,5 +40,10 @@ export default function MembersOnly({
   if (admin && !membership.admin) return <Navigate to="/journal" replace />;
   // Keyed by account so a different user remounts the pages, which then seed
   // from that user's cache instead of carrying over the previous one's data.
-  return <React.Fragment key={user.id}>{children}</React.Fragment>;
+  return (
+    <React.Fragment key={user.id}>
+      {children}
+      <ClaudeNotes />
+    </React.Fragment>
+  );
 }
