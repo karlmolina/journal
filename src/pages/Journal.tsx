@@ -11,6 +11,7 @@ import JournalEntry from "../components/JournalEntry";
 import JournalSearchBar from "../components/JournalSearchBar";
 import { useAuth } from "../context/AuthContext";
 import useVisualViewport from "../hooks/useVisualViewport";
+import useBottomDock from "../hooks/useBottomDock";
 import signOut from "../functions/signOut";
 import { reportError } from "../functions/reportError";
 import {
@@ -68,6 +69,8 @@ export default function Journal() {
   const prevScrollHeight = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  useBottomDock(dockRef);
   const [showJumpDown, setShowJumpDown] = useState(false);
   const {
     searchText,
@@ -435,96 +438,98 @@ export default function Journal() {
         )}
       </div>
 
-      {searchOpen ? (
-        <JournalSearchBar
-          text={searchText}
-          searching={searching}
-          onChange={(value) => {
-            setSearchText(value);
-            if (!value) setResults(null);
-          }}
-          onSubmit={handleSearch}
-          onClear={clearSearchText}
-          onClose={toggleSearch}
-        />
-      ) : (
-        <form
-          onSubmit={handleSubmit}
-          className="shrink-0 bg-base-100 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
-        >
-          <div
-            className={`bg-base-content/8 rounded-3xl shadow-sm flex flex-wrap items-center transition-[padding] duration-150 focus-within:bg-base-content/10 ${
-              expanded ? "px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4" : "p-2"
-            }`}
-            onPointerDown={holdBottomOnFocus}
-            onFocus={() => {
-              holdBottomOnFocus();
-              setFocused(true);
+      <div ref={dockRef} className="shrink-0">
+        {searchOpen ? (
+          <JournalSearchBar
+            text={searchText}
+            searching={searching}
+            onChange={(value) => {
+              setSearchText(value);
+              if (!value) setResults(null);
             }}
-            onBlur={(e) => {
-              if (e.currentTarget.contains(e.relatedTarget)) return;
-              setFocused(false);
-              // Drop stray blank lines so the box collapses to one row.
-              if (!text.trim()) updateText("");
-            }}
+            onSubmit={handleSearch}
+            onClear={clearSearchText}
+            onClose={toggleSearch}
+          />
+        ) : (
+          <form
+            onSubmit={handleSubmit}
+            className="shrink-0 bg-base-100 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-10 sm:pb-[calc(env(safe-area-inset-bottom)+2.5rem)]"
           >
-            <button
-              type="button"
-              className={`btn btn-ghost btn-circle${expanded ? " mr-auto" : ""}`}
-              onClick={toggleSearch}
-              aria-label="Search entries"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.25"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
-            </button>
-            <textarea
-              id="journal-entry"
-              ref={textareaRef}
-              rows={1}
-              className={`block max-h-64 resize-none [field-sizing:content] bg-transparent border-0 outline-none px-2 text-lg font-medium text-base-content/90 dark:text-[color-mix(in_oklab,var(--color-base-content),white_45%)] leading-snug placeholder:text-base-content/50 ${
-                expanded ? "order-first basis-full mb-3" : "flex-1 min-w-0"
+            <div
+              className={`bg-base-content/8 rounded-3xl shadow-sm flex flex-wrap items-center transition-[padding] duration-150 focus-within:bg-base-content/10 ${
+                expanded ? "px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4" : "p-2"
               }`}
-              placeholder={placeholder}
-              value={text}
-              onChange={(e) => updateText(e.target.value)}
-              onFocus={resizeTextarea}
-            />
-            <button
-              type="submit"
-              className="btn btn-primary btn-circle transition active:scale-95"
-              disabled={!text.trim()}
-              aria-label="Add entry"
+              onPointerDown={holdBottomOnFocus}
+              onFocus={() => {
+                holdBottomOnFocus();
+                setFocused(true);
+              }}
+              onBlur={(e) => {
+                if (e.currentTarget.contains(e.relatedTarget)) return;
+                setFocused(false);
+                // Drop stray blank lines so the box collapses to one row.
+                if (!text.trim()) updateText("");
+              }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <button
+                type="button"
+                className={`btn btn-ghost btn-circle${expanded ? " mr-auto" : ""}`}
+                onClick={toggleSearch}
+                aria-label="Search entries"
               >
-                <path d="M12 19V5" />
-                <path d="m5 12 7-7 7 7" />
-              </svg>
-            </button>
-          </div>
-        </form>
-      )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.25"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+              </button>
+              <textarea
+                id="journal-entry"
+                ref={textareaRef}
+                rows={1}
+                className={`block max-h-64 resize-none [field-sizing:content] bg-transparent border-0 outline-none px-2 text-lg font-medium text-base-content/90 dark:text-[color-mix(in_oklab,var(--color-base-content),white_45%)] leading-snug placeholder:text-base-content/50 ${
+                  expanded ? "order-first basis-full mb-3" : "flex-1 min-w-0"
+                }`}
+                placeholder={placeholder}
+                value={text}
+                onChange={(e) => updateText(e.target.value)}
+                onFocus={resizeTextarea}
+              />
+              <button
+                type="submit"
+                className="btn btn-primary btn-circle transition active:scale-95"
+                disabled={!text.trim()}
+                aria-label="Add entry"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 19V5" />
+                  <path d="m5 12 7-7 7 7" />
+                </svg>
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
